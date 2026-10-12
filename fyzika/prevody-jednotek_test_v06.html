@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test</title>
+<!--
+  ŠABLONA HTML TESTU – Ann School (system/Sablona_test_vXX.html)
+  Nový test = kopie této šablony do složky předmětu: <předmět>/<tema>_test_vXX.html.
+  Měň JEN blok „KONFIGURACE TESTU“ níže. Postup: system/Navod_test_vXX.md.
+  Knihovny pro PDF: ../system/lib/ (stránka musí ležet o jednu složku pod rootem).
+  Horní panel: nová systémová tlačítka přidávej do <div class="panel-actions">.
+-->
+<script src="../system/lib/html2canvas-1.4.1.min.js"></script>
+<script src="../system/lib/jspdf-2.5.2.min.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7; --paper: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5;
+    --ok: #1f7a3a; --ok-bg: #e6f4ea; --bad: #b3261e; --bad-bg: #fbe9e7;
+    --accent: #2b5cab; --panel-h: 48px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 17px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+  /* ---------- horní panel ---------- */
+  #panel { position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    min-height: var(--panel-h); padding: 6px 12px; padding-top: calc(6px + env(safe-area-inset-top));
+    background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px; }
+  .panel-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-title .ver { color: var(--muted); font-weight: 400; }
+  .panel-title .timer { margin-left: 10px; color: var(--accent); }
+  .panel-title .timer.over { color: var(--bad); }
+  .panel-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+  .panel-actions .sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+  .panel-actions button { font: inherit; font-size: 14px; padding: 5px 10px; border-radius: 8px;
+    border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer; white-space: nowrap; }
+  .panel-actions button.on { background: var(--accent); color: #fff; }
+  .panel-actions button.ready { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .panel-actions .swatch { width: 26px; height: 26px; border-radius: 50%; padding: 0; border: 3px solid transparent; }
+  .panel-actions .swatch.on { border-color: var(--text); background-clip: padding-box; }
+  .draw-tools[hidden] { display: none; }
+  .panel-actions button.width { width: 34px; height: 30px; padding: 0 6px; display: inline-flex; align-items: center; }
+  .panel-actions button.width i { display: block; width: 100%; background: currentColor; border-radius: 3px; }
+  .draw-tools { display: flex; align-items: center; gap: 6px; }
+
+  main { max-width: 860px; margin: 0 auto; padding: calc(var(--panel-h) + 14px) 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 2px; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .intro { margin: 6px 0 0; font-size: 15px; }
+  #header { padding-bottom: 2px; }
+
+  /* ---------- sekce a příklady ---------- */
+  .sec { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; scroll-margin-top: calc(var(--panel-h) + 12px); }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 2px; }
+  .sec-head h2 { font-size: 17px; margin: 0; }
+  .sec-score { font-size: 15px; font-weight: 600; }
+  .sec-score.all { color: var(--ok); }
+  .q { padding: 6px 0; border-bottom: 1px solid #ecece6; }
+  /* jedna společná plocha na psaní vpravo vedle příkladů sekce (sideScratch) */
+  .sec-body.side { display: grid; grid-template-columns: minmax(0, 11fr) minmax(0, 9fr); column-gap: 14px; align-items: start; }
+  .sec-body.side > .pad { margin-top: 4px; }
+  @media (max-width: 560px) { .sec-body.side { display: block; } }
+  .q-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 18px; }
+  .num { color: var(--muted); font-size: 14px; min-width: 1.6em; }
+  input.ans { width: 8em; font-size: 18px; padding: 3px 8px; border: 2px solid var(--line);
+    border-radius: 6px; background: var(--paper); color: var(--text); text-align: right; }
+  input.ans:focus { outline: none; border-color: var(--accent); }
+  .q.ok input.ans { border-color: var(--ok); background: var(--ok-bg); }
+  .q.bad input.ans { border-color: var(--bad); background: var(--bad-bg); }
+  .fb { font-size: 14px; margin-top: 3px; }
+  .fb:empty { display: none; }
+  .q.ok .fb { color: var(--ok); }
+  .q.bad .fb { color: var(--bad); }
+  .hint { font-size: 14px; color: var(--muted); margin-top: 3px; }
+  .hint[hidden] { display: none; }
+  .link { font-size: 13px; color: var(--accent); background: none; border: 0; padding: 4px 6px; cursor: pointer; margin-left: auto; }
+  .sec-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  button.btn { font: inherit; font-size: 14px; padding: 5px 12px; border-radius: 8px;
+    border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer; }
+  button.btn.primary { background: var(--accent); color: #fff; }
+
+  /* ---------- kreslicí plochy ---------- */
+  .pad { position: relative; margin-top: 6px; border: 1px solid var(--line); border-radius: 8px;
+    overflow: hidden; background: var(--paper); }
+  .pad canvas { display: block; width: 100%; }
+  .pad-btns { position: absolute; top: 6px; right: 6px; display: flex; gap: 6px; }
+  .pad-btns button { font-size: 12px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line);
+    background: rgba(255,255,255,.9); color: var(--text); cursor: pointer; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 12px; }
+
+  /* úzké displeje: barvy schovat do menší velikosti */
+  @media (max-width: 700px) {
+    .panel-actions .swatch { width: 24px; height: 24px; }
+    .panel-actions button { padding: 6px 8px; font-size: 14px; }
+  }
+  /* při tvorbě PDF skryj ovládací prvky */
+  body.capturing .no-pdf { display: none !important; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <div class="panel-title"><span id="pTitle"></span> <span class="ver" id="pVer"></span><span class="timer" id="timer"></span></div>
+  <div class="panel-actions">
+    <div class="draw-tools" id="drawTools" hidden>
+      <button class="swatch on" data-color="#1d1d1b" style="background:#1d1d1b" aria-label="černá"></button>
+      <button class="swatch" data-color="#2b5cab" style="background:#2b5cab" aria-label="modrá"></button>
+      <button class="swatch" data-color="#b3261e" style="background:#b3261e" aria-label="červená"></button>
+      <button class="swatch" data-color="#1f8a3c" style="background:#1f8a3c" aria-label="zelená"></button>
+      <button class="swatch" data-color="#e0529c" style="background:#e0529c" aria-label="růžová"></button>
+      <span class="sep"></span>
+      <button class="width on" data-w="1.1" aria-label="tenké pero"><i style="height:1.5px"></i></button>
+      <button class="width" data-w="2" aria-label="střední pero"><i style="height:3px"></i></button>
+      <button class="width" data-w="3.4" aria-label="silné pero"><i style="height:5px"></i></button>
+      <span class="sep"></span>
+      <button id="toolPen" class="on">Pero</button>
+      <button id="toolFinger" title="Kreslit i prstem">Prst</button>
+      <button id="toolEraser">Guma</button>
+      <span class="sep"></span>
+    </div>
+    <!-- systémová tlačítka – další přidávej sem -->
+    <button id="btnNew" hidden>Nová sada</button>
+    <button id="btnPdf">PDF</button>
+  </div>
+</div>
+
+<main>
+  <div id="header">
+    <h1 id="title"></h1>
+    <div class="meta" id="meta"></div>
+    <p class="intro" id="intro"></p>
+  </div>
+
+  <div id="sections"></div>
+
+  <div id="finalScratch" class="sec" hidden>
+    <div class="sec-head"><h2>Místo na výpočty</h2></div>
+  </div>
+
+  <p class="note no-pdf" id="padNote" hidden>Apple Pencil kreslí, prstem se posouvá stránka (tlačítko „Prst“ zapne kreslení prstem). Odpovědi a kresby se po zavření stránky neukládají – před zavřením ulož PDF.</p>
+</main>
+
+<script>
+/* =====================================================================
+   KONFIGURACE TESTU – měň jen tuto část
+   ---------------------------------------------------------------------
+   title, version     … název a verze (zobrazí se v panelu a v PDF)
+   intro              … pokyny pod nadpisem
+   topic              … téma pro název PDF (bez diakritiky, pomlčky)
+   timeLimitMin       … časový limit v minutách (0 = bez limitu)
+   showHints          … u příkladů tlačítko „Nápověda“
+   finalScratch       … velká plocha na výpočty na konci testu
+   sideScratch        … jedna společná plocha na psaní vpravo vedle příkladů
+                        každé sekce (true/false, výška se přizpůsobí sekci)
+   questions          … pevná sada; { section: "…" } začíná novou sekci
+                        (každá sekce má vlastní Vyhodnotit / Zkusit znovu a skóre)
+   generate           … funkce vracející novou náhodnou sadu (nebo null);
+                        pokud je zadaná, použije se místo questions
+                        a v panelu se zobrazí tlačítko „Nová sada“
+   Příklad:
+     { before: "5 m =", after: "mm", answer: 5000,
+       tol: 0,           … povolená odchylka (např. 0.05 u zaokrouhlení)
+       hint: "…",        … nápověda / vysvětlení u chyby
+       scratch: false }  … větší plocha na výpočet pod příkladem
+   ===================================================================== */
+const TEST = {
+  title: "Převody jednotek – opakování před testem",
+  version: "v06",
+  intro: "Doplň číslo do prázdného pole. Vpravo od příkladů si můžeš psát. Desetinná čárka i tečka jsou v pořádku, mezery v čísle nevadí.",
+  topic: "prevody-jednotek",
+  timeLimitMin: 0,
+  showHints: true,
+  finalScratch: true,
+  sideScratch: true,
+  questions: [
+    { section: "Předpony – na základní jednotku" },
+    { before: "0,35 km =", after: "m", answer: 350,
+      hint: "km → m: DOLŮ na menší jednotku → násobím 1000 (·1000 = ·10³) → 0,35 · 1000 = 350" },
+    { before: "82 cm =", after: "m", answer: 0.82,
+      hint: "cm → m: NAHORU na větší jednotku → dělím 100 (:100 = :10² = ·10⁻²) → 82 : 100 = 0,82" },
+    { before: "650 µm =", after: "m", answer: 0.00065,
+      hint: "µm → m: NAHORU na větší jednotku → dělím 1 000 000 (:1 000 000 = :10⁶ = ·10⁻⁶) → 650 : 1 000 000 = 0,000 65" },
+    { before: "45 nm =", after: "m", answer: 4.5e-08,
+      hint: "nm → m: NAHORU na větší jednotku → dělím 1 000 000 000 (:10⁹ = ·10⁻⁹) → 45 : 1 000 000 000 = 0,000 000 045" },
+    { before: "0,0072 GJ =", after: "J", answer: 7200000,
+      hint: "GJ → J: DOLŮ na menší jednotku → násobím 1 000 000 000 (·10⁹) → 0,0072 · 1 000 000 000 = 7 200 000" },
+    { before: "3,5 mA =", after: "A", answer: 0.0035,
+      hint: "mA → A: NAHORU na větší jednotku → dělím 1000 (:1000 = :10³ = ·10⁻³) → 3,5 : 1000 = 0,0035" },
+    { section: "Předpony – mezi předponami" },
+    { before: "0,48 m =", after: "mm", answer: 480,
+      hint: "m → mm: DOLŮ na menší jednotku → násobím 1000 (·1000 = ·10³) → 0,48 · 1000 = 480" },
+    { before: "2,5 mm =", after: "µm", answer: 2500,
+      hint: "mm → µm: DOLŮ na menší jednotku → násobím 1000 (·1000 = ·10³), protože 1 mm = 1000 µm → 2500" },
+    { before: "3800 µm =", after: "mm", answer: 3.8,
+      hint: "µm → mm: NAHORU na větší jednotku → dělím 1000 (:1000 = :10³ = ·10⁻³) → 3800 : 1000 = 3,8" },
+    { before: "0,0032 km =", after: "cm", answer: 320,
+      hint: "km → m: násobím 1000 → 3,2 m; m → cm: násobím 100 → 320. Celkem ·100 000 (·10⁵)" },
+    { before: "9600 mN =", after: "kN", answer: 0.0096,
+      hint: "přes základní jednotku N: mN → N dělím 1000 → 9,6 N; N → kN dělím 1000 → 0,0096. Celkem :1 000 000 (:10⁶ = ·10⁻⁶)" },
+    { before: "0,25 MW =", after: "kW", answer: 250,
+      hint: "MW → kW: DOLŮ na menší jednotku → násobím 1000 (·1000 = ·10³) → 0,25 · 1000 = 250" },
+    { before: "750 000 nm =", after: "mm", answer: 0.75,
+      hint: "nm → mm: NAHORU na větší jednotku → dělím 1 000 000 (:10⁶ = ·10⁻⁶), protože 1 mm = 1 000 000 nm → 0,75" },
+    { section: "Čas" },
+    { before: "0,75 h =", after: "min", answer: 45,
+      hint: "h → min: DOLŮ na menší jednotku → násobím 60 → 0,75 · 60 = 45 (0,75 h = tři čtvrtě hodiny)" },
+    { before: "2,4 h =", after: "s", answer: 8640,
+      hint: "h → s: DOLŮ na menší jednotku → násobím 3600 (1 h = 3600 s) → 2,4 · 3600 = 8640" },
+    { before: "54 min =", after: "h", answer: 0.9,
+      hint: "min → h: NAHORU na větší jednotku → dělím 60 → 54 : 60 = 0,9" },
+    { before: "1 rok =", after: "h", answer: 8760,
+      hint: "rok → den ·365, den → h ·24 → 365 · 24 = 8760" },
+    { before: "45 000 s =", after: "h", answer: 12.5,
+      hint: "s → h: NAHORU na větší jednotku → dělím 3600 → 45 000 : 3600 = 12,5" },
+    { before: "3,25 dne =", after: "h", answer: 78,
+      hint: "den → h: DOLŮ na menší jednotku → násobím 24 → 3,25 · 24 = 78" },
+    { section: "Plocha" },
+    { before: "0,6 m² =", after: "cm²", answer: 6000,
+      hint: "m² → cm²: DOLŮ na menší jednotku → násobím 10 000 (·10 000 = ·10⁴), protože 1 m² = 100 · 100 cm² → 6000" },
+    { before: "350 cm² =", after: "m²", answer: 0.035,
+      hint: "cm² → m²: NAHORU na větší jednotku → dělím 10 000 (:10 000 = :10⁴ = ·10⁻⁴) → 350 : 10 000 = 0,035" },
+    { before: "2,5 cm² =", after: "mm²", answer: 250,
+      hint: "cm² → mm²: DOLŮ na menší jednotku → násobím 100 (·10²), protože 1 cm² = 10 · 10 mm² → 250" },
+    { before: "4500 mm² =", after: "dm²", answer: 0.45,
+      hint: "mm² → cm² dělím 100, cm² → dm² dělím 100. Celkem NAHORU na větší jednotku → dělím 10 000 (:10⁴ = ·10⁻⁴) → 0,45" },
+    { before: "0,8 ha =", after: "m²", answer: 8000,
+      hint: "ha → m²: DOLŮ na menší jednotku → násobím 10 000 (·10⁴), protože 1 ha = 10 000 m² → 8000" },
+    { before: "2500 m² =", after: "a", answer: 25,
+      hint: "m² → a: NAHORU na větší jednotku → dělím 100 (:100 = :10² = ·10⁻²), protože 1 a = 100 m² → 25" },
+    { before: "0,03 km² =", after: "ha", answer: 3,
+      hint: "km² → ha: DOLŮ na menší jednotku → násobím 100 (·10²), protože 1 km² = 100 ha → 3" },
+    { section: "Objem a litry" },
+    { before: "0,4 m³ =", after: "dm³", answer: 400,
+      hint: "m³ → dm³: DOLŮ na menší jednotku → násobím 1000 (·10³), protože 1 m³ = 10 · 10 · 10 dm³ → 400" },
+    { before: "2,5 dm³ =", after: "cm³", answer: 2500,
+      hint: "dm³ → cm³: DOLŮ na menší jednotku → násobím 1000 (·10³) → 2500" },
+    { before: "750 cm³ =", after: "m³", answer: 0.00075,
+      hint: "cm³ → m³: NAHORU na větší jednotku → dělím 1 000 000 (:10⁶ = ·10⁻⁶) → 750 : 1 000 000 = 0,000 75" },
+    { before: "0,02 m³ =", after: "l", answer: 20,
+      hint: "m³ → l: DOLŮ na menší jednotku → násobím 1000 (·10³), protože 1 m³ = 1000 dm³ = 1000 l → 20" },
+    { before: "350 ml =", after: "l", answer: 0.35,
+      hint: "ml → l: NAHORU na větší jednotku → dělím 1000 (:1000 = :10³ = ·10⁻³) → 0,35" },
+    { before: "1,2 l =", after: "cm³", answer: 1200,
+      hint: "1 l = 1 dm³ = 1000 cm³ → DOLŮ na menší jednotku → násobím 1000 (·10³) → 1200" },
+    { before: "0,8 hl =", after: "l", answer: 80,
+      hint: "hl → l: DOLŮ na menší jednotku → násobím 100 (·10²), protože 1 hl = 100 l → 80" },
+    { before: "45 cl =", after: "ml", answer: 450,
+      hint: "cl → ml: DOLŮ na menší jednotku → násobím 10 (·10¹), protože 1 cl = 10 ml → 450" },
+    { before: "2,5 cm³ =", after: "mm³", answer: 2500,
+      hint: "cm³ → mm³: DOLŮ na menší jednotku → násobím 1000 (·10³), protože 1 cm³ = 10 · 10 · 10 mm³ → 2500" },
+    { section: "Složené jednotky" },
+    { before: "54 km/h =", after: "m/s", answer: 15,
+      hint: "km/h → m/s: dělím 3,6 (1 km/h = 1000 m : 3600 s) → 54 : 3,6 = 15" },
+    { before: "30 m/s =", after: "km/h", answer: 108,
+      hint: "m/s → km/h: násobím 3,6 → 30 · 3,6 = 108" },
+    { before: "100 km/h ≈", after: "m/s (na 1 des. místo)", answer: 27.8, tol: 0.05,
+      hint: "km/h → m/s: dělím 3,6 → 100 : 3,6 = 27,77… ≈ 27,8" },
+    { before: "0,92 g/cm³ =", after: "kg/m³", answer: 920,
+      hint: "g/cm³ → kg/m³: násobím 1000 (·10³) → 920" },
+    { before: "11 300 kg/m³ =", after: "g/cm³", answer: 11.3,
+      hint: "kg/m³ → g/cm³: dělím 1000 (:1000 = :10³ = ·10⁻³) → 11,3" },
+    { before: "3 N/cm² =", after: "N/m²", answer: 30000,
+      hint: "1 m² = 10 000 cm², takže na 1 m² připadá 10 000× víc → násobím 10 000 (·10⁴) → 30 000" },
+    { before: "45 ot/min =", after: "°/s", answer: 270,
+      hint: "1 otáčka = 360°, 1 min = 60 s → 45 · 360 : 60 = 270" },
+    { section: "Mocniny deseti" },
+    { before: "0,0045 m =", after: "· 10⁻³ m", answer: 4.5,
+      hint: "·10⁻³ znamená :1000. Hledám číslo, které po dělení 1000 dá 0,0045 → 0,0045 · 1000 = 4,5" },
+    { before: "2 500 000 J =", after: "· 10⁶ J", answer: 2.5,
+      hint: "·10⁶ znamená ·1 000 000 → 2 500 000 : 1 000 000 = 2,5" },
+    { before: "72 mm =", after: "· 10⁻² m", answer: 7.2,
+      hint: "72 mm = 0,072 m. ·10⁻² znamená :100 → 0,072 · 100 = 7,2" },
+    { before: "0,3 km =", after: "· 10² m", answer: 3,
+      hint: "0,3 km = 300 m. ·10² znamená ·100 → 300 : 100 = 3" },
+    { before: "450 cm² =", after: "· 10⁻² m²", answer: 4.5,
+      hint: "450 cm² = 0,045 m². ·10⁻² znamená :100 → 0,045 · 100 = 4,5" }
+  ],
+  generate: null
+  /* Ukázka náhodné sady:
+  generate: () => {
+    const r = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+    const out = [{ section: "Délka" }];
+    for (let i = 0; i < 5; i++) { const m = r(2, 95) / 10;
+      out.push({ before: `${fmt(m)} m =`, after: "cm", answer: m * 100, hint: "dolů = násobím, ×100" }); }
+    return out;
+  } */
+};
+/* ===================== KONEC KONFIGURACE ===================== */
+
+
+/* ---------- pomocné funkce ---------- */
+function fmt(n) { return Number(n.toFixed(10)).toLocaleString("cs-CZ", { maximumFractionDigits: 10 }); }
+function parseAnswer(s) {
+  const t = String(s).replace(/[\s  ]/g, "").replace(/−/g, "-").replace(",", ".");
+  if (t === "" || !/^[-+]?(\d+\.?\d*|\.\d+)$/.test(t)) return null;
+  return Number(t);
+}
+function isCorrect(value, answer, tol) {
+  if (value === null) return false;
+  const t = Math.max(tol || 0, Math.abs(answer) * 1e-9, 1e-12);
+  return Math.abs(value - answer) <= t;
+}
+const $ = id => document.getElementById(id);
+
+/* ---------- kreslicí plochy ---------- */
+const draw = { color: "#1d1d1b", eraser: false, finger: false, width: 1.1 };
+const pads = [];
+const CELL = 24;
+
+class Pad {
+  constructor(parent, height) {
+    this.wrap = document.createElement("div");
+    this.wrap.className = "pad";
+    this.canvas = document.createElement("canvas");
+    this.canvas.style.height = height + "px";
+    this.wrap.appendChild(this.canvas);
+    const btns = document.createElement("div");
+    btns.className = "pad-btns no-pdf";
+    btns.innerHTML = '<button type="button">Zpět</button><button type="button">Smazat</button>';
+    btns.children[0].onclick = () => { this.strokes.pop(); this.redraw(); changed(); };
+    btns.children[1].onclick = () => {
+      if (this.strokes.length && confirm("Smazat tuto plochu?")) { this.strokes = []; this.redraw(); changed(); }
+    };
+    this.wrap.appendChild(btns);
+    parent.appendChild(this.wrap);
+    this.ctx = this.canvas.getContext("2d");
+    this.ink = document.createElement("canvas");
+    this.ictx = this.ink.getContext("2d");
+    this.strokes = []; this.cur = null;
+    this.bind(); this.resize();
+    pads.push(this);
+  }
+  resize() {
+    const r = this.canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    this.w = r.width; this.h = r.height; this.dpr = dpr;
+    const W = Math.round(r.width * dpr), H = Math.round(r.height * dpr);
+    this.canvas.width = this.ink.width = W; this.canvas.height = this.ink.height = H;
+    // síť se kreslí jednou do vlastní vrstvy
+    this.grid = this.grid || document.createElement("canvas");
+    this.grid.width = W; this.grid.height = H;
+    const g = this.grid.getContext("2d");
+    g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.fillStyle = "#fff"; g.fillRect(0, 0, this.w, this.h);
+    g.strokeStyle = "#d6e2f0"; g.lineWidth = 1; g.beginPath();
+    for (let x = 0.5; x < this.w; x += CELL) { g.moveTo(x, 0); g.lineTo(x, this.h); }
+    for (let y = 0.5; y < this.h; y += CELL) { g.moveTo(0, y); g.lineTo(this.w, y); }
+    g.stroke();
+    this.redraw();
+  }
+  // celé překreslení (Zpět, Smazat, změna velikosti)
+  redraw() {
+    const { ictx, dpr } = this;
+    ictx.setTransform(1, 0, 0, 1, 0, 0); ictx.clearRect(0, 0, this.ink.width, this.ink.height);
+    ictx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.strokes.forEach(s => Pad.segments(ictx, s, 1));     // guma maže jen kresbu, ne síť
+    this.present();
+  }
+  // složení vrstev: síť + kresba
+  present() {
+    const c = this.ctx;
+    c.setTransform(1, 0, 0, 1, 0, 0);
+    c.drawImage(this.grid, 0, 0); c.drawImage(this.ink, 0, 0);
+  }
+  static width(s, p) { return s.eraser ? 22 : s.width * (0.55 + p * 0.9); }
+  // vyhlazené kreslení: kvadratické křivky přes středy úseků; od bodu `from` dál
+  static segments(c, s, from) {
+    const P = s.pts;
+    c.save(); c.lineCap = "round"; c.lineJoin = "round";
+    c.globalCompositeOperation = s.eraser ? "destination-out" : "source-over";
+    c.strokeStyle = c.fillStyle = s.color;
+    if (P.length === 1 && from <= 1) {
+      c.beginPath(); c.arc(P[0][0], P[0][1], Pad.width(s, P[0][2]) / 2, 0, 7); c.fill();
+    }
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    for (let i = Math.max(1, from); i < P.length; i++) {
+      const p0 = i === 1 ? P[0] : mid(P[i - 2], P[i - 1]);
+      const p1 = mid(P[i - 1], P[i]);
+      c.lineWidth = Pad.width(s, P[i - 1][2]);
+      c.beginPath(); c.moveTo(p0[0], p0[1]);
+      c.quadraticCurveTo(P[i - 1][0], P[i - 1][1], p1[0], p1[1]); c.stroke();
+    }
+    c.restore();
+  }
+  bind() {
+    const cv = this.canvas;
+    const can = e => e.pointerType === "pen" || e.pointerType === "mouse" || (e.pointerType === "touch" && draw.finger);
+    let rect = null, drawn = 1, raf = 0, pr = 0.5;
+    const pos = e => {
+      // tlak vyhlazený, aby tloušťka neskákala
+      const raw = e.pointerType === "pen" ? (e.pressure || .5) : .5;
+      pr = pr * 0.6 + raw * 0.4;
+      return [e.clientX - rect.left, e.clientY - rect.top, pr];
+    };
+    const flush = () => {
+      raf = 0;
+      if (!this.cur) return;
+      Pad.segments(this.ictx, this.cur, drawn);   // dokresli jen nové úseky
+      drawn = this.cur.pts.length;
+      this.present();
+    };
+    cv.addEventListener("pointerdown", e => {
+      if (!can(e)) return;
+      e.preventDefault(); cv.setPointerCapture(e.pointerId);
+      rect = cv.getBoundingClientRect(); pr = e.pointerType === "pen" ? (e.pressure || .5) : .5;
+      this.cur = { color: draw.color, width: draw.width, eraser: draw.eraser, pts: [pos(e)] };
+      this.strokes.push(this.cur); drawn = 0; flush(); drawn = 1;
+    });
+    cv.addEventListener("pointermove", e => {
+      if (!this.cur) return;
+      e.preventDefault();
+      const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+      (evs.length ? evs : [e]).forEach(ev => {
+        const p = pos(ev), last = this.cur.pts[this.cur.pts.length - 1];
+        if (Math.abs(p[0] - last[0]) + Math.abs(p[1] - last[1]) >= 0.4) this.cur.pts.push(p);
+      });
+      if (!raf) raf = requestAnimationFrame(flush);
+    });
+    ["pointerup", "pointercancel"].forEach(t => cv.addEventListener(t, () => {
+      if (!this.cur) return;
+      const P = this.cur.pts;
+      if (P.length > 1) P.push(P[P.length - 1].slice());   // dotáhni křivku až do posledního bodu
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      flush(); this.cur = null; changed();
+    }));
+    // iPad: Pencil nesmí posouvat stránku; prst posouvá (pokud není zapnuté kreslení prstem)
+    const block = e => { const t = e.touches[0]; if (t && (t.touchType === "stylus" || draw.finger)) e.preventDefault(); };
+    cv.addEventListener("touchstart", block, { passive: false });
+    cv.addEventListener("touchmove", block, { passive: false });
+  }
+}
+
+/* ---------- vykreslení testu ---------- */
+let SECTIONS = [];   // [{name, el, questions:[q…]}]
+function build() {
+  const list = (typeof TEST.generate === "function") ? TEST.generate() : TEST.questions;
+  pads.length = 0;
+  SECTIONS = [];
+  const box = $("sections"); box.innerHTML = "";
+  let sec = null, n = 0;
+  const newSection = name => {
+    const el = document.createElement("div"); el.className = "sec";
+    el.innerHTML = `<div class="sec-head"><h2></h2><span class="sec-score"></span></div>
+      <div class="sec-body"><div class="sec-qs"></div></div>
+      <div class="sec-btns no-pdf"><button class="btn primary">Vyhodnotit</button><button class="btn">Zkusit znovu</button></div>`;
+    el.querySelector("h2").textContent = name || "Příklady";
+    sec = { name, el, questions: [] };
+    const [bEval, bReset] = el.querySelectorAll(".sec-btns button");
+    const s = sec;
+    bEval.onclick = () => evaluate(s);
+    bReset.onclick = () => { if (confirm("Vymazat odpovědi v této sekci?")) resetSection(s); };
+    SECTIONS.push(sec); box.appendChild(el);
+    if (TEST.sideScratch) {
+      const body = el.querySelector(".sec-body"), qs = el.querySelector(".sec-qs");
+      body.classList.add("side");
+      const pad = new Pad(body, 200);
+      const fit = () => {
+        const narrow = window.matchMedia("(max-width: 560px)").matches;
+        const h = narrow ? 300 : Math.max(120, qs.offsetHeight - 8);
+        if (Math.abs(parseFloat(pad.canvas.style.height) - h) > 1) { pad.canvas.style.height = h + "px"; pad.resize(); }
+      };
+      if (window.ResizeObserver) new ResizeObserver(fit).observe(qs);
+      sec.fit = fit;
+    }
+  };
+  list.forEach(q => {
+    if (q.section !== undefined) { newSection(q.section); return; }
+    if (!sec) newSection("Příklady");
+    n++;
+    const d = document.createElement("div"); d.className = "q";
+    d.innerHTML = `<div class="q-row"><span class="num">${n}.</span><span class="b"></span>
+      <input class="ans" type="text" inputmode="decimal" autocomplete="off" autocorrect="off"
+        autocapitalize="off" spellcheck="false" aria-label="odpověď ${n}"><span class="a"></span></div>
+      <div class="fb"></div>`;
+    d.querySelector(".b").textContent = q.before || "";
+    d.querySelector(".a").textContent = q.after || "";
+    if (TEST.showHints && q.hint) {
+      const hb = document.createElement("button"); hb.className = "link no-pdf"; hb.textContent = "Nápověda";
+      const ht = document.createElement("div"); ht.className = "hint"; ht.hidden = true; ht.textContent = q.hint;
+      hb.onclick = () => { ht.hidden = !ht.hidden; };
+      d.querySelector(".q-row").appendChild(hb); d.appendChild(ht);
+    }
+    q._el = d;
+    sec.questions.push(q);
+    sec.el.querySelector(".sec-qs").appendChild(d);
+    if (q.scratch) new Pad(d, 140);
+  });
+  SECTIONS.forEach(s => s.fit && s.fit());
+  const fs = $("finalScratch");
+  fs.querySelectorAll(".pad").forEach(p => p.remove());
+  fs.hidden = !TEST.finalScratch;
+  if (TEST.finalScratch) new Pad(fs, 400);
+  $("drawTools").hidden = $("padNote").hidden = pads.length === 0;
+  $("sections").oninput = changed;
+  // Enter = další pole
+  const inputs = [...document.querySelectorAll("input.ans")];
+  inputs.forEach((inp, i) => inp.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); if (inputs[i + 1]) inputs[i + 1].focus(); else inp.blur(); }
+  }));
+  pdfReset();
+}
+
+function evaluate(sec) {
+  let ok = 0;
+  sec.questions.forEach(q => {
+    const v = parseAnswer(q._el.querySelector("input").value);
+    const good = isCorrect(v, q.answer, q.tol);
+    q._el.classList.toggle("ok", good); q._el.classList.toggle("bad", !good);
+    q._el.querySelector(".fb").textContent = good ? "Správně"
+      : `Správně je ${fmt(q.answer)}${q.after ? " " + q.after : ""}` + (q.hint ? ` – ${q.hint}` : "");
+    if (good) ok++;
+  });
+  const total = sec.questions.length, sc = sec.el.querySelector(".sec-score");
+  sc.textContent = `${ok} / ${total}  (${Math.round(ok / total * 100)} %)`;
+  sc.classList.toggle("all", ok === total);
+  pdfReset();
+  sec.el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function resetSection(sec) {
+  sec.questions.forEach(q => {
+    q._el.classList.remove("ok", "bad"); q._el.querySelector("input").value = "";
+    q._el.querySelector(".fb").textContent = ""; });
+  const sc = sec.el.querySelector(".sec-score"); sc.textContent = ""; sc.classList.remove("all");
+  pdfReset();
+}
+
+/* ---------- časovač ---------- */
+function startTimer() {
+  if (!TEST.timeLimitMin) return;
+  const end = Date.now() + TEST.timeLimitMin * 60000, el = $("timer");
+  const tick = () => {
+    const s = Math.max(0, Math.round((end - Date.now()) / 1000));
+    el.textContent = s ? `⏱ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "Čas vypršel";
+    el.classList.toggle("over", !s);
+    if (s) setTimeout(tick, 1000);
+  };
+  tick();
+}
+
+/* ---------- PDF ---------- */
+let pdfFile = null, version = 0;      // version roste s každou změnou na stránce
+function changed() { version++; pdfReset(); }
+function pdfReset() {
+  pdfFile = null; const b = $("btnPdf");
+  if (b.dataset.busy) return;          // právě se tvoří – po dokončení se pozná, že je zastaralé
+  b.textContent = "PDF"; b.classList.remove("ready");
+}
+function pdfName() {
+  // pořadové číslo uložení: _01, _02… (pamatuje si ho i po zavření stránky, pokud to prohlížeč dovolí)
+  const d = new Date(), p = x => String(x).padStart(2, "0");
+  const date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  const base = ["Test", TEST.topic || "test", TEST.version, date].filter(Boolean).join("_");
+  let n = 1;
+  try { n = (parseInt(localStorage.getItem("pdfcount:" + base), 10) || 0) + 1;
+        localStorage.setItem("pdfcount:" + base, n); }
+  catch (e) { n = (pdfName.n = (pdfName.n || 0) + 1); }
+  return `${base}_${p(n)}.pdf`;
+}
+async function makePdf() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const PW = 210, PH = 297, M = 12, W = PW - 2 * M;
+  // bloky, které se nesmí rozdělit mezi stránky
+  const blocks = [$("header")];
+  SECTIONS.forEach(s => { blocks.push(s.el.querySelector(".sec-head")); s.questions.forEach(q => blocks.push(q._el)); });
+  if (TEST.finalScratch) blocks.push($("finalScratch"));
+  document.body.classList.add("capturing");
+  const imgs = [];
+  try {
+    for (const el of blocks) {
+      if (!el.offsetHeight) continue;
+      const scale = Math.min(2, 3800 / el.offsetWidth);
+      const c = await html2canvas(el, { scale, backgroundColor: "#ffffff", logging: false });
+      let w = W, h = c.height * W / c.width;
+      if (h > PH - 2 * M) { h = PH - 2 * M; w = c.width * h / c.height; }
+      imgs.push({ c, w, h, head: el.classList.contains("sec-head") });
+    }
+  } finally { document.body.classList.remove("capturing"); }
+  let y = M;
+  imgs.forEach((im, i) => {
+    if (im.head && y > M) y += 4;
+    // nadpis sekce drž na stejné stránce s prvním příkladem
+    const need = im.h + (im.head && imgs[i + 1] ? imgs[i + 1].h + 6 : 0);
+    if (y + need > PH - M && y > M) { doc.addPage(); y = M; }
+    doc.addImage(im.c.toDataURL("image/jpeg", 0.9), "JPEG", M, y, im.w, im.h);
+    y += im.h + (im.head ? 6 : 2);
+  });
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(9); doc.setTextColor(140);
+    doc.text(`${i} / ${n}`, PW - M, PH - 5, { align: "right" }); }
+  return new File([doc.output("blob")], pdfName(), { type: "application/pdf" });
+}
+function download(file) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+async function share(f) {
+  try { await navigator.share({ files: [f], title: f.name }); return true; }
+  catch (e) {
+    if (e.name === "AbortError") return true;          // Ann sdílení zavřela – v pořádku
+    if (e.name === "NotAllowedError") return false;    // iPad: vypršelo „klepnutí“ – je potřeba klepnout znovu
+    download(f); return true;
+  }
+}
+async function onPdf() {
+  const b = $("btnPdf");
+  if (b.dataset.busy) return;
+  if (pdfFile) { await share(pdfFile); return; }       // PDF je připravené a aktuální
+  b.dataset.busy = "1"; b.textContent = "PDF…";
+  const startVersion = version;
+  try {
+    const f = await makePdf();
+    delete b.dataset.busy;
+    if (version !== startVersion) { pdfReset(); return; }   // mezitím změna – PDF by bylo neaktuální
+    const canShare = navigator.canShare && navigator.canShare({ files: [f] });
+    if (!canShare) { download(f); pdfReset(); return; }
+    // zkus sdílení hned; když ho iPad nepustí, tlačítko zezelená a stačí klepnout ještě jednou
+    if (await share(f)) { pdfReset(); }
+    else { pdfFile = f; b.textContent = "Uložit PDF"; b.classList.add("ready"); }
+  } catch (e) {
+    delete b.dataset.busy; pdfReset();
+    alert("PDF se nepodařilo vytvořit: " + e.message);
+  }
+}
+
+/* ---------- start ---------- */
+document.title = `${TEST.title} (${TEST.version})`;
+$("pTitle").textContent = TEST.title;
+$("pVer").textContent = TEST.version ? "· " + TEST.version : "";
+$("title").textContent = TEST.title;
+$("meta").textContent = `Datum: ${new Date().toLocaleDateString("cs-CZ")}` + (TEST.version ? `  ·  verze ${TEST.version}` : "");
+$("intro").textContent = TEST.intro || "";
+if (typeof TEST.generate === "function") {
+  $("btnNew").hidden = false;
+  $("btnNew").onclick = () => { if (confirm("Vytvořit novou sadu příkladů? Odpovědi i kresby se smažou.")) build(); };
+}
+$("btnPdf").onclick = onPdf;
+document.querySelectorAll(".panel-actions .swatch").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".panel-actions .swatch").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); draw.color = b.dataset.color; setEraser(false);
+});
+function setEraser(on) { draw.eraser = on; $("toolEraser").classList.toggle("on", on); $("toolPen").classList.toggle("on", !on); }
+$("toolPen").onclick = () => setEraser(false);
+document.querySelectorAll(".panel-actions .width").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".panel-actions .width").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); draw.width = parseFloat(b.dataset.w); setEraser(false);
+});
+$("toolEraser").onclick = () => setEraser(true);
+$("toolFinger").onclick = () => { draw.finger = !draw.finger; $("toolFinger").classList.toggle("on", draw.finger); };
+let rT; window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => pads.forEach(p => p.resize()), 150); });
+build();
+startTimer();
+</script>
+</body>
+</html>
