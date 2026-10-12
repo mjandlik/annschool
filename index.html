@@ -34,13 +34,16 @@
   .meta { color: var(--muted); font-size: 13px; }
   .subj { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
   .subj h2 { font-size: 18px; margin: 0 0 4px; }
-  .topic { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    padding: 6px 0; border-bottom: 1px solid #ecece6; }
-  .topic .name { flex: 1 1 200px; font-size: 17px; }
+  .topic { padding: 8px 0 8px; border-bottom: 1px solid #ecece6; }
+  .topic .name { font-size: 17px; font-weight: 600; margin-bottom: 4px; }
+  .grp { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 3px 0 3px 12px; }
+  .grp .lbl { flex: 0 0 9.5em; font-size: 13px; color: var(--muted); }
+  .items { display: flex; gap: 6px; flex-wrap: wrap; flex: 1 1 200px; }
   .item { font-size: 14px; padding: 4px 10px; border-radius: 8px; border: 2px solid var(--accent);
     color: var(--accent); text-decoration: none; background: var(--paper); white-space: nowrap; }
   .item.test { background: var(--accent); color: #fff; }
   .item .v { opacity: .7; font-size: 12px; margin-left: 3px; }
+  @media (max-width: 500px) { .grp .lbl { flex-basis: 100%; } }
   .empty, .err { color: var(--muted); font-size: 15px; padding: 6px 0; }
   .err { color: #b3261e; }
   .note { font-size: 13px; color: var(--muted); margin-top: 18px; }
@@ -73,7 +76,8 @@ const NAZVY = {
     "vektory": "Vektory",
     "prirozena-a-cela-cisla": "Přirozená a celá čísla"
   },
-  typy: { material: "Materiál", test: "Test", "pracovni-list": "Pracovní list" }
+  // typ = část názvu souboru mezi tématem a verzí; typy začínající „test“ jdou do skupiny Testy
+  typy: { material: "Studijní materiál", tahak: "Tahák", "pracovni-list": "Pracovní list", test: "Test" }
 };
 /* ========================================================================================= */
 
@@ -116,12 +120,27 @@ async function load() {
       const row = document.createElement("div"); row.className = "topic";
       const nm = document.createElement("span"); nm.className = "name"; nm.textContent = NAZVY.temata[topic] || nice(topic);
       row.appendChild(nm);
-      const types = Object.keys(data[subj][topic]).sort((a, b) => (a === "test") - (b === "test"));
-      types.forEach(typ => {
-        const it = data[subj][topic][typ];
-        const a = document.createElement("a"); a.className = "item " + typ; a.href = it.path;
-        a.innerHTML = `${NAZVY.typy[typ] || nice(typ)}<span class="v">v${it.ver}</span>`;
-        row.appendChild(a); count++;
+      const types = Object.keys(data[subj][topic]).sort();
+      const groups = [
+        ["Výukové materiály", types.filter(t => !t.startsWith("test"))],
+        ["Testy", types.filter(t => t.startsWith("test"))]
+      ];
+      groups.forEach(([label, list]) => {
+        if (!list.length) return;
+        const g = document.createElement("div"); g.className = "grp";
+        g.innerHTML = '<span class="lbl"></span><span class="items"></span>';
+        g.querySelector(".lbl").textContent = label;
+        list.forEach(typ => {
+          const it = data[subj][topic][typ];
+          const a = document.createElement("a"); a.className = "item" + (typ.startsWith("test") ? " test" : "");
+          a.href = it.path;
+          const sub = typ.replace(/^test-?/, "");
+          const text = NAZVY.typy[typ] || (typ.startsWith("test") ? "Test" + (sub ? " – " + nice(sub) : "") : nice(typ));
+          a.textContent = text;
+          const v = document.createElement("span"); v.className = "v"; v.textContent = "v" + it.ver; a.appendChild(v);
+          g.querySelector(".items").appendChild(a); count++;
+        });
+        row.appendChild(g);
       });
       sec.appendChild(row);
     });
