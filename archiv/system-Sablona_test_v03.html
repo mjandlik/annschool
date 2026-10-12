@@ -10,8 +10,8 @@
   Knihovny pro PDF leží v repozitáři v lib/ (stránka musí běžet z GitHub Pages).
   Horní panel: nová systémová tlačítka přidávej do <div class="panel-actions">.
 -->
-<script src="lib/html2canvas-1.4.1.min.js"></script>
-<script src="lib/jspdf-2.5.2.min.js"></script>
+<script src="../system/lib/html2canvas-1.4.1.min.js"></script>
+<script src="../system/lib/jspdf-2.5.2.min.js"></script>
 <style>
   :root {
     --bg: #fafaf7; --paper: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5;
@@ -102,11 +102,9 @@
       <button class="swatch on" data-color="#1d1d1b" style="background:#1d1d1b" aria-label="černá"></button>
       <button class="swatch" data-color="#2b5cab" style="background:#2b5cab" aria-label="modrá"></button>
       <button class="swatch" data-color="#b3261e" style="background:#b3261e" aria-label="červená"></button>
-      <button class="swatch" data-color="#1f8a3c" style="background:#1f8a3c" aria-label="zelená"></button>
-      <button class="swatch" data-color="#e0529c" style="background:#e0529c" aria-label="růžová"></button>
       <button id="toolPen" class="on">Pero</button>
-      <button id="toolFinger" title="Kreslit i prstem">Prst</button>
       <button id="toolEraser">Guma</button>
+      <button id="toolFinger" title="Kreslit i prstem">Prst</button>
       <span class="sep"></span>
     </div>
     <!-- systémová tlačítka – další přidávej sem -->
@@ -154,7 +152,7 @@
    ===================================================================== */
 const TEST = {
   title: "Převody jednotek – ukázkový test",
-  version: "v04",
+  version: "v03",
   intro: "Doplň číslo do prázdného pole. Desetinná čárka i tečka jsou v pořádku, mezery v čísle nevadí.",
   topic: "prevody-jednotek",
   timeLimitMin: 0,

@@ -5,85 +5,86 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Test</title>
 <!--
-  ŠABLONA HTML TESTU – Ann School (Sablona_test_vXX.html)
-  Nový test = kopie této šablony. Měň JEN blok „KONFIGURACE TESTU“ níže.
-  Knihovny pro PDF leží v repozitáři v lib/ (stránka musí běžet z GitHub Pages).
+  ŠABLONA HTML TESTU – Ann School (system/Sablona_test_vXX.html)
+  Nový test = kopie této šablony do složky předmětu: <předmět>/<tema>_test_vXX.html.
+  Měň JEN blok „KONFIGURACE TESTU“ níže. Postup: system/Navod_test_vXX.md.
+  Knihovny pro PDF: ../system/lib/ (stránka musí ležet o jednu složku pod rootem).
   Horní panel: nová systémová tlačítka přidávej do <div class="panel-actions">.
 -->
-<script src="lib/html2canvas-1.4.1.min.js"></script>
-<script src="lib/jspdf-2.5.2.min.js"></script>
+<script src="../system/lib/html2canvas-1.4.1.min.js"></script>
+<script src="../system/lib/jspdf-2.5.2.min.js"></script>
 <style>
   :root {
     --bg: #fafaf7; --paper: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5;
     --ok: #1f7a3a; --ok-bg: #e6f4ea; --bad: #b3261e; --bad-bg: #fbe9e7;
-    --accent: #2b5cab; --panel-h: 56px;
+    --accent: #2b5cab; --panel-h: 48px;
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body { margin: 0; background: var(--bg); color: var(--text);
-    font: 20px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; }
+    font: 17px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; }
 
   /* ---------- horní panel ---------- */
   #panel { position: fixed; top: 0; left: 0; right: 0; z-index: 20;
-    min-height: var(--panel-h); padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top));
+    min-height: var(--panel-h); padding: 6px 12px; padding-top: calc(6px + env(safe-area-inset-top));
     background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line);
     display: flex; align-items: center; gap: 12px; }
-  .panel-title { flex: 1 1 auto; min-width: 0; font-size: 16px; font-weight: 600;
+  .panel-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .panel-title .ver { color: var(--muted); font-weight: 400; }
   .panel-title .timer { margin-left: 10px; color: var(--accent); }
   .panel-title .timer.over { color: var(--bad); }
   .panel-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
-  .panel-actions .sep { width: 1px; height: 28px; background: var(--line); margin: 0 4px; }
-  .panel-actions button { font: inherit; font-size: 15px; padding: 7px 11px; border-radius: 8px;
+  .panel-actions .sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+  .panel-actions button { font: inherit; font-size: 14px; padding: 5px 10px; border-radius: 8px;
     border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer; white-space: nowrap; }
   .panel-actions button.on { background: var(--accent); color: #fff; }
   .panel-actions button.ready { background: var(--ok); border-color: var(--ok); color: #fff; }
-  .panel-actions .swatch { width: 30px; height: 30px; border-radius: 50%; padding: 0; border: 3px solid transparent; }
+  .panel-actions .swatch { width: 26px; height: 26px; border-radius: 50%; padding: 0; border: 3px solid transparent; }
   .panel-actions .swatch.on { border-color: var(--text); background-clip: padding-box; }
   .draw-tools[hidden] { display: none; }
   .draw-tools { display: flex; align-items: center; gap: 6px; }
 
-  main { max-width: 860px; margin: 0 auto; padding: calc(var(--panel-h) + 20px) 16px 80px; }
-  h1 { font-size: 28px; margin: 0 0 4px; }
-  .meta { color: var(--muted); font-size: 16px; }
-  .intro { margin: 10px 0 0; font-size: 17px; }
-  #header { padding-bottom: 6px; }
+  main { max-width: 860px; margin: 0 auto; padding: calc(var(--panel-h) + 14px) 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 2px; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .intro { margin: 6px 0 0; font-size: 15px; }
+  #header { padding-bottom: 2px; }
 
   /* ---------- sekce a příklady ---------- */
-  .sec { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 16px; scroll-margin-top: calc(var(--panel-h) + 12px); }
-  .sec-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
-  .sec-head h2 { font-size: 21px; margin: 0; }
-  .sec-score { font-size: 18px; font-weight: 600; }
+  .sec { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; scroll-margin-top: calc(var(--panel-h) + 12px); }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 2px; }
+  .sec-head h2 { font-size: 17px; margin: 0; }
+  .sec-score { font-size: 15px; font-weight: 600; }
   .sec-score.all { color: var(--ok); }
-  .q { padding: 14px 0; border-bottom: 1px solid var(--line); }
-  .q-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 24px; }
-  .num { color: var(--muted); font-size: 18px; min-width: 2em; }
-  input.ans { width: 9em; font-size: 24px; padding: 8px 10px; border: 2px solid var(--line);
-    border-radius: 8px; background: var(--paper); color: var(--text); text-align: right; }
+  .q { padding: 6px 0; border-bottom: 1px solid #ecece6; }
+  .q-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 18px; }
+  .num { color: var(--muted); font-size: 14px; min-width: 1.6em; }
+  input.ans { width: 8em; font-size: 18px; padding: 3px 8px; border: 2px solid var(--line);
+    border-radius: 6px; background: var(--paper); color: var(--text); text-align: right; }
   input.ans:focus { outline: none; border-color: var(--accent); }
   .q.ok input.ans { border-color: var(--ok); background: var(--ok-bg); }
   .q.bad input.ans { border-color: var(--bad); background: var(--bad-bg); }
-  .fb { font-size: 17px; margin-top: 6px; }
+  .fb { font-size: 14px; margin-top: 3px; }
   .fb:empty { display: none; }
   .q.ok .fb { color: var(--ok); }
   .q.bad .fb { color: var(--bad); }
-  .hint { font-size: 16px; color: var(--muted); margin-top: 6px; }
+  .hint { font-size: 14px; color: var(--muted); margin-top: 3px; }
   .hint[hidden] { display: none; }
-  .link { font-size: 15px; color: var(--accent); background: none; border: 0; padding: 4px 0; cursor: pointer; }
-  .sec-btns { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
-  button.btn { font: inherit; font-size: 18px; padding: 10px 18px; border-radius: 10px;
+  .link { font-size: 13px; color: var(--accent); background: none; border: 0; padding: 4px 6px; cursor: pointer; margin-left: auto; }
+  .sec-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  button.btn { font: inherit; font-size: 14px; padding: 5px 12px; border-radius: 8px;
     border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer; }
   button.btn.primary { background: var(--accent); color: #fff; }
 
   /* ---------- kreslicí plochy ---------- */
-  .pad { position: relative; margin-top: 10px; border: 1px solid var(--line); border-radius: 8px;
+  .pad { position: relative; margin-top: 6px; border: 1px solid var(--line); border-radius: 8px;
     overflow: hidden; background: var(--paper); }
   .pad canvas { display: block; width: 100%; }
   .pad-btns { position: absolute; top: 6px; right: 6px; display: flex; gap: 6px; }
-  .pad-btns button { font-size: 14px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line);
+  .pad-btns button { font-size: 12px; padding: 3px 8px; border-radius: 6px; border: 1px solid var(--line);
     background: rgba(255,255,255,.9); color: var(--text); cursor: pointer; }
-  .note { font-size: 15px; color: var(--muted); margin-top: 18px; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 12px; }
 
   /* úzké displeje: barvy schovat do menší velikosti */
   @media (max-width: 700px) {
@@ -102,9 +103,11 @@
       <button class="swatch on" data-color="#1d1d1b" style="background:#1d1d1b" aria-label="černá"></button>
       <button class="swatch" data-color="#2b5cab" style="background:#2b5cab" aria-label="modrá"></button>
       <button class="swatch" data-color="#b3261e" style="background:#b3261e" aria-label="červená"></button>
+      <button class="swatch" data-color="#1f8a3c" style="background:#1f8a3c" aria-label="zelená"></button>
+      <button class="swatch" data-color="#e0529c" style="background:#e0529c" aria-label="růžová"></button>
       <button id="toolPen" class="on">Pero</button>
-      <button id="toolEraser">Guma</button>
       <button id="toolFinger" title="Kreslit i prstem">Prst</button>
+      <button id="toolEraser">Guma</button>
       <span class="sep"></span>
     </div>
     <!-- systémová tlačítka – další přidávej sem -->
@@ -152,7 +155,7 @@
    ===================================================================== */
 const TEST = {
   title: "Převody jednotek – ukázkový test",
-  version: "v03",
+  version: "v07",
   intro: "Doplň číslo do prázdného pole. Desetinná čárka i tečka jsou v pořádku, mezery v čísle nevadí.",
   topic: "prevody-jednotek",
   timeLimitMin: 0,
@@ -321,17 +324,17 @@ function build() {
       const hb = document.createElement("button"); hb.className = "link no-pdf"; hb.textContent = "Nápověda";
       const ht = document.createElement("div"); ht.className = "hint"; ht.hidden = true; ht.textContent = q.hint;
       hb.onclick = () => { ht.hidden = !ht.hidden; };
-      d.appendChild(hb); d.appendChild(ht);
+      d.querySelector(".q-row").appendChild(hb); d.appendChild(ht);
     }
     q._el = d;
     sec.questions.push(q);
     sec.el.querySelector(".sec-qs").appendChild(d);
-    if (q.scratch) new Pad(d, 168);
+    if (q.scratch) new Pad(d, 140);
   });
   const fs = $("finalScratch");
   fs.querySelectorAll(".pad").forEach(p => p.remove());
   fs.hidden = !TEST.finalScratch;
-  if (TEST.finalScratch) new Pad(fs, 480);
+  if (TEST.finalScratch) new Pad(fs, 400);
   $("drawTools").hidden = $("padNote").hidden = pads.length === 0;
   $("sections").oninput = changed;
   // Enter = další pole
@@ -389,8 +392,15 @@ function pdfReset() {
   b.textContent = "PDF"; b.classList.remove("ready");
 }
 function pdfName() {
+  // pořadové číslo uložení: _01, _02… (pamatuje si ho i po zavření stránky, pokud to prohlížeč dovolí)
   const d = new Date(), p = x => String(x).padStart(2, "0");
-  return `Test_${TEST.topic || "test"}_${TEST.version || ""}_${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.pdf`.replace("__", "_");
+  const date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  const base = ["Test", TEST.topic || "test", TEST.version, date].filter(Boolean).join("_");
+  let n = 1;
+  try { n = (parseInt(localStorage.getItem("pdfcount:" + base), 10) || 0) + 1;
+        localStorage.setItem("pdfcount:" + base, n); }
+  catch (e) { n = (pdfName.n = (pdfName.n || 0) + 1); }
+  return `${base}_${p(n)}.pdf`;
 }
 async function makePdf() {
   const { jsPDF } = window.jspdf;

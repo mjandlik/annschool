@@ -8,30 +8,54 @@
   ŠABLONA HTML TESTU – Ann School (Sablona_test_vXX.html)
   Nový test = kopie této šablony. Měň JEN blok „KONFIGURACE TESTU“ níže.
   Knihovny pro PDF leží v repozitáři v lib/ (stránka musí běžet z GitHub Pages).
+  Horní panel: nová systémová tlačítka přidávej do <div class="panel-actions">.
 -->
-<script src="lib/html2canvas-1.4.1.min.js"></script>
-<script src="lib/jspdf-2.5.2.min.js"></script>
+<script src="../system/lib/html2canvas-1.4.1.min.js"></script>
+<script src="../system/lib/jspdf-2.5.2.min.js"></script>
 <style>
   :root {
     --bg: #fafaf7; --paper: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5;
     --ok: #1f7a3a; --ok-bg: #e6f4ea; --bad: #b3261e; --bad-bg: #fbe9e7;
-    --accent: #2b5cab; --grid: #d6e2f0;
+    --accent: #2b5cab; --panel-h: 56px;
   }
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body { margin: 0; background: var(--bg); color: var(--text);
     font: 20px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 120px; }
+
+  /* ---------- horní panel ---------- */
+  #panel { position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    min-height: var(--panel-h); padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top));
+    background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px; }
+  .panel-title { flex: 1 1 auto; min-width: 0; font-size: 16px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-title .ver { color: var(--muted); font-weight: 400; }
+  .panel-title .timer { margin-left: 10px; color: var(--accent); }
+  .panel-title .timer.over { color: var(--bad); }
+  .panel-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+  .panel-actions .sep { width: 1px; height: 28px; background: var(--line); margin: 0 4px; }
+  .panel-actions button { font: inherit; font-size: 15px; padding: 7px 11px; border-radius: 8px;
+    border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer; white-space: nowrap; }
+  .panel-actions button.on { background: var(--accent); color: #fff; }
+  .panel-actions button.ready { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .panel-actions .swatch { width: 30px; height: 30px; border-radius: 50%; padding: 0; border: 3px solid transparent; }
+  .panel-actions .swatch.on { border-color: var(--text); background-clip: padding-box; }
+  .draw-tools[hidden] { display: none; }
+  .draw-tools { display: flex; align-items: center; gap: 6px; }
+
+  main { max-width: 860px; margin: 0 auto; padding: calc(var(--panel-h) + 20px) 16px 80px; }
   h1 { font-size: 28px; margin: 0 0 4px; }
-  h2.section { font-size: 21px; margin: 28px 0 4px; padding-top: 18px; border-top: 1px solid var(--line); }
-  .meta { color: var(--muted); font-size: 16px; display: flex; gap: 18px; flex-wrap: wrap; }
+  .meta { color: var(--muted); font-size: 16px; }
   .intro { margin: 10px 0 0; font-size: 17px; }
-  .score { font-size: 22px; font-weight: 600; margin-top: 10px; }
-  .score:empty { display: none; }
-  .timer { font-weight: 600; color: var(--accent); }
-  .timer.over { color: var(--bad); }
   #header { padding-bottom: 6px; }
 
+  /* ---------- sekce a příklady ---------- */
+  .sec { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 16px; scroll-margin-top: calc(var(--panel-h) + 12px); }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .sec-head h2 { font-size: 21px; margin: 0; }
+  .sec-score { font-size: 18px; font-weight: 600; }
+  .sec-score.all { color: var(--ok); }
   .q { padding: 14px 0; border-bottom: 1px solid var(--line); }
   .q-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 24px; }
   .num { color: var(--muted); font-size: 18px; min-width: 2em; }
@@ -47,86 +71,82 @@
   .hint { font-size: 16px; color: var(--muted); margin-top: 6px; }
   .hint[hidden] { display: none; }
   .link { font-size: 15px; color: var(--accent); background: none; border: 0; padding: 4px 0; cursor: pointer; }
+  .sec-btns { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+  button.btn { font: inherit; font-size: 18px; padding: 10px 18px; border-radius: 10px;
+    border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer; }
+  button.btn.primary { background: var(--accent); color: #fff; }
 
+  /* ---------- kreslicí plochy ---------- */
   .pad { position: relative; margin-top: 10px; border: 1px solid var(--line); border-radius: 8px;
     overflow: hidden; background: var(--paper); }
   .pad canvas { display: block; width: 100%; }
   .pad-btns { position: absolute; top: 6px; right: 6px; display: flex; gap: 6px; }
   .pad-btns button { font-size: 14px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line);
     background: rgba(255,255,255,.9); color: var(--text); cursor: pointer; }
+  .note { font-size: 15px; color: var(--muted); margin-top: 18px; }
 
-  .buttons { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
-  button.btn { font: inherit; font-size: 19px; padding: 12px 20px; border-radius: 10px;
-    border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer; }
-  button.btn.primary { background: var(--accent); color: #fff; }
-  button.btn.ready { background: var(--ok); border-color: var(--ok); color: #fff; }
-  button.btn:disabled { opacity: .6; }
-
-  /* plovoucí lišta nástrojů pro kreslení */
-  #tools { position: fixed; left: 0; right: 0; bottom: 0; background: rgba(250,250,247,.96);
-    border-top: 1px solid var(--line); padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-    display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; z-index: 10; }
-  #tools[hidden] { display: none; }
-  #tools button { font-size: 16px; padding: 8px 12px; border-radius: 8px; border: 2px solid var(--accent);
-    background: var(--paper); color: var(--accent); cursor: pointer; }
-  #tools button.on { background: var(--accent); color: #fff; }
-  #tools .swatch { width: 34px; height: 34px; border-radius: 50%; padding: 0; border: 3px solid transparent; }
-  #tools .swatch.on { border-color: var(--text); }
-  .note { font-size: 15px; color: var(--muted); margin-top: 10px; }
-
+  /* úzké displeje: barvy schovat do menší velikosti */
+  @media (max-width: 700px) {
+    .panel-actions .swatch { width: 24px; height: 24px; }
+    .panel-actions button { padding: 6px 8px; font-size: 14px; }
+  }
   /* při tvorbě PDF skryj ovládací prvky */
   body.capturing .no-pdf { display: none !important; }
-  body.capturing #header, body.capturing .q, body.capturing #finalScratch, body.capturing h2.section { background: #fff; }
 </style>
 </head>
 <body>
+<div id="panel">
+  <div class="panel-title"><span id="pTitle"></span> <span class="ver" id="pVer"></span><span class="timer" id="timer"></span></div>
+  <div class="panel-actions">
+    <div class="draw-tools" id="drawTools" hidden>
+      <button class="swatch on" data-color="#1d1d1b" style="background:#1d1d1b" aria-label="černá"></button>
+      <button class="swatch" data-color="#2b5cab" style="background:#2b5cab" aria-label="modrá"></button>
+      <button class="swatch" data-color="#b3261e" style="background:#b3261e" aria-label="červená"></button>
+      <button class="swatch" data-color="#1f8a3c" style="background:#1f8a3c" aria-label="zelená"></button>
+      <button class="swatch" data-color="#e0529c" style="background:#e0529c" aria-label="růžová"></button>
+      <button id="toolPen" class="on">Pero</button>
+      <button id="toolFinger" title="Kreslit i prstem">Prst</button>
+      <button id="toolEraser">Guma</button>
+      <span class="sep"></span>
+    </div>
+    <!-- systémová tlačítka – další přidávej sem -->
+    <button id="btnNew" hidden>Nová sada</button>
+    <button id="btnPdf">PDF</button>
+  </div>
+</div>
+
 <main>
   <div id="header">
     <h1 id="title"></h1>
-    <div class="meta"><span id="date"></span><span id="timer" class="timer"></span></div>
+    <div class="meta" id="meta"></div>
     <p class="intro" id="intro"></p>
-    <div class="score" id="score"></div>
   </div>
 
-  <div id="questions"></div>
+  <div id="sections"></div>
 
-  <div id="finalScratch" hidden>
-    <h2 class="section">Místo na výpočty</h2>
+  <div id="finalScratch" class="sec" hidden>
+    <div class="sec-head"><h2>Místo na výpočty</h2></div>
   </div>
 
-  <div class="buttons no-pdf">
-    <button class="btn primary" id="btnCheck">Vyhodnotit</button>
-    <button class="btn" id="btnReset">Zkusit znovu</button>
-    <button class="btn" id="btnNew" hidden>Nová sada</button>
-    <button class="btn" id="btnPdf">Uložit PDF</button>
-  </div>
-  <p class="note no-pdf" id="padNote" hidden>Apple Pencil kreslí, prstem se posouvá stránka. Kresby a odpovědi se po zavření stránky neukládají – před zavřením použij „Uložit PDF“.</p>
+  <p class="note no-pdf" id="padNote" hidden>Apple Pencil kreslí, prstem se posouvá stránka (tlačítko „Prst“ zapne kreslení prstem). Odpovědi a kresby se po zavření stránky neukládají – před zavřením ulož PDF.</p>
 </main>
-
-<div id="tools" class="no-pdf" hidden>
-  <button class="swatch on" data-color="#1d1d1b" style="background:#1d1d1b" aria-label="černá"></button>
-  <button class="swatch" data-color="#2b5cab" style="background:#2b5cab" aria-label="modrá"></button>
-  <button class="swatch" data-color="#b3261e" style="background:#b3261e" aria-label="červená"></button>
-  <button id="toolPen" class="on">Pero</button>
-  <button id="toolEraser">Guma</button>
-  <button id="toolFinger">Kreslit prstem: ne</button>
-</div>
 
 <script>
 /* =====================================================================
    KONFIGURACE TESTU – měň jen tuto část
    ---------------------------------------------------------------------
-   title, intro       … nadpis a pokyny
+   title, version     … název a verze (zobrazí se v panelu a v PDF)
+   intro              … pokyny pod nadpisem
    topic              … téma pro název PDF (bez diakritiky, pomlčky)
    timeLimitMin       … časový limit v minutách (0 = bez limitu)
    showHints          … u příkladů tlačítko „Nápověda“
    finalScratch       … velká plocha na výpočty na konci testu
-   questions          … pevná sada příkladů
+   questions          … pevná sada; { section: "…" } začíná novou sekci
+                        (každá sekce má vlastní Vyhodnotit / Zkusit znovu a skóre)
    generate           … funkce vracející novou náhodnou sadu (nebo null);
                         pokud je zadaná, použije se místo questions
-                        a zobrazí se tlačítko „Nová sada“
+                        a v panelu se zobrazí tlačítko „Nová sada“
    Příklad:
-     { section: "Délka" }                 … mezinadpis (okruh)
      { before: "5 m =", after: "mm", answer: 5000,
        tol: 0,           … povolená odchylka (např. 0.05 u zaokrouhlení)
        hint: "…",        … nápověda / vysvětlení u chyby
@@ -134,6 +154,7 @@
    ===================================================================== */
 const TEST = {
   title: "Převody jednotek – ukázkový test",
+  version: "v04",
   intro: "Doplň číslo do prázdného pole. Desetinná čárka i tečka jsou v pořádku, mezery v čísle nevadí.",
   topic: "prevody-jednotek",
   timeLimitMin: 0,
@@ -145,13 +166,12 @@ const TEST = {
     { before: "320 mm =", after: "m", answer: 0.32, hint: "nahoru = dělím: mm → m, :1000 (10³)" },
     { section: "Čas" },
     { before: "2,5 min =", after: "s", answer: 150, hint: "1 min = 60 s → 2,5 · 60" },
-    { section: "Složené jednotky" },
-    { before: "36 km/h =", after: "m/s", answer: 10, hint: "km/h → m/s: dělím 3,6", scratch: true },
     { before: "23 500 s ≈", after: "h (na 1 des. místo)", answer: 6.5, tol: 0.05,
       hint: "1 h = 3600 s → 23 500 : 3600 ≈ 6,53 ≈ 6,5", scratch: true },
-    { section: "Plocha" },
+    { section: "Složené jednotky" },
+    { before: "36 km/h =", after: "m/s", answer: 10, hint: "km/h → m/s: dělím 3,6", scratch: true },
+    { section: "Plocha a mocniny deseti" },
     { before: "3 m² =", after: "cm²", answer: 30000, hint: "1 m² = 100 · 100 cm² = 10 000 cm²" },
-    { section: "Mocniny deseti" },
     { before: "4500 m =", after: "· 10³ m", answer: 4.5, hint: "4500 = 4,5 · 1000" }
   ],
   generate: null
@@ -196,9 +216,9 @@ class Pad {
     const btns = document.createElement("div");
     btns.className = "pad-btns no-pdf";
     btns.innerHTML = '<button type="button">Zpět</button><button type="button">Smazat</button>';
-    btns.children[0].onclick = () => { this.strokes.pop(); this.redraw(); };
+    btns.children[0].onclick = () => { this.strokes.pop(); this.redraw(); changed(); };
     btns.children[1].onclick = () => {
-      if (this.strokes.length && confirm("Smazat tuto plochu?")) { this.strokes = []; this.redraw(); }
+      if (this.strokes.length && confirm("Smazat tuto plochu?")) { this.strokes = []; this.redraw(); changed(); }
     };
     this.wrap.appendChild(btns);
     parent.appendChild(this.wrap);
@@ -259,7 +279,7 @@ class Pad {
       (e.getCoalescedEvents ? e.getCoalescedEvents() : [e]).forEach(ev => this.cur.pts.push(pos(ev)));
       this.redraw();
     });
-    ["pointerup", "pointercancel"].forEach(t => cv.addEventListener(t, () => { this.cur = null; }));
+    ["pointerup", "pointercancel"].forEach(t => cv.addEventListener(t, () => { if (this.cur) changed(); this.cur = null; }));
     // iPad: Pencil nesmí posouvat stránku; prst posouvá (pokud není zapnuté kreslení prstem)
     const block = e => { const t = e.touches[0]; if (t && (t.touchType === "stylus" || draw.finger)) e.preventDefault(); };
     cv.addEventListener("touchstart", block, { passive: false });
@@ -268,17 +288,29 @@ class Pad {
 }
 
 /* ---------- vykreslení testu ---------- */
-let QUESTIONS = [];
+let SECTIONS = [];   // [{name, el, questions:[q…]}]
 function build() {
-  QUESTIONS = (typeof TEST.generate === "function") ? TEST.generate() : TEST.questions;
+  const list = (typeof TEST.generate === "function") ? TEST.generate() : TEST.questions;
   pads.length = 0;
-  const box = $("questions"); box.innerHTML = "";
-  let n = 0;
-  QUESTIONS.forEach(q => {
-    if (q.section !== undefined) {
-      const h = document.createElement("h2"); h.className = "section"; h.textContent = q.section;
-      box.appendChild(h); return;
-    }
+  SECTIONS = [];
+  const box = $("sections"); box.innerHTML = "";
+  let sec = null, n = 0;
+  const newSection = name => {
+    const el = document.createElement("div"); el.className = "sec";
+    el.innerHTML = `<div class="sec-head"><h2></h2><span class="sec-score"></span></div>
+      <div class="sec-qs"></div>
+      <div class="sec-btns no-pdf"><button class="btn primary">Vyhodnotit</button><button class="btn">Zkusit znovu</button></div>`;
+    el.querySelector("h2").textContent = name || "Příklady";
+    sec = { name, el, questions: [] };
+    const [bEval, bReset] = el.querySelectorAll(".sec-btns button");
+    const s = sec;
+    bEval.onclick = () => evaluate(s);
+    bReset.onclick = () => { if (confirm("Vymazat odpovědi v této sekci?")) resetSection(s); };
+    SECTIONS.push(sec); box.appendChild(el);
+  };
+  list.forEach(q => {
+    if (q.section !== undefined) { newSection(q.section); return; }
+    if (!sec) newSection("Příklady");
     n++;
     const d = document.createElement("div"); d.className = "q";
     d.innerHTML = `<div class="q-row"><span class="num">${n}.</span><span class="b"></span>
@@ -294,28 +326,27 @@ function build() {
       d.appendChild(hb); d.appendChild(ht);
     }
     q._el = d;
-    box.appendChild(d);
+    sec.questions.push(q);
+    sec.el.querySelector(".sec-qs").appendChild(d);
     if (q.scratch) new Pad(d, 168);
   });
   const fs = $("finalScratch");
   fs.querySelectorAll(".pad").forEach(p => p.remove());
   fs.hidden = !TEST.finalScratch;
   if (TEST.finalScratch) new Pad(fs, 480);
-  $("tools").hidden = $("padNote").hidden = pads.length === 0;
-  $("score").textContent = "";
+  $("drawTools").hidden = $("padNote").hidden = pads.length === 0;
+  $("sections").oninput = changed;
   // Enter = další pole
   const inputs = [...document.querySelectorAll("input.ans")];
   inputs.forEach((inp, i) => inp.addEventListener("keydown", e => {
-    if (e.key === "Enter") { e.preventDefault(); (inputs[i + 1] || inp).focus(); if (!inputs[i + 1]) inp.blur(); }
+    if (e.key === "Enter") { e.preventDefault(); if (inputs[i + 1]) inputs[i + 1].focus(); else inp.blur(); }
   }));
   pdfReset();
 }
 
-function evaluate() {
-  let ok = 0, total = 0;
-  QUESTIONS.forEach(q => {
-    if (!q._el) return;
-    total++;
+function evaluate(sec) {
+  let ok = 0;
+  sec.questions.forEach(q => {
     const v = parseAnswer(q._el.querySelector("input").value);
     const good = isCorrect(v, q.answer, q.tol);
     q._el.classList.toggle("ok", good); q._el.classList.toggle("bad", !good);
@@ -323,16 +354,18 @@ function evaluate() {
       : `Správně je ${fmt(q.answer)}${q.after ? " " + q.after : ""}` + (q.hint ? ` – ${q.hint}` : "");
     if (good) ok++;
   });
-  $("score").textContent = `Výsledek: ${ok} / ${total}  (${Math.round(ok / total * 100)} %)`;
+  const total = sec.questions.length, sc = sec.el.querySelector(".sec-score");
+  sc.textContent = `${ok} / ${total}  (${Math.round(ok / total * 100)} %)`;
+  sc.classList.toggle("all", ok === total);
   pdfReset();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  sec.el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-function resetAnswers() {
-  QUESTIONS.forEach(q => { if (!q._el) return;
+function resetSection(sec) {
+  sec.questions.forEach(q => {
     q._el.classList.remove("ok", "bad"); q._el.querySelector("input").value = "";
     q._el.querySelector(".fb").textContent = ""; });
-  $("score").textContent = "";
+  const sc = sec.el.querySelector(".sec-score"); sc.textContent = ""; sc.classList.remove("all");
   pdfReset();
 }
 
@@ -342,7 +375,7 @@ function startTimer() {
   const end = Date.now() + TEST.timeLimitMin * 60000, el = $("timer");
   const tick = () => {
     const s = Math.max(0, Math.round((end - Date.now()) / 1000));
-    el.textContent = s ? `Zbývá ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "Čas vypršel";
+    el.textContent = s ? `⏱ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "Čas vypršel";
     el.classList.toggle("over", !s);
     if (s) setTimeout(tick, 1000);
   };
@@ -350,32 +383,46 @@ function startTimer() {
 }
 
 /* ---------- PDF ---------- */
-let pdfFile = null;
-function pdfReset() { pdfFile = null; const b = $("btnPdf"); b.textContent = "Uložit PDF"; b.classList.remove("ready"); b.disabled = false; }
+let pdfFile = null, version = 0;      // version roste s každou změnou na stránce
+function changed() { version++; pdfReset(); }
+function pdfReset() {
+  pdfFile = null; const b = $("btnPdf");
+  if (b.dataset.busy) return;          // právě se tvoří – po dokončení se pozná, že je zastaralé
+  b.textContent = "PDF"; b.classList.remove("ready");
+}
 function pdfName() {
   const d = new Date(), p = x => String(x).padStart(2, "0");
-  return `Test_${TEST.topic || "test"}_${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.pdf`;
+  return `Test_${TEST.topic || "test"}_${TEST.version || ""}_${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.pdf`.replace("__", "_");
 }
 async function makePdf() {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const PW = 210, PH = 297, M = 12, W = PW - 2 * M;
-  const blocks = [$("header"), ...$("questions").children];
+  // bloky, které se nesmí rozdělit mezi stránky
+  const blocks = [$("header")];
+  SECTIONS.forEach(s => { blocks.push(s.el.querySelector(".sec-head")); s.questions.forEach(q => blocks.push(q._el)); });
   if (TEST.finalScratch) blocks.push($("finalScratch"));
   document.body.classList.add("capturing");
+  const imgs = [];
   try {
-    let y = M;
     for (const el of blocks) {
-      if (el.hidden || !el.offsetHeight) continue;
+      if (!el.offsetHeight) continue;
       const scale = Math.min(2, 3800 / el.offsetWidth);
       const c = await html2canvas(el, { scale, backgroundColor: "#ffffff", logging: false });
       let w = W, h = c.height * W / c.width;
       if (h > PH - 2 * M) { h = PH - 2 * M; w = c.width * h / c.height; }
-      if (y + h > PH - M) { doc.addPage(); y = M; }
-      doc.addImage(c.toDataURL("image/jpeg", 0.9), "JPEG", M, y, w, h);
-      y += h + 2;
+      imgs.push({ c, w, h, head: el.classList.contains("sec-head") });
     }
   } finally { document.body.classList.remove("capturing"); }
+  let y = M;
+  imgs.forEach((im, i) => {
+    if (im.head && y > M) y += 4;
+    // nadpis sekce drž na stejné stránce s prvním příkladem
+    const need = im.h + (im.head && imgs[i + 1] ? imgs[i + 1].h + 6 : 0);
+    if (y + need > PH - M && y > M) { doc.addPage(); y = M; }
+    doc.addImage(im.c.toDataURL("image/jpeg", 0.9), "JPEG", M, y, im.w, im.h);
+    y += im.h + (im.head ? 6 : 2);
+  });
   const n = doc.getNumberOfPages();
   for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(9); doc.setTextColor(140);
     doc.text(`${i} / ${n}`, PW - M, PH - 5, { align: "right" }); }
@@ -386,46 +433,55 @@ function download(file) {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 10000);
 }
+async function share(f) {
+  try { await navigator.share({ files: [f], title: f.name }); return true; }
+  catch (e) {
+    if (e.name === "AbortError") return true;          // Ann sdílení zavřela – v pořádku
+    if (e.name === "NotAllowedError") return false;    // iPad: vypršelo „klepnutí“ – je potřeba klepnout znovu
+    download(f); return true;
+  }
+}
 async function onPdf() {
   const b = $("btnPdf");
-  if (pdfFile) {                     // 2. klepnutí: sdílení (na iPadu musí být přímo z klepnutí)
-    try { await navigator.share({ files: [pdfFile], title: pdfFile.name }); }
-    catch (e) { if (e.name !== "AbortError") download(pdfFile); }
-    return;
-  }
-  b.disabled = true; b.textContent = "Připravuji PDF…";
+  if (b.dataset.busy) return;
+  if (pdfFile) { await share(pdfFile); return; }       // PDF je připravené a aktuální
+  b.dataset.busy = "1"; b.textContent = "PDF…";
+  const startVersion = version;
   try {
     const f = await makePdf();
+    delete b.dataset.busy;
+    if (version !== startVersion) { pdfReset(); return; }   // mezitím změna – PDF by bylo neaktuální
     const canShare = navigator.canShare && navigator.canShare({ files: [f] });
-    if (canShare) { pdfFile = f; b.textContent = "PDF připraveno – klepni pro uložení"; b.classList.add("ready"); }
-    else { download(f); b.textContent = "Uložit PDF"; }
+    if (!canShare) { download(f); pdfReset(); return; }
+    // zkus sdílení hned; když ho iPad nepustí, tlačítko zezelená a stačí klepnout ještě jednou
+    if (await share(f)) { pdfReset(); }
+    else { pdfFile = f; b.textContent = "Uložit PDF"; b.classList.add("ready"); }
   } catch (e) {
-    alert("PDF se nepodařilo vytvořit: " + e.message); b.textContent = "Uložit PDF";
-  } finally { b.disabled = false; }
+    delete b.dataset.busy; pdfReset();
+    alert("PDF se nepodařilo vytvořit: " + e.message);
+  }
 }
 
 /* ---------- start ---------- */
-document.title = TEST.title;
+document.title = `${TEST.title} (${TEST.version})`;
+$("pTitle").textContent = TEST.title;
+$("pVer").textContent = TEST.version ? "· " + TEST.version : "";
 $("title").textContent = TEST.title;
+$("meta").textContent = `Datum: ${new Date().toLocaleDateString("cs-CZ")}` + (TEST.version ? `  ·  verze ${TEST.version}` : "");
 $("intro").textContent = TEST.intro || "";
-$("date").textContent = "Datum: " + new Date().toLocaleDateString("cs-CZ");
-$("btnCheck").onclick = evaluate;
-$("btnReset").onclick = () => { if (confirm("Vymazat všechny odpovědi?")) resetAnswers(); };
 if (typeof TEST.generate === "function") {
   $("btnNew").hidden = false;
   $("btnNew").onclick = () => { if (confirm("Vytvořit novou sadu příkladů? Odpovědi i kresby se smažou.")) build(); };
 }
 $("btnPdf").onclick = onPdf;
-document.querySelectorAll("#tools .swatch").forEach(b => b.onclick = () => {
-  document.querySelectorAll("#tools .swatch").forEach(x => x.classList.remove("on"));
+document.querySelectorAll(".panel-actions .swatch").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".panel-actions .swatch").forEach(x => x.classList.remove("on"));
   b.classList.add("on"); draw.color = b.dataset.color; setEraser(false);
 });
 function setEraser(on) { draw.eraser = on; $("toolEraser").classList.toggle("on", on); $("toolPen").classList.toggle("on", !on); }
 $("toolPen").onclick = () => setEraser(false);
 $("toolEraser").onclick = () => setEraser(true);
-$("toolFinger").onclick = () => { draw.finger = !draw.finger;
-  $("toolFinger").textContent = "Kreslit prstem: " + (draw.finger ? "ano" : "ne");
-  $("toolFinger").classList.toggle("on", draw.finger); };
+$("toolFinger").onclick = () => { draw.finger = !draw.finger; $("toolFinger").classList.toggle("on", draw.finger); };
 let rT; window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => pads.forEach(p => p.resize()), 150); });
 build();
 startTimer();

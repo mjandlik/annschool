@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="apple-mobile-web-app-title" content="Ann School">
+<title>Ann School</title>
+<!--
+  ROZCESTNÍK – Ann School (index.html, stálá adresa, proto bez _vXX; historie je v gitu)
+  Seznam souborů se načítá automaticky z GitHubu (aktuální = nejvyšší _vXX v každé složce předmětu).
+  Při novém tématu nebo předmětu doplň jen český název do NAZVY níže.
+-->
+<style>
+  :root {
+    --bg: #fafaf7; --paper: #fff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5;
+    --accent: #2b5cab; --panel-h: 48px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 17px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #panel { position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    min-height: var(--panel-h); padding: 6px 12px; padding-top: calc(6px + env(safe-area-inset-top));
+    background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px; }
+  .panel-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+  .panel-actions a, .panel-actions button { font: inherit; font-size: 14px; padding: 5px 10px; border-radius: 8px;
+    border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer;
+    text-decoration: none; white-space: nowrap; }
+  main { max-width: 860px; margin: 0 auto; padding: calc(var(--panel-h) + 14px) 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 2px; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .subj { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .subj h2 { font-size: 18px; margin: 0 0 4px; }
+  .topic { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    padding: 6px 0; border-bottom: 1px solid #ecece6; }
+  .topic .name { flex: 1 1 200px; font-size: 17px; }
+  .item { font-size: 14px; padding: 4px 10px; border-radius: 8px; border: 2px solid var(--accent);
+    color: var(--accent); text-decoration: none; background: var(--paper); white-space: nowrap; }
+  .item.test { background: var(--accent); color: #fff; }
+  .item .v { opacity: .7; font-size: 12px; margin-left: 3px; }
+  .empty, .err { color: var(--muted); font-size: 15px; padding: 6px 0; }
+  .err { color: #b3261e; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 18px; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <div class="panel-title">Ann School</div>
+  <div class="panel-actions">
+    <!-- systémová tlačítka rozcestníku – další přidávej sem -->
+    <button id="btnReload" type="button">Obnovit</button>
+    <a id="btnZip" href="https://github.com/mjandlik/annschool/archive/refs/heads/main.zip">Stáhnout ZIP</a>
+  </div>
+</div>
+
+<main>
+  <h1>Materiály a testy</h1>
+  <div class="meta" id="meta">Načítám…</div>
+  <div id="list"></div>
+  <p class="note">„Stáhnout ZIP“ stáhne celý repozitář (všechny materiály, testy i archiv) do Souborů v iPadu.<br>
+    Tip: v Safari Sdílet → Přidat na plochu – rozcestník pak bude jako ikona.</p>
+</main>
+
+<script>
+/* ===================== NÁZVY (doplňuj při novém tématu / předmětu) ===================== */
+const NAZVY = {
+  predmety: { matematika: "Matematika", fyzika: "Fyzika", chemie: "Chemie" },
+  temata: {
+    "prevody-jednotek": "Převody jednotek",
+    "vektory": "Vektory"
+  },
+  typy: { material: "Materiál", test: "Test", "pracovni-list": "Pracovní list" }
+};
+/* ========================================================================================= */
+
+const REPO = "mjandlik/annschool";
+const SKIP = new Set(["system", "archiv", "lib"]);
+const ORDER = ["matematika", "fyzika", "chemie"];
+const $ = id => document.getElementById(id);
+const nice = slug => slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, " ");
+
+async function load() {
+  $("meta").textContent = "Načítám…"; $("list").innerHTML = "";
+  let tree;
+  try {
+    const r = await fetch(`https://api.github.com/repos/${REPO}/git/trees/main?recursive=1`, { cache: "no-store" });
+    if (!r.ok) throw new Error("GitHub odpověděl " + r.status);
+    tree = (await r.json()).tree;
+  } catch (e) {
+    $("meta").textContent = "";
+    $("list").innerHTML = `<p class="err">Seznam se nepodařilo načíst (${e.message}). Zkus „Obnovit“ za chvíli.</p>`;
+    return;
+  }
+  // <předmět>/<tema>_<typ>_vXX.<přípona> → nejvyšší verze pro každé téma a typ
+  const re = /^([a-z0-9-]+)\/([a-z0-9-]+)_([a-z0-9-]+)_v(\d\d)\.(pdf|html)$/;
+  const data = {};
+  tree.forEach(f => {
+    const m = f.type === "blob" && f.path.match(re);
+    if (!m || SKIP.has(m[1])) return;
+    const [, subj, topic, typ, ver] = m;
+    const t = ((data[subj] ??= {})[topic] ??= {});
+    if (!t[typ] || ver > t[typ].ver) t[typ] = { ver, path: f.path };
+  });
+  const subjects = [...new Set([...ORDER, ...Object.keys(data).sort()])].filter(s => data[s]);
+  let count = 0;
+  subjects.forEach(subj => {
+    const sec = document.createElement("div"); sec.className = "subj";
+    const h = document.createElement("h2"); h.textContent = NAZVY.predmety[subj] || nice(subj); sec.appendChild(h);
+    const topics = Object.keys(data[subj]).sort((a, b) =>
+      (NAZVY.temata[a] || nice(a)).localeCompare(NAZVY.temata[b] || nice(b), "cs"));
+    topics.forEach(topic => {
+      const row = document.createElement("div"); row.className = "topic";
+      const nm = document.createElement("span"); nm.className = "name"; nm.textContent = NAZVY.temata[topic] || nice(topic);
+      row.appendChild(nm);
+      const types = Object.keys(data[subj][topic]).sort((a, b) => (a === "test") - (b === "test"));
+      types.forEach(typ => {
+        const it = data[subj][topic][typ];
+        const a = document.createElement("a"); a.className = "item " + typ; a.href = it.path;
+        a.innerHTML = `${NAZVY.typy[typ] || nice(typ)}<span class="v">v${it.ver}</span>`;
+        row.appendChild(a); count++;
+      });
+      sec.appendChild(row);
+    });
+    $("list").appendChild(sec);
+  });
+  $("meta").textContent = count ? `Aktuální verze · ${new Date().toLocaleDateString("cs-CZ")}` : "";
+  if (!count) $("list").innerHTML = '<p class="empty">Zatím tu nic není.</p>';
+}
+$("btnReload").onclick = load;
+load();
+</script>
+</body>
+</html>

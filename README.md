@@ -1,12 +1,10 @@
-# Ann School – HTML testy
+# Ann School – materiály a testy
 
-Testy pro Ann, zveřejněné přes GitHub Pages: https://mjandlik.github.io/annschool/
+Rozcestník pro Ann: https://mjandlik.github.io/annschool/
 
-- `Navod_test_vXX.md` – podrobný návod pro chat (tvorba, kontrola, zveřejnění testu).
-- `Sablona_test_vXX.html` – šablona; nový test = kopie, měnit jen blok „KONFIGURACE TESTU“.
-- `Kontrola_testu_vXX.py` – automatická kontrola testu před zveřejněním.
-- `Test_<tema>_vXX.html` – jednotlivé testy.
-- `lib/` – knihovny pro „PDF“ (html2canvas 1.4.1, jsPDF 2.5.2).
-- `archiv/` – starší verze (plochý archiv).
+- `index.html` – rozcestník (seznam se načítá automaticky, tlačítko „Stáhnout ZIP“).
+- `matematika/`, `fyzika/`, `chemie/` – soubory pro Ann: `<tema>_<typ>_vXX.<přípona>` (typ: `test`, `material`, `pracovni-list`).
+- `system/` – šablona testu, návody pro chat (`Navod_test_vXX.md`, `Navod_material_vXX.md`), kontrola testu, knihovny.
+- `archiv/` – starší verze (plochý archiv, `<složka>-<původní název>`).
 
-Platí vždy soubor s nejvyšší verzí v rootu.
+Platí vždy soubor s nejvyšší verzí `_vXX`.
