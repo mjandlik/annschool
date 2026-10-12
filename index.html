@@ -77,10 +77,12 @@ const NAZVY = {
   temata: {
     "prevody-jednotek": "Převody jednotek",
     "vektory": "Vektory",
-    "prirozena-a-cela-cisla": "Přirozená a celá čísla"
+    "prirozena-a-cela-cisla": "Přirozená a celá čísla",
+    "sesit": "Sešit"
   },
-  // typ = část názvu souboru mezi tématem a verzí; typy začínající „test“ jdou do skupiny Testy
-  typy: { material: "Studijní materiál", tahak: "Tahák", "pracovni-list": "Pracovní list", test: "Test", "test-1": "Test 1", "test-2": "Test 2", "test-3": "Test 3", simulator: "Simulátor" }
+  // typ = část názvu souboru mezi tématem a verzí. Skupiny podle začátku typu:
+  // test… → Testy, zapisky… → Zápisky, skolni-material… → Školní materiály, ostatní → Výukové materiály
+  typy: { zapisky: "Zápisky ze sešitu", "skolni-material": "Školní materiál", material: "Studijní materiál", tahak: "Tahák", "pracovni-list": "Pracovní list", test: "Test", "test-1": "Test 1", "test-2": "Test 2", "test-3": "Test 3", simulator: "Simulátor" }
 };
 /* ========================================================================================= */
 
@@ -124,9 +126,11 @@ async function load() {
       const nm = document.createElement("span"); nm.className = "name"; nm.textContent = NAZVY.temata[topic] || nice(topic);
       row.appendChild(nm);
       const types = Object.keys(data[subj][topic]).sort();
+      const PREF = [["Zápisky", "zapisky"], ["Školní materiály", "skolni-material"], ["Testy", "test"]];
+      const isP = (t, p) => t === p || t.startsWith(p + "-");
       const groups = [
-        ["Výukové materiály", types.filter(t => !t.startsWith("test"))],
-        ["Testy", types.filter(t => t.startsWith("test"))]
+        ["Výukové materiály", types.filter(t => !PREF.some(([, p]) => isP(t, p)))],
+        ...PREF.map(([label, p]) => [label, types.filter(t => isP(t, p))])
       ];
       groups.forEach(([label, list]) => {
         if (!list.length) return;
@@ -137,8 +141,9 @@ async function load() {
           const it = data[subj][topic][typ];
           const a = document.createElement("a"); a.className = "item" + (typ.startsWith("test") ? " test" : "");
           a.href = it.path;
-          const sub = typ.replace(/^test-?/, "");
-          const text = NAZVY.typy[typ] || (typ.startsWith("test") ? "Test" + (sub ? " – " + nice(sub) : "") : nice(typ));
+          const pre = PREF.find(([, p]) => isP(typ, p));
+          const sub = pre ? typ.slice(pre[1].length).replace(/^-/, "") : "";
+          const text = NAZVY.typy[typ] || (pre ? (NAZVY.typy[pre[1]] || nice(pre[1])) + (sub ? " – " + nice(sub) : "") : nice(typ));
           a.textContent = text;
           const v = document.createElement("span"); v.className = "v"; v.textContent = "v" + it.ver; a.appendChild(v);
           g.querySelector(".items").appendChild(a); count++;
