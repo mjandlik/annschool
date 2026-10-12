@@ -189,6 +189,7 @@
     }
     kresliOsy() {
       const c = this.ctx, o = this.o;
+      c.save();
       c.strokeStyle = "#55554f"; c.fillStyle = "#55554f"; c.lineWidth = 1.4;
       const hrot = (x, y, ux, uy) => {
         c.beginPath(); c.moveTo(x, y); c.lineTo(x - ux * 8 - uy * 4, y - uy * 8 + ux * 4); c.lineTo(x - ux * 8 + uy * 4, y - uy * 8 - ux * 4); c.closePath(); c.fill();
@@ -218,6 +219,7 @@
         }
         if (o.cisla && o.ymin <= 0 && o.ymax >= 0) { c.textAlign = "right"; c.textBaseline = "top"; c.fillText("0", X - 4, this.py(0) + 3); }
       }
+      c.restore();
     }
     kresliVektor(v, pomocny) {
       const c = this.ctx;
@@ -295,7 +297,7 @@
       const w = c.measureText(t).width;
       let x = Math.min(this.W - w - 4, Math.max(4, X - w / 2)), y = Math.min(this.H - 10, Math.max(10, Y));
       c.fillStyle = "rgba(255,255,255,.88)"; c.fillRect(x - 3, y - 9, w + 6, 18);
-      c.fillStyle = barva || "#1d1d1b"; c.textBaseline = "middle"; c.fillText(t, x, y + 1);
+      c.fillStyle = barva || "#1d1d1b"; c.textBaseline = "middle"; c.textAlign = "left"; c.fillText(t, x, y + 1);
       c.restore();
     }
     kresliBod(b) {
