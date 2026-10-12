@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vektory – simulátor</title>
+<!--
+  SIMULÁTOR VEKTORŮ – Ann School (fyzika/vektory_simulator_vXX.html)
+  Názorná pomůcka, nic se nevyhodnocuje. Vektorová síť: ../system/lib/vektory.js (+ vektory.css).
+  Měřítko 1 dílek = 1 N. Směr bez goniometrie (úhel jen měří stránka).
+-->
+<link rel="stylesheet" href="../system/lib/vektory.css">
+<script src="../system/lib/vektory.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7; --paper: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5;
+    --accent: #2b5cab; --panel-h: 48px; --vysl: #7a3db8;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 17px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; overflow-x: hidden; }
+
+  /* ---------- horní panel (jako v testech) ---------- */
+  #panel { position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    min-height: var(--panel-h); padding: 6px 12px; padding-top: calc(6px + env(safe-area-inset-top));
+    background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px; }
+  .panel-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-title .ver { color: var(--muted); font-weight: 400; }
+  .panel-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+  button { font: inherit; font-size: 14px; padding: 5px 10px; border-radius: 8px;
+    border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer; white-space: nowrap; }
+  button.on { background: var(--accent); color: #fff; }
+
+  main { max-width: 1100px; margin: 0 auto; padding: calc(var(--panel-h) + 14px) 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 2px; }
+  .intro { margin: 4px 0 0; font-size: 15px; color: var(--muted); }
+
+  /* ---------- okna ---------- */
+  .win { margin-top: 16px; border-top: 1px solid var(--line); padding-top: 10px; }
+  .win-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .win-head h2 { font-size: 18px; margin: 0; flex: 1 1 auto; }
+  .win-body { display: grid; grid-template-columns: minmax(0, 11fr) minmax(0, 9fr); gap: 16px; align-items: start; }
+  @media (max-width: 680px) { .win-body { display: block; } .win-body .info { margin-top: 10px; } }
+  .help { font-size: 13px; color: var(--muted); margin: 0 0 6px; }
+
+  /* ---------- výpočty ---------- */
+  .eq { font-size: 17px; line-height: 1.9; }
+  .eq div { white-space: nowrap; overflow-x: auto; }
+  .eq .k { color: var(--muted); font-size: 14px; }
+  .eq div.k { white-space: normal; line-height: 1.5; }
+  .eq .hl { font-weight: 700; }
+  .vec { position: relative; display: inline-block; font-family: Georgia, "Times New Roman", serif; font-style: italic; padding: 0 1px; }
+  .vec::after { content: ""; position: absolute; left: 2px; right: 0; top: -1px; height: 6px;
+    background: no-repeat right center / auto 100% url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 6'%3E%3Cpath d='M0 3h37M33 .5l4 2.5-4 2.5' fill='none' stroke='%23000' stroke-width='1.3'/%3E%3C/svg%3E");
+    background-size: 100% 100%; opacity: .85; }
+  .gray { color: var(--muted); }
+  .small { font-size: 13px; }
+
+  .opts { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 15px; margin: 6px 0; }
+  .opts label { display: inline-flex; align-items: center; gap: 6px; }
+  input[type=checkbox] { width: 20px; height: 20px; }
+
+  /* okno 2 – výběr vektoru */
+  .picker { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 6px; }
+  .picker button.pick { width: 44px; height: 38px; font-family: Georgia, serif; font-style: italic; font-size: 19px;
+    border-color: var(--c); color: var(--c); padding: 0; }
+  .picker button.pick.on { background: var(--c); color: #fff; }
+  .vrow { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 10px; align-items: center;
+    padding: 6px 0; border-bottom: 1px solid #ecece6; font-size: 15px; }
+  .vrow .nm { font-size: 19px; color: var(--c); font-weight: 600; min-width: 1.6em; }
+  .vrow .nm .vec::after { filter: none; }
+  .vrow.empty { color: var(--muted); }
+  .vrow button { font-size: 13px; padding: 3px 8px; }
+  .vrow button.neg { font-size: 18px; line-height: 1; width: 38px; padding: 3px 0; }
+  .vrow button.neg.on { background: var(--c); border-color: var(--c); color: #fff; }
+
+  .seg { display: inline-flex; }
+  .seg button { border-radius: 0; }
+  .seg button:first-child { border-radius: 8px 0 0 8px; }
+  .seg button:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
+
+  .note { font-size: 13px; color: var(--muted); margin-top: 18px; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <div class="panel-title"><span>Vektory – simulátor</span> <span class="ver">· v03</span></div>
+  <div class="panel-actions">
+    <button id="btnPrst" title="Ovládat sítě i prstem">Prst</button>
+  </div>
+</div>
+
+<main>
+  <h1>Vektory – simulátor</h1>
+  <p class="intro">Zkoušej vektory na síti. Měřítko: 1 dílek = 1 N. Všechno se přepočítává hned při každém pohybu.</p>
+
+  <!-- ============ OKNO 1 ============ -->
+  <section class="win" id="w1">
+    <div class="win-head"><h2>1. Velikost vektoru</h2><button id="reset1">Vynulovat</button></div>
+    <p class="help">Táhni bod A nebo B. Nebo klepni na bod (zvýrazní se) a pak na nový uzel. Za kroužek uprostřed posuneš celý vektor.</p>
+    <div class="win-body">
+      <div id="sit1"></div>
+      <div class="info">
+        <div class="eq" id="eq1"></div>
+        <div class="opts"><label><input type="checkbox" id="slozky1"> Ukázat pomocné čáry a Δx, Δy</label></div>
+        <div class="opts"><label><input type="checkbox" id="uhel1"> Ukázat úhel α s vodorovnou</label></div>
+        <div class="small gray" id="uhelTxt"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ OKNO 2 ============ -->
+  <section class="win" id="w2">
+    <div class="win-head"><h2>2. Zadávání vektorů</h2><button id="reset2">Vynulovat</button></div>
+    <p class="help">Vyber písmeno a Pencilem nakresli vektor (táhni od počátku ke konci). Hotový vektor: táhni počáteční bod, konec šipky nebo kroužek uprostřed.</p>
+    <div class="picker" id="picker"></div>
+    <div class="win-body">
+      <div id="sit2"></div>
+      <div class="info" id="list2"></div>
+    </div>
+  </section>
+
+  <!-- ============ OKNO 3 ============ -->
+  <section class="win" id="w3">
+    <div class="win-head"><h2>3. Skládání vektorů</h2><button id="reset3">Vynulovat</button></div>
+    <p class="help">Bere vektory z okna 2. Zaškrtni, které sečíst; tlačítkem − otočíš orientaci (odčítání = přičtení opačného vektoru).</p>
+    <div class="opts">
+      <span class="seg"><button id="modeChain" class="on">Šipka za šipku</button><button id="modePar">Rovnoběžník</button></span>
+      <label><input type="checkbox" id="pomocne3" checked> Pomocné vektory a body</label>
+    </div>
+    <div class="win-body">
+      <div id="sit3"></div>
+      <div class="info">
+        <div id="list3"></div>
+        <div class="eq" id="eq3" style="margin-top:8px"></div>
+      </div>
+    </div>
+  </section>
+
+  <p class="note">Apple Pencil (nebo myš) ovládá body, prstem se posouvá stránka. Tlačítko „Prst“ zapne ovládání prstem. Nic se neukládá ani nevyhodnocuje.</p>
+</main>
+
+<script>
+const V = Vektory, $ = id => document.getElementById(id), M = V.MINUS;
+const vec = n => `<span class="vec">${n}</span>`;
+const BARVY = { a: "#1d1d1b", b: "#2b5cab", c: "#b3261e", d: "#1f8a3c" };
+const VYSL = "#7a3db8", POM = "#8a8a84";
+const PISMENA = ["a", "b", "c", "d"];
+const BODY = ["A", "B", "C", "D"];
+
+/* ---------- panel ---------- */
+$("btnPrst").onclick = () => { const on = !$("btnPrst").classList.contains("on"); $("btnPrst").classList.toggle("on", on); V.nastavPrst(on); };
+
+/* =====================================================================
+   OKNO 1 – velikost vektoru
+   ===================================================================== */
+const sit1 = new V.Sit($("sit1"), { xmin: -10, xmax: 10, ymin: -10, ymax: 10, osy: true, cisla: true, onChange: () => okno1() });
+let popisky1 = [];
+// popisky Δx, Δy a značka pravého úhlu – dokreslí se přes síť (knihovna se nemění)
+const kresli1 = sit1.kresliHned.bind(sit1);
+sit1.kresliHned = () => {
+  kresli1();
+  const c = sit1.ctx;
+  popisky1.forEach(p => {
+    if (p.pravy) {   // značka pravého úhlu v rohu C
+      const X = sit1.px(p.x), Y = sit1.py(p.y), k = Math.min(10, sit1.cell * .45);
+      c.save(); c.strokeStyle = "#55554f"; c.lineWidth = 1.2; c.beginPath();
+      c.moveTo(X + p.sx * k, Y); c.lineTo(X + p.sx * k, Y - p.sy * k); c.lineTo(X, Y - p.sy * k); c.stroke(); c.restore();
+      return;
+    }
+    c.save(); c.font = "600 13px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    const w = c.measureText(p.text).width; c.restore();
+    // když se popisek Δy nevejde ven z trojúhelníku, dej ho dovnitř k dolnímu rohu (dál od přepony)
+    let ox = p.ox, y = p.y;
+    if ((ox > 0 && sit1.px(p.x) + w + 16 > sit1.W) || (ox < 0 && sit1.px(p.x) - w - 16 < 0)) { ox = -ox; y = p.yIn; }
+    const X = sit1.px(p.x) + ox * (w / 2 + 7), Y = sit1.py(y) + p.oy;
+    sit1.stitek(p.text, X, Y, p.barva);
+  });
+};
+function reset1() {
+  sit1.vymaz();
+  sit1.pridej({ id: "v", nazev: "v", barva: "#1d1d1b", x1: 1, y1: 1, x2: 5, y2: 4, popisBodu: ["A", "B"], souradnice: true });
+  okno1();
+}
+function okno1() {
+  const v = sit1.vektor("v"); if (!v) return;
+  const { dx, dy } = V.slozky(v), n2 = dx * dx + dy * dy, r = V.odmocnina(n2);
+  const z = V.zav;
+  // postupný výpočet: Δx, Δy, pak vzorec velikosti a dosazení
+  const on = $("slozky1").checked, cx = on ? ' style="color:#2b5cab"' : "", cy = on ? ' style="color:#b3261e"' : "";
+  $("eq1").innerHTML = `
+    <div><span class="k">A[x₁; y₁] = </span>A[${V.fmt(v.x1)}; ${V.fmt(v.y1)}], <span class="k">B[x₂; y₂] = </span>B[${V.fmt(v.x2)}; ${V.fmt(v.y2)}]</div>
+    <div${cx}>Δx = x₂ ${M} x₁ = ${V.fmt(v.x2)} ${M} ${z(v.x1)} = <b>${V.fmt(dx)}</b></div>
+    <div${cy}>Δy = y₂ ${M} y₁ = ${V.fmt(v.y2)} ${M} ${z(v.y1)} = <b>${V.fmt(dy)}</b></div>
+    <div class="k">→ ${V.popisSlozek(dx, dy)}</div>
+    <div>|${vec("v")}| = √(<span${cx}>Δx</span>² + <span${cy}>Δy</span>²)</div>
+    <div>&emsp;= √(<span${cx}>${z(dx)}</span>² + <span${cy}>${z(dy)}</span>²)</div>
+    <div>&emsp;= √(${V.fmt(dx * dx)} + ${V.fmt(dy * dy)})</div>
+    <div>&emsp;= ${r.presne ? `√${n2} = <span class="hl">${V.fmt(r.hodnota, 0)} N</span>` : `√${n2} <span class="hl">≈ ${V.fmt(r.hodnota)} N</span>`}</div>`;
+  // úhel – jen ukázka (Ann ho zatím nepočítá, měří úhloměrem)
+  // pomocné čáry: průměty bodů na osy a odvěsny Δx, Δy (pravoúhlý trojúhelník)
+  sit1.pomocne = []; popisky1 = [];
+  if ($("slozky1").checked) {
+    const G = "#8a8a84", CX = "#2b5cab", CY = "#b3261e";
+    const prumet = (x, y) => {
+      if (y !== 0) sit1.pomocne.push({ x1: x, y1: y, x2: x, y2: 0, barva: G, carkovane: true, sipka: false, tloustka: 1.2 });
+      if (x !== 0) sit1.pomocne.push({ x1: x, y1: y, x2: 0, y2: y, barva: G, carkovane: true, sipka: false, tloustka: 1.2 });
+    };
+    prumet(v.x1, v.y1); prumet(v.x2, v.y2);
+    // odvěsny: z A vodorovně do C[x₂; y₁], z C svisle do B
+    if (dx) sit1.pomocne.push({ x1: v.x1, y1: v.y1, x2: v.x2, y2: v.y1, barva: CX, sipka: false, tloustka: 2.4 });
+    if (dy) sit1.pomocne.push({ x1: v.x2, y1: v.y1, x2: v.x2, y2: v.y2, barva: CY, sipka: false, tloustka: 2.4 });
+    if (dx) popisky1.push({ x: (v.x1 + v.x2) / 2, y: v.y1, oy: dy >= 0 ? 16 : -16, ox: 0, barva: CX,
+      text: `Δx = ${V.fmt(dx)}` });
+    if (dy) popisky1.push({ x: v.x2, y: (v.y1 + v.y2) / 2, yIn: v.y1 + dy * .25, ox: dx >= 0 ? 1 : -1, oy: 0, barva: CY,
+      text: `Δy = ${V.fmt(dy)}` });
+    if (dx && dy) popisky1.push({ pravy: true, x: v.x2, y: v.y1, sx: -Math.sign(dx), sy: Math.sign(dy) });
+  }
+  sit1.oblouky = [];
+  const a = V.uhel(dx, dy);
+  if ($("uhel1").checked && a !== null) {
+    const th = Math.atan2(dy, dx);
+    let a1 = dx >= 0 ? 0 : Math.PI, a2 = th;
+    if (dx < 0 && a2 < 0) a2 += 2 * Math.PI;
+    sit1.oblouky = [{ x: v.x1, y: v.y1, r: 1.6, a1, a2, barva: "#6b6b66", vodorovna: dx >= 0 ? 3 : -3,
+      popis: a > 0.5 ? `α ≈ ${Math.round(a)}°` : "" }];
+    $("uhelTxt").innerHTML = dy === 0 ? "α = 0° – vektor je vodorovný." : dx === 0 ? "α = 90° – vektor je svislý." :
+      `α ≈ ${Math.round(a)}° (změřila stránka; výpočet úhlu se v 1. ročníku zatím neučí – měří se úhloměrem).`;
+  } else $("uhelTxt").textContent = "";
+  sit1.prekresli();
+}
+$("uhel1").onchange = okno1;
+$("slozky1").onchange = okno1;
+$("reset1").onclick = () => { $("uhel1").checked = false; $("slozky1").checked = false; reset1(); };
+
+/* =====================================================================
+   OKNO 2 – zadávání vektorů
+   ===================================================================== */
+let aktivni = "a";
+const sit2 = new V.Sit($("sit2"), { xmin: 0, xmax: 20, ymin: 0, ymax: 20, onChange: (s, info) => {
+  if (info && info.id && PISMENA.includes(info.id) && info.typ !== "smazan") vyberPismeno(info.id);
+  okno2();
+} });
+PISMENA.forEach(p => {
+  const b = document.createElement("button");
+  b.className = "pick"; b.dataset.p = p; b.style.setProperty("--c", BARVY[p]); b.innerHTML = vec(p);
+  b.onclick = () => vyberPismeno(p);
+  $("picker").appendChild(b);
+});
+function vyberPismeno(p) {
+  aktivni = p;
+  sit2.kresli = { id: p, nazev: p, barva: BARVY[p] };
+  document.querySelectorAll(".pick").forEach(b => b.classList.toggle("on", b.dataset.p === p));
+}
+function reset2() {
+  sit2.vymaz();
+  sit2.pridej({ id: "a", nazev: "a", barva: BARVY.a, x1: 2, y1: 3, x2: 6, y2: 4 });
+  sit2.pridej({ id: "b", nazev: "b", barva: BARVY.b, x1: 9, y1: 9, x2: 10, y2: 12 });
+  vyberPismeno("c");
+  okno2();
+}
+function okno2() {
+  $("list2").innerHTML = "";
+  PISMENA.forEach(p => {
+    const v = sit2.vektor(p), row = document.createElement("div");
+    row.className = "vrow" + (v ? "" : " empty"); row.style.setProperty("--c", BARVY[p]);
+    if (v) {
+      const { dx, dy } = V.slozky(v), r = V.odmocnina(dx * dx + dy * dy);
+      row.innerHTML = `<span class="nm">${vec(p)}</span>
+        <span><b>${V.popisSlozek(dx, dy)}</b><br><span class="gray small">Δx = ${V.fmt(dx)}, Δy = ${V.fmt(dy)}</span><br>
+        |${vec(p)}| = √(${V.zav(dx)}² + ${V.zav(dy)}²) = √${dx * dx + dy * dy} ${r.presne ? "=" : "≈"} <b>${V.fmt(r.hodnota)} N</b></span>`;
+      const del = document.createElement("button"); del.textContent = "Smazat";
+      del.onclick = () => { vyberPismeno(p); sit2.odeber(p); };
+      row.appendChild(del);
+    } else {
+      row.innerHTML = `<span class="nm">${vec(p)}</span><span>není nakreslený${p === aktivni ? " – nakresli ho Pencilem do sítě" : ""}</span><span></span>`;
+    }
+    $("list2").appendChild(row);
+  });
+  okno3();
+}
+$("reset2").onclick = reset2;
+
+/* =====================================================================
+   OKNO 3 – skládání vektorů
+   ===================================================================== */
+const st3 = { mode: "chain", use: { a: true, b: true, c: true, d: true }, neg: { a: false, b: false, c: false, d: false } };
+const sit3 = new V.Sit($("sit3"), { xmin: 0, xmax: 20, ymin: 0, ymax: 20, upravy: false });
+
+function okno3() {
+  // ovládání pro každý vektor
+  $("list3").innerHTML = "";
+  PISMENA.forEach(p => {
+    const v = sit2.vektor(p), row = document.createElement("div");
+    row.className = "vrow" + (v ? "" : " empty"); row.style.setProperty("--c", BARVY[p]);
+    const nm = document.createElement("label"); nm.className = "nm"; nm.style.display = "inline-flex"; nm.style.gap = "6px"; nm.style.alignItems = "center";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = st3.use[p]; cb.disabled = !v;
+    cb.onchange = () => { st3.use[p] = cb.checked; okno3(); };
+    nm.appendChild(cb); nm.insertAdjacentHTML("beforeend", (st3.neg[p] ? M : "") + vec(p));
+    row.appendChild(nm);
+    const t = document.createElement("span");
+    if (v) { let s = V.slozky(v); if (st3.neg[p]) s = V.opacny(s); t.innerHTML = (st3.neg[p] ? `opačný: ` : "") + V.popisSlozek(s.dx, s.dy); }
+    else t.textContent = "není nakreslený (okno 2)";
+    row.appendChild(t);
+    const nb = document.createElement("button"); nb.className = "neg" + (st3.neg[p] ? " on" : ""); nb.textContent = M; nb.disabled = !v;
+    nb.title = "opačná orientace"; nb.onclick = () => { st3.neg[p] = !st3.neg[p]; okno3(); };
+    row.appendChild(nb);
+    $("list3").appendChild(row);
+  });
+
+  // použité vektory (posuny)
+  const pouz = PISMENA.filter(p => sit2.vektor(p) && st3.use[p]).map(p => {
+    let s = V.slozky(sit2.vektor(p)); const neg = st3.neg[p]; if (neg) s = V.opacny(s);
+    return { p, neg, dx: s.dx, dy: s.dy, nazev: (neg ? M : "") + p };
+  });
+  sit3.vymaz();
+  if (!pouz.length) { $("eq3").innerHTML = `<div class="gray">Žádný vektor k sečtení – nakresli vektory v okně 2 a zaškrtni je.</div>`; return; }
+
+  // částečné součty S₀ = 0, S₁, …, Sₙ (body O, A, B, C, D)
+  const S = [{ x: 0, y: 0 }];
+  pouz.forEach(u => { const l = S[S.length - 1]; S.push({ x: l.x + u.dx, y: l.y + u.dy }); });
+  const pts = S.slice();
+  if (st3.mode === "par") pouz.forEach(u => pts.push({ x: u.dx, y: u.dy }));
+  const minx = Math.min(...pts.map(q => q.x)), maxx = Math.max(...pts.map(q => q.x));
+  const miny = Math.min(...pts.map(q => q.y)), maxy = Math.max(...pts.map(q => q.y));
+  const N = Math.max(12, maxx - minx + 4, maxy - miny + 4);   // čtvercová síť, přiblížená podle velikosti konstrukce
+  sit3.nastavRozsah(0, N, 0, N);
+  const Ox = Math.floor((N - (maxx - minx)) / 2) - minx, Oy = Math.floor((N - (maxy - miny)) / 2) - miny;
+  const P = q => ({ x: Ox + q.x, y: Oy + q.y });
+  const n = pouz.length, R = S[n];
+  const pom = $("pomocne3").checked;
+
+  if (st3.mode === "chain") {
+    pouz.forEach((u, i) => {
+      const a = P(S[i]), b = P(S[i + 1]);
+      sit3.pridej({ id: "u" + i, nazev: u.nazev, barva: BARVY[u.p], x1: a.x, y1: a.y, x2: b.x, y2: b.y, upravitelny: false });
+    });
+    if (pom) for (let k = 2; k < n; k++) {
+      const b = P(S[k]);
+      sit3.pomocne.push({ x1: Ox, y1: Oy, x2: b.x, y2: b.y, barva: POM, carkovane: true, nazev: "O" + BODY[k - 1], tloustka: 1.6, stranaNazvu: -1 });
+    }
+  } else {
+    pouz.forEach((u, i) => {
+      sit3.pridej({ id: "u" + i, nazev: u.nazev, barva: BARVY[u.p], x1: Ox, y1: Oy, x2: Ox + u.dx, y2: Oy + u.dy, upravitelny: false });
+    });
+    for (let k = 2; k <= n; k++) {   // postupné rovnoběžníky: Sₖ₋₁ + uₖ
+      const u = pouz[k - 1], a = P(S[k - 1]), b = P(S[k]);
+      sit3.pomocne.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y, barva: BARVY[u.p], carkovane: true, sipka: false, tloustka: 1.3 });
+      sit3.pomocne.push({ x1: Ox + u.dx, y1: Oy + u.dy, x2: b.x, y2: b.y, barva: POM, carkovane: true, sipka: false, tloustka: 1.3 });
+      if (pom && k < n) sit3.pomocne.push({ x1: Ox, y1: Oy, x2: b.x, y2: b.y, barva: POM, carkovane: true, nazev: "O" + BODY[k - 1], tloustka: 1.6, stranaNazvu: -1 });
+    }
+  }
+  if (R.x !== 0 || R.y !== 0) {
+    const e = P(R);
+    sit3.pomocne.push({ x1: Ox, y1: Oy, x2: e.x, y2: e.y, barva: VYSL, nazev: "R", tloustka: 4.2, stranaNazvu: -1, tucne: true });
+  }
+  sit3.body.push({ x: Ox, y: Oy, popis: "O", barva: "#1d1d1b", dx: -12, dy: 12 });
+  if (pom) for (let k = 1; k <= n; k++) {
+    const b = P(S[k]);
+    sit3.body.push({ x: b.x, y: b.y, popis: BODY[k - 1], barva: k === n ? VYSL : "#55554f", dx: 12, dy: -12 });
+  }
+  sit3.prekresli();
+
+  // výpočet po složkách
+  const clen = (u, i, k) => {
+    const val = V.zav(u[k]);
+    if (i === 0) return u.neg ? `${M}${V.zav(-u[k])}` : val;          // první člen: −b⃗ → −(Δx)
+    return u.neg ? ` ${M} ${V.zav(-u[k])}` : ` + ${val}`;
+  };
+  // Pozn.: u.dx už je posun opačného vektoru; pro zápis „a − b“ píšeme původní složky b⃗
+  const rov = pouz.map((u, i) => (i === 0 ? (u.neg ? M : "") : (u.neg ? ` ${M} ` : " + ")) + vec(u.p)).join("");
+  const sx = pouz.map((u, i) => clen(u, i, "dx")).join(""), sy = pouz.map((u, i) => clen(u, i, "dy")).join("");
+  const n2 = R.x * R.x + R.y * R.y, r = V.odmocnina(n2);
+  let html = `
+    <div>${vec("R")} = ${rov}</div>
+    <div>Δx = ${sx} = <b>${V.fmt(R.x)}</b></div>
+    <div>Δy = ${sy} = <b>${V.fmt(R.y)}</b></div>
+    <div>${vec("R")}: <b>${V.popisSlozek(R.x, R.y)}</b></div>
+    <div>|${vec("R")}| = √(Δx² + Δy²) = √(${V.zav(R.x)}² + ${V.zav(R.y)}²)</div>
+    <div>&emsp;= ${r.presne ? `√${n2} = <span class="hl" style="color:${VYSL}">${V.fmt(r.hodnota, 0)} N</span>` : `√${n2} <span class="hl" style="color:${VYSL}">≈ ${V.fmt(r.hodnota)} N</span>`}</div>`;
+  if (pom && n > 2) {
+    html += `<div class="k" style="margin-top:6px">Pomocné vektory (čárkovaně):</div>`;
+    for (let k = 2; k < n; k++) {
+      const s = S[k], nm = "O" + BODY[k - 1], rr = V.odmocnina(s.x * s.x + s.y * s.y);
+      const part = pouz.slice(0, k).map((u, i) => (i === 0 ? (u.neg ? M : "") : (u.neg ? ` ${M} ` : " + ")) + vec(u.p)).join("");
+      html += `<div class="small">${vec(nm)} = ${part} = ${V.popisSlozek(s.x, s.y)}, |${vec(nm)}| ${rr.presne ? "=" : "≈"} ${V.fmt(rr.hodnota)} N</div>`;
+    }
+  }
+  if (n === 1) html += `<div class="k">Je použitý jen jeden vektor – výslednice je on sám.</div>`;
+  $("eq3").innerHTML = html;
+}
+$("modeChain").onclick = () => { st3.mode = "chain"; $("modeChain").classList.add("on"); $("modePar").classList.remove("on"); okno3(); };
+$("modePar").onclick = () => { st3.mode = "par"; $("modePar").classList.add("on"); $("modeChain").classList.remove("on"); okno3(); };
+$("pomocne3").onchange = okno3;
+$("reset3").onclick = () => {
+  PISMENA.forEach(p => { st3.use[p] = true; st3.neg[p] = false; });
+  $("pomocne3").checked = true; $("modeChain").click();
+};
+
+reset1();
+reset2();
+</script>
+</body>
+</html>
