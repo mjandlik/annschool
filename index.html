@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="apple-mobile-web-app-title" content="Ann School">
 <title>Ann School</title>
+<link rel="icon" type="image/svg+xml" href="system/img/cat.svg">
+<link rel="apple-touch-icon" href="system/img/apple-touch-icon.png">
 <!--
   ROZCESTNÍK – Ann School (index.html, stálá adresa, proto bez _vXX; historie je v gitu)
   Seznam souborů se načítá automaticky z GitHubu (aktuální = nejvyšší _vXX v každé složce předmětu).
@@ -25,6 +27,7 @@
     display: flex; align-items: center; gap: 12px; }
   .panel-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-title .logo { width: 26px; height: 26px; vertical-align: -7px; margin-left: 6px; }
   .panel-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
   .panel-actions a, .panel-actions button { font: inherit; font-size: 14px; padding: 5px 10px; border-radius: 8px;
     border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer;
@@ -51,7 +54,7 @@
 </head>
 <body>
 <div id="panel">
-  <div class="panel-title">Ann School</div>
+  <div class="panel-title">Ann School <img class="logo" src="system/img/cat.svg" alt=""></div>
   <div class="panel-actions">
     <!-- systémová tlačítka rozcestníku – další přidávej sem -->
     <button id="btnReload" type="button">Obnovit</button>
