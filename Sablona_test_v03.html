@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test</title>
+<!--
+  ŠABLONA HTML TESTU – Ann School (Sablona_test_vXX.html)
+  Nový test = kopie této šablony. Měň JEN blok „KONFIGURACE TESTU“ níže.
+  Knihovny pro PDF leží v repozitáři v lib/ (stránka musí běžet z GitHub Pages).
+  Horní panel: nová systémová tlačítka přidávej do <div class="panel-actions">.
+-->
+<script src="lib/html2canvas-1.4.1.min.js"></script>
+<script src="lib/jspdf-2.5.2.min.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7; --paper: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5;
+    --ok: #1f7a3a; --ok-bg: #e6f4ea; --bad: #b3261e; --bad-bg: #fbe9e7;
+    --accent: #2b5cab; --panel-h: 56px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 20px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+  /* ---------- horní panel ---------- */
+  #panel { position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    min-height: var(--panel-h); padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top));
+    background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px; }
+  .panel-title { flex: 1 1 auto; min-width: 0; font-size: 16px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-title .ver { color: var(--muted); font-weight: 400; }
+  .panel-title .timer { margin-left: 10px; color: var(--accent); }
+  .panel-title .timer.over { color: var(--bad); }
+  .panel-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+  .panel-actions .sep { width: 1px; height: 28px; background: var(--line); margin: 0 4px; }
+  .panel-actions button { font: inherit; font-size: 15px; padding: 7px 11px; border-radius: 8px;
+    border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer; white-space: nowrap; }
+  .panel-actions button.on { background: var(--accent); color: #fff; }
+  .panel-actions button.ready { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .panel-actions .swatch { width: 30px; height: 30px; border-radius: 50%; padding: 0; border: 3px solid transparent; }
+  .panel-actions .swatch.on { border-color: var(--text); background-clip: padding-box; }
+  .draw-tools[hidden] { display: none; }
+  .draw-tools { display: flex; align-items: center; gap: 6px; }
+
+  main { max-width: 860px; margin: 0 auto; padding: calc(var(--panel-h) + 20px) 16px 80px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  .meta { color: var(--muted); font-size: 16px; }
+  .intro { margin: 10px 0 0; font-size: 17px; }
+  #header { padding-bottom: 6px; }
+
+  /* ---------- sekce a příklady ---------- */
+  .sec { margin-top: 26px; border-top: 1px solid var(--line); padding-top: 16px; scroll-margin-top: calc(var(--panel-h) + 12px); }
+  .sec-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .sec-head h2 { font-size: 21px; margin: 0; }
+  .sec-score { font-size: 18px; font-weight: 600; }
+  .sec-score.all { color: var(--ok); }
+  .q { padding: 14px 0; border-bottom: 1px solid var(--line); }
+  .q-row { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 24px; }
+  .num { color: var(--muted); font-size: 18px; min-width: 2em; }
+  input.ans { width: 9em; font-size: 24px; padding: 8px 10px; border: 2px solid var(--line);
+    border-radius: 8px; background: var(--paper); color: var(--text); text-align: right; }
+  input.ans:focus { outline: none; border-color: var(--accent); }
+  .q.ok input.ans { border-color: var(--ok); background: var(--ok-bg); }
+  .q.bad input.ans { border-color: var(--bad); background: var(--bad-bg); }
+  .fb { font-size: 17px; margin-top: 6px; }
+  .fb:empty { display: none; }
+  .q.ok .fb { color: var(--ok); }
+  .q.bad .fb { color: var(--bad); }
+  .hint { font-size: 16px; color: var(--muted); margin-top: 6px; }
+  .hint[hidden] { display: none; }
+  .link { font-size: 15px; color: var(--accent); background: none; border: 0; padding: 4px 0; cursor: pointer; }
+  .sec-btns { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+  button.btn { font: inherit; font-size: 18px; padding: 10px 18px; border-radius: 10px;
+    border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer; }
+  button.btn.primary { background: var(--accent); color: #fff; }
+
+  /* ---------- kreslicí plochy ---------- */
+  .pad { position: relative; margin-top: 10px; border: 1px solid var(--line); border-radius: 8px;
+    overflow: hidden; background: var(--paper); }
+  .pad canvas { display: block; width: 100%; }
+  .pad-btns { position: absolute; top: 6px; right: 6px; display: flex; gap: 6px; }
+  .pad-btns button { font-size: 14px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--line);
+    background: rgba(255,255,255,.9); color: var(--text); cursor: pointer; }
+  .note { font-size: 15px; color: var(--muted); margin-top: 18px; }
+
+  /* úzké displeje: barvy schovat do menší velikosti */
+  @media (max-width: 700px) {
+    .panel-actions .swatch { width: 24px; height: 24px; }
+    .panel-actions button { padding: 6px 8px; font-size: 14px; }
+  }
+  /* při tvorbě PDF skryj ovládací prvky */
+  body.capturing .no-pdf { display: none !important; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <div class="panel-title"><span id="pTitle"></span> <span class="ver" id="pVer"></span><span class="timer" id="timer"></span></div>
+  <div class="panel-actions">
+    <div class="draw-tools" id="drawTools" hidden>
+      <button class="swatch on" data-color="#1d1d1b" style="background:#1d1d1b" aria-label="černá"></button>
+      <button class="swatch" data-color="#2b5cab" style="background:#2b5cab" aria-label="modrá"></button>
+      <button class="swatch" data-color="#b3261e" style="background:#b3261e" aria-label="červená"></button>
+      <button id="toolPen" class="on">Pero</button>
+      <button id="toolEraser">Guma</button>
+      <button id="toolFinger" title="Kreslit i prstem">Prst</button>
+      <span class="sep"></span>
+    </div>
+    <!-- systémová tlačítka – další přidávej sem -->
+    <button id="btnNew" hidden>Nová sada</button>
+    <button id="btnPdf">PDF</button>
+  </div>
+</div>
+
+<main>
+  <div id="header">
+    <h1 id="title"></h1>
+    <div class="meta" id="meta"></div>
+    <p class="intro" id="intro"></p>
+  </div>
+
+  <div id="sections"></div>
+
+  <div id="finalScratch" class="sec" hidden>
+    <div class="sec-head"><h2>Místo na výpočty</h2></div>
+  </div>
+
+  <p class="note no-pdf" id="padNote" hidden>Apple Pencil kreslí, prstem se posouvá stránka (tlačítko „Prst“ zapne kreslení prstem). Odpovědi a kresby se po zavření stránky neukládají – před zavřením ulož PDF.</p>
+</main>
+
+<script>
+/* =====================================================================
+   KONFIGURACE TESTU – měň jen tuto část
+   ---------------------------------------------------------------------
+   title, version     … název a verze (zobrazí se v panelu a v PDF)
+   intro              … pokyny pod nadpisem
+   topic              … téma pro název PDF (bez diakritiky, pomlčky)
+   timeLimitMin       … časový limit v minutách (0 = bez limitu)
+   showHints          … u příkladů tlačítko „Nápověda“
+   finalScratch       … velká plocha na výpočty na konci testu
+   questions          … pevná sada; { section: "…" } začíná novou sekci
+                        (každá sekce má vlastní Vyhodnotit / Zkusit znovu a skóre)
+   generate           … funkce vracející novou náhodnou sadu (nebo null);
+                        pokud je zadaná, použije se místo questions
+                        a v panelu se zobrazí tlačítko „Nová sada“
+   Příklad:
+     { before: "5 m =", after: "mm", answer: 5000,
+       tol: 0,           … povolená odchylka (např. 0.05 u zaokrouhlení)
+       hint: "…",        … nápověda / vysvětlení u chyby
+       scratch: false }  … plocha na výpočet pod příkladem
+   ===================================================================== */
+const TEST = {
+  title: "Převody jednotek – ukázkový test",
+  version: "v03",
+  intro: "Doplň číslo do prázdného pole. Desetinná čárka i tečka jsou v pořádku, mezery v čísle nevadí.",
+  topic: "prevody-jednotek",
+  timeLimitMin: 0,
+  showHints: true,
+  finalScratch: true,
+  questions: [
+    { section: "Délka" },
+    { before: "5 m =", after: "mm", answer: 5000, hint: "dolů = násobím: m → mm, ×1000 (10³)" },
+    { before: "320 mm =", after: "m", answer: 0.32, hint: "nahoru = dělím: mm → m, :1000 (10³)" },
+    { section: "Čas" },
+    { before: "2,5 min =", after: "s", answer: 150, hint: "1 min = 60 s → 2,5 · 60" },
+    { before: "23 500 s ≈", after: "h (na 1 des. místo)", answer: 6.5, tol: 0.05,
+      hint: "1 h = 3600 s → 23 500 : 3600 ≈ 6,53 ≈ 6,5", scratch: true },
+    { section: "Složené jednotky" },
+    { before: "36 km/h =", after: "m/s", answer: 10, hint: "km/h → m/s: dělím 3,6", scratch: true },
+    { section: "Plocha a mocniny deseti" },
+    { before: "3 m² =", after: "cm²", answer: 30000, hint: "1 m² = 100 · 100 cm² = 10 000 cm²" },
+    { before: "4500 m =", after: "· 10³ m", answer: 4.5, hint: "4500 = 4,5 · 1000" }
+  ],
+  generate: null
+  /* Ukázka náhodné sady:
+  generate: () => {
+    const r = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+    const out = [{ section: "Délka" }];
+    for (let i = 0; i < 5; i++) { const m = r(2, 95) / 10;
+      out.push({ before: `${fmt(m)} m =`, after: "cm", answer: m * 100, hint: "dolů = násobím, ×100" }); }
+    return out;
+  } */
+};
+/* ===================== KONEC KONFIGURACE ===================== */
+
+
+/* ---------- pomocné funkce ---------- */
+function fmt(n) { return Number(n.toFixed(10)).toLocaleString("cs-CZ", { maximumFractionDigits: 10 }); }
+function parseAnswer(s) {
+  const t = String(s).replace(/[\s  ]/g, "").replace(/−/g, "-").replace(",", ".");
+  if (t === "" || !/^[-+]?(\d+\.?\d*|\.\d+)$/.test(t)) return null;
+  return Number(t);
+}
+function isCorrect(value, answer, tol) {
+  if (value === null) return false;
+  const t = Math.max(tol || 0, Math.abs(answer) * 1e-9, 1e-12);
+  return Math.abs(value - answer) <= t;
+}
+const $ = id => document.getElementById(id);
+
+/* ---------- kreslicí plochy ---------- */
+const draw = { color: "#1d1d1b", eraser: false, finger: false };
+const pads = [];
+const CELL = 24;
+
+class Pad {
+  constructor(parent, height) {
+    this.wrap = document.createElement("div");
+    this.wrap.className = "pad";
+    this.canvas = document.createElement("canvas");
+    this.canvas.style.height = height + "px";
+    this.wrap.appendChild(this.canvas);
+    const btns = document.createElement("div");
+    btns.className = "pad-btns no-pdf";
+    btns.innerHTML = '<button type="button">Zpět</button><button type="button">Smazat</button>';
+    btns.children[0].onclick = () => { this.strokes.pop(); this.redraw(); changed(); };
+    btns.children[1].onclick = () => {
+      if (this.strokes.length && confirm("Smazat tuto plochu?")) { this.strokes = []; this.redraw(); changed(); }
+    };
+    this.wrap.appendChild(btns);
+    parent.appendChild(this.wrap);
+    this.ctx = this.canvas.getContext("2d");
+    this.ink = document.createElement("canvas");
+    this.ictx = this.ink.getContext("2d");
+    this.strokes = []; this.cur = null;
+    this.bind(); this.resize();
+    pads.push(this);
+  }
+  resize() {
+    const r = this.canvas.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+    this.w = r.width; this.h = r.height; this.dpr = dpr;
+    this.canvas.width = this.ink.width = Math.round(r.width * dpr);
+    this.canvas.height = this.ink.height = Math.round(r.height * dpr);
+    this.redraw();
+  }
+  redraw() {
+    const { ctx, ictx, dpr } = this;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, this.w, this.h);
+    ctx.strokeStyle = "#d6e2f0"; ctx.lineWidth = 1; ctx.beginPath();
+    for (let x = 0.5; x < this.w; x += CELL) { ctx.moveTo(x, 0); ctx.lineTo(x, this.h); }
+    for (let y = 0.5; y < this.h; y += CELL) { ctx.moveTo(0, y); ctx.lineTo(this.w, y); }
+    ctx.stroke();
+    ictx.setTransform(1, 0, 0, 1, 0, 0); ictx.clearRect(0, 0, this.ink.width, this.ink.height);
+    ictx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this.strokes.forEach(s => Pad.stroke(ictx, s));     // guma maže jen kresbu, ne síť
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(this.ink, 0, 0);
+  }
+  static stroke(c, s) {
+    c.save(); c.lineCap = "round"; c.lineJoin = "round";
+    c.globalCompositeOperation = s.eraser ? "destination-out" : "source-over";
+    c.strokeStyle = c.fillStyle = s.color;
+    for (let i = 1; i < s.pts.length; i++) {
+      const [x0, y0] = s.pts[i - 1], [x1, y1, p] = s.pts[i];
+      c.lineWidth = s.eraser ? 22 : 2.5 * (0.6 + p * 0.8);
+      c.beginPath(); c.moveTo(x0, y0); c.lineTo(x1, y1); c.stroke();
+    }
+    if (s.pts.length === 1) { const [x, y] = s.pts[0];
+      c.beginPath(); c.arc(x, y, s.eraser ? 11 : 1.5, 0, 7); c.fill(); }
+    c.restore();
+  }
+  bind() {
+    const cv = this.canvas;
+    const can = e => e.pointerType === "pen" || e.pointerType === "mouse" || (e.pointerType === "touch" && draw.finger);
+    const pos = e => { const r = cv.getBoundingClientRect();
+      return [e.clientX - r.left, e.clientY - r.top, e.pointerType === "pen" ? (e.pressure || .5) : .5]; };
+    cv.addEventListener("pointerdown", e => {
+      if (!can(e)) return;
+      e.preventDefault(); cv.setPointerCapture(e.pointerId);
+      this.cur = { color: draw.color, eraser: draw.eraser, pts: [pos(e)] };
+      this.strokes.push(this.cur); this.redraw();
+    });
+    cv.addEventListener("pointermove", e => {
+      if (!this.cur) return;
+      e.preventDefault();
+      (e.getCoalescedEvents ? e.getCoalescedEvents() : [e]).forEach(ev => this.cur.pts.push(pos(ev)));
+      this.redraw();
+    });
+    ["pointerup", "pointercancel"].forEach(t => cv.addEventListener(t, () => { if (this.cur) changed(); this.cur = null; }));
+    // iPad: Pencil nesmí posouvat stránku; prst posouvá (pokud není zapnuté kreslení prstem)
+    const block = e => { const t = e.touches[0]; if (t && (t.touchType === "stylus" || draw.finger)) e.preventDefault(); };
+    cv.addEventListener("touchstart", block, { passive: false });
+    cv.addEventListener("touchmove", block, { passive: false });
+  }
+}
+
+/* ---------- vykreslení testu ---------- */
+let SECTIONS = [];   // [{name, el, questions:[q…]}]
+function build() {
+  const list = (typeof TEST.generate === "function") ? TEST.generate() : TEST.questions;
+  pads.length = 0;
+  SECTIONS = [];
+  const box = $("sections"); box.innerHTML = "";
+  let sec = null, n = 0;
+  const newSection = name => {
+    const el = document.createElement("div"); el.className = "sec";
+    el.innerHTML = `<div class="sec-head"><h2></h2><span class="sec-score"></span></div>
+      <div class="sec-qs"></div>
+      <div class="sec-btns no-pdf"><button class="btn primary">Vyhodnotit</button><button class="btn">Zkusit znovu</button></div>`;
+    el.querySelector("h2").textContent = name || "Příklady";
+    sec = { name, el, questions: [] };
+    const [bEval, bReset] = el.querySelectorAll(".sec-btns button");
+    const s = sec;
+    bEval.onclick = () => evaluate(s);
+    bReset.onclick = () => { if (confirm("Vymazat odpovědi v této sekci?")) resetSection(s); };
+    SECTIONS.push(sec); box.appendChild(el);
+  };
+  list.forEach(q => {
+    if (q.section !== undefined) { newSection(q.section); return; }
+    if (!sec) newSection("Příklady");
+    n++;
+    const d = document.createElement("div"); d.className = "q";
+    d.innerHTML = `<div class="q-row"><span class="num">${n}.</span><span class="b"></span>
+      <input class="ans" type="text" inputmode="decimal" autocomplete="off" autocorrect="off"
+        autocapitalize="off" spellcheck="false" aria-label="odpověď ${n}"><span class="a"></span></div>
+      <div class="fb"></div>`;
+    d.querySelector(".b").textContent = q.before || "";
+    d.querySelector(".a").textContent = q.after || "";
+    if (TEST.showHints && q.hint) {
+      const hb = document.createElement("button"); hb.className = "link no-pdf"; hb.textContent = "Nápověda";
+      const ht = document.createElement("div"); ht.className = "hint"; ht.hidden = true; ht.textContent = q.hint;
+      hb.onclick = () => { ht.hidden = !ht.hidden; };
+      d.appendChild(hb); d.appendChild(ht);
+    }
+    q._el = d;
+    sec.questions.push(q);
+    sec.el.querySelector(".sec-qs").appendChild(d);
+    if (q.scratch) new Pad(d, 168);
+  });
+  const fs = $("finalScratch");
+  fs.querySelectorAll(".pad").forEach(p => p.remove());
+  fs.hidden = !TEST.finalScratch;
+  if (TEST.finalScratch) new Pad(fs, 480);
+  $("drawTools").hidden = $("padNote").hidden = pads.length === 0;
+  $("sections").oninput = changed;
+  // Enter = další pole
+  const inputs = [...document.querySelectorAll("input.ans")];
+  inputs.forEach((inp, i) => inp.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); if (inputs[i + 1]) inputs[i + 1].focus(); else inp.blur(); }
+  }));
+  pdfReset();
+}
+
+function evaluate(sec) {
+  let ok = 0;
+  sec.questions.forEach(q => {
+    const v = parseAnswer(q._el.querySelector("input").value);
+    const good = isCorrect(v, q.answer, q.tol);
+    q._el.classList.toggle("ok", good); q._el.classList.toggle("bad", !good);
+    q._el.querySelector(".fb").textContent = good ? "Správně"
+      : `Správně je ${fmt(q.answer)}${q.after ? " " + q.after : ""}` + (q.hint ? ` – ${q.hint}` : "");
+    if (good) ok++;
+  });
+  const total = sec.questions.length, sc = sec.el.querySelector(".sec-score");
+  sc.textContent = `${ok} / ${total}  (${Math.round(ok / total * 100)} %)`;
+  sc.classList.toggle("all", ok === total);
+  pdfReset();
+  sec.el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function resetSection(sec) {
+  sec.questions.forEach(q => {
+    q._el.classList.remove("ok", "bad"); q._el.querySelector("input").value = "";
+    q._el.querySelector(".fb").textContent = ""; });
+  const sc = sec.el.querySelector(".sec-score"); sc.textContent = ""; sc.classList.remove("all");
+  pdfReset();
+}
+
+/* ---------- časovač ---------- */
+function startTimer() {
+  if (!TEST.timeLimitMin) return;
+  const end = Date.now() + TEST.timeLimitMin * 60000, el = $("timer");
+  const tick = () => {
+    const s = Math.max(0, Math.round((end - Date.now()) / 1000));
+    el.textContent = s ? `⏱ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "Čas vypršel";
+    el.classList.toggle("over", !s);
+    if (s) setTimeout(tick, 1000);
+  };
+  tick();
+}
+
+/* ---------- PDF ---------- */
+let pdfFile = null, version = 0;      // version roste s každou změnou na stránce
+function changed() { version++; pdfReset(); }
+function pdfReset() {
+  pdfFile = null; const b = $("btnPdf");
+  if (b.dataset.busy) return;          // právě se tvoří – po dokončení se pozná, že je zastaralé
+  b.textContent = "PDF"; b.classList.remove("ready");
+}
+function pdfName() {
+  const d = new Date(), p = x => String(x).padStart(2, "0");
+  return `Test_${TEST.topic || "test"}_${TEST.version || ""}_${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}.pdf`.replace("__", "_");
+}
+async function makePdf() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const PW = 210, PH = 297, M = 12, W = PW - 2 * M;
+  // bloky, které se nesmí rozdělit mezi stránky
+  const blocks = [$("header")];
+  SECTIONS.forEach(s => { blocks.push(s.el.querySelector(".sec-head")); s.questions.forEach(q => blocks.push(q._el)); });
+  if (TEST.finalScratch) blocks.push($("finalScratch"));
+  document.body.classList.add("capturing");
+  const imgs = [];
+  try {
+    for (const el of blocks) {
+      if (!el.offsetHeight) continue;
+      const scale = Math.min(2, 3800 / el.offsetWidth);
+      const c = await html2canvas(el, { scale, backgroundColor: "#ffffff", logging: false });
+      let w = W, h = c.height * W / c.width;
+      if (h > PH - 2 * M) { h = PH - 2 * M; w = c.width * h / c.height; }
+      imgs.push({ c, w, h, head: el.classList.contains("sec-head") });
+    }
+  } finally { document.body.classList.remove("capturing"); }
+  let y = M;
+  imgs.forEach((im, i) => {
+    if (im.head && y > M) y += 4;
+    // nadpis sekce drž na stejné stránce s prvním příkladem
+    const need = im.h + (im.head && imgs[i + 1] ? imgs[i + 1].h + 6 : 0);
+    if (y + need > PH - M && y > M) { doc.addPage(); y = M; }
+    doc.addImage(im.c.toDataURL("image/jpeg", 0.9), "JPEG", M, y, im.w, im.h);
+    y += im.h + (im.head ? 6 : 2);
+  });
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(9); doc.setTextColor(140);
+    doc.text(`${i} / ${n}`, PW - M, PH - 5, { align: "right" }); }
+  return new File([doc.output("blob")], pdfName(), { type: "application/pdf" });
+}
+function download(file) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+async function share(f) {
+  try { await navigator.share({ files: [f], title: f.name }); return true; }
+  catch (e) {
+    if (e.name === "AbortError") return true;          // Ann sdílení zavřela – v pořádku
+    if (e.name === "NotAllowedError") return false;    // iPad: vypršelo „klepnutí“ – je potřeba klepnout znovu
+    download(f); return true;
+  }
+}
+async function onPdf() {
+  const b = $("btnPdf");
+  if (b.dataset.busy) return;
+  if (pdfFile) { await share(pdfFile); return; }       // PDF je připravené a aktuální
+  b.dataset.busy = "1"; b.textContent = "PDF…";
+  const startVersion = version;
+  try {
+    const f = await makePdf();
+    delete b.dataset.busy;
+    if (version !== startVersion) { pdfReset(); return; }   // mezitím změna – PDF by bylo neaktuální
+    const canShare = navigator.canShare && navigator.canShare({ files: [f] });
+    if (!canShare) { download(f); pdfReset(); return; }
+    // zkus sdílení hned; když ho iPad nepustí, tlačítko zezelená a stačí klepnout ještě jednou
+    if (await share(f)) { pdfReset(); }
+    else { pdfFile = f; b.textContent = "Uložit PDF"; b.classList.add("ready"); }
+  } catch (e) {
+    delete b.dataset.busy; pdfReset();
+    alert("PDF se nepodařilo vytvořit: " + e.message);
+  }
+}
+
+/* ---------- start ---------- */
+document.title = `${TEST.title} (${TEST.version})`;
+$("pTitle").textContent = TEST.title;
+$("pVer").textContent = TEST.version ? "· " + TEST.version : "";
+$("title").textContent = TEST.title;
+$("meta").textContent = `Datum: ${new Date().toLocaleDateString("cs-CZ")}` + (TEST.version ? `  ·  verze ${TEST.version}` : "");
+$("intro").textContent = TEST.intro || "";
+if (typeof TEST.generate === "function") {
+  $("btnNew").hidden = false;
+  $("btnNew").onclick = () => { if (confirm("Vytvořit novou sadu příkladů? Odpovědi i kresby se smažou.")) build(); };
+}
+$("btnPdf").onclick = onPdf;
+document.querySelectorAll(".panel-actions .swatch").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".panel-actions .swatch").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); draw.color = b.dataset.color; setEraser(false);
+});
+function setEraser(on) { draw.eraser = on; $("toolEraser").classList.toggle("on", on); $("toolPen").classList.toggle("on", !on); }
+$("toolPen").onclick = () => setEraser(false);
+$("toolEraser").onclick = () => setEraser(true);
+$("toolFinger").onclick = () => { draw.finger = !draw.finger; $("toolFinger").classList.toggle("on", draw.finger); };
+let rT; window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(() => pads.forEach(p => p.resize()), 150); });
+build();
+startTimer();
+</script>
+</body>
+</html>
