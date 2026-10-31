@@ -74,16 +74,17 @@
 /* ===================== NÁZVY (doplňuj při novém tématu / předmětu) ===================== */
 const NAZVY = {
   predmety: { matematika: "Matematika", fyzika: "Fyzika", chemie: "Chemie" },
-  // Pořadí témat v rozcestníku = pořadí zde (obecné nahoře, pak podle probírání). Nové téma přidej na konec.
+  // Pořadí témat v rozcestníku = pořadí zde (podle probírání). Nové téma přidej na konec.
+  // Obecné položky (OBECNE níže) jsou vždy úplně dole.
   temata: {
-    "pokyny": "Pokyny ke známkování",
-    "sesit": "Sešit",
     "prirozena-a-cela-cisla": "Přirozená a celá čísla",
     "delitelnost": "Dělitelnost, NSD, nsn",
     "ciselne-obory": "Číselné obory",
     "mocniny-a-odmocniny": "Mocniny a odmocniny",
     "prevody-jednotek": "Převody jednotek",
-    "vektory": "Vektory"
+    "vektory": "Vektory",
+    "sesit": "Sešit",
+    "pokyny": "Pokyny ke známkování"
   },
   // typ = část názvu souboru mezi tématem a verzí. Skupiny podle začátku typu:
   // test… → Testy, zapisky… → Zápisky, skolni-material… → Školní materiály, ostatní → Výukové materiály
@@ -127,7 +128,8 @@ async function load() {
   subjects.forEach(subj => {
     const sec = document.createElement("div"); sec.className = "subj";
     const h = document.createElement("h2"); h.textContent = NAZVY.predmety[subj] || nice(subj); sec.appendChild(h);
-    const POR = Object.keys(NAZVY.temata), pos = t => { const i = POR.indexOf(t); return i < 0 ? 1e9 : i; };
+    const POR = Object.keys(NAZVY.temata), OBECNE = ["sesit", "pokyny"];
+    const pos = t => OBECNE.includes(t) ? 2e9 + OBECNE.indexOf(t) : (POR.indexOf(t) < 0 ? 1e9 : POR.indexOf(t));
     const topics = Object.keys(data[subj]).sort((a, b) => pos(a) - pos(b) ||
       (NAZVY.temata[a] || nice(a)).localeCompare(NAZVY.temata[b] || nice(b), "cs"));
     topics.forEach(topic => {
