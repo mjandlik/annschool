@@ -10,7 +10,7 @@
 <!--
   ROZCESTNÍK – Ann School (index.html, stálá adresa, proto bez _vXX; historie je v gitu)
   Seznam souborů se načítá automaticky z GitHubu (aktuální = nejvyšší _vXX v každé složce předmětu).
-  Při novém tématu nebo předmětu doplň jen český název do NAZVY níže.
+  Při novém tématu nebo předmětu doplň jen český název do NAZVY níže (nové téma na konec NAZVY.temata – určuje pořadí).
 -->
 <style>
   :root {
@@ -74,15 +74,16 @@
 /* ===================== NÁZVY (doplňuj při novém tématu / předmětu) ===================== */
 const NAZVY = {
   predmety: { matematika: "Matematika", fyzika: "Fyzika", chemie: "Chemie" },
+  // Pořadí témat v rozcestníku = pořadí zde (obecné nahoře, pak podle probírání). Nové téma přidej na konec.
   temata: {
-    "prevody-jednotek": "Převody jednotek",
-    "vektory": "Vektory",
-    "prirozena-a-cela-cisla": "Přirozená a celá čísla",
-    "sesit": "Sešit",
-    "ciselne-obory": "Číselné obory",
-    "delitelnost": "Dělitelnost, NSD, nsn",
     "pokyny": "Pokyny ke známkování",
-    "mocniny-a-odmocniny": "Mocniny a odmocniny"
+    "sesit": "Sešit",
+    "prirozena-a-cela-cisla": "Přirozená a celá čísla",
+    "delitelnost": "Dělitelnost, NSD, nsn",
+    "ciselne-obory": "Číselné obory",
+    "mocniny-a-odmocniny": "Mocniny a odmocniny",
+    "prevody-jednotek": "Převody jednotek",
+    "vektory": "Vektory"
   },
   // typ = část názvu souboru mezi tématem a verzí. Skupiny podle začátku typu:
   // test… → Testy, zapisky… → Zápisky, skolni-material… → Školní materiály, ostatní → Výukové materiály
@@ -126,7 +127,8 @@ async function load() {
   subjects.forEach(subj => {
     const sec = document.createElement("div"); sec.className = "subj";
     const h = document.createElement("h2"); h.textContent = NAZVY.predmety[subj] || nice(subj); sec.appendChild(h);
-    const topics = Object.keys(data[subj]).sort((a, b) =>
+    const POR = Object.keys(NAZVY.temata), pos = t => { const i = POR.indexOf(t); return i < 0 ? 1e9 : i; };
+    const topics = Object.keys(data[subj]).sort((a, b) => pos(a) - pos(b) ||
       (NAZVY.temata[a] || nice(a)).localeCompare(NAZVY.temata[b] || nice(b), "cs"));
     topics.forEach(topic => {
       const row = document.createElement("div"); row.className = "topic";
