@@ -10,6 +10,9 @@
   Načte data z webové aplikace Google Apps Script (adresa v system/lib/zaznam.js, ENDPOINT).
   Nové testy se přidávají samy – stačí, že pošlou první výsledek. Návod: system/Navod_test_vXX.md, kap. 9.
   „Období“ načte jen události od zvoleného data (parametr od=YYYY-MM-DD), aby se přehled časem nezpomaloval.
+  Zadání a správné odpovědi všech příkladů (i neodeslaných): ze startu testu (šablona v21+), jinak z konfigurace
+  souboru testu v repozitáři (aktuální cesta, pak archiv/). „papír teď“ u příkladu: poslední stav papíru
+  (náhled každých 20 s u šablony v21+, jinak papír z posledního vyhodnocení), tlačítko „obnovit“ načte znovu.
 -->
 <script src="system/lib/zaznam.js"></script>
 <style>
@@ -54,6 +57,8 @@
   .kpi span { font-size: 12px; color: var(--muted); }
   .att { margin: 2px 0; }
   .att .ok { color: var(--zelena); font-weight: 600; } .att .bad { color: var(--cervena); font-weight: 600; }
+  .ted { margin-top: 4px; }
+  .ted .tedinfo { margin-left: 4px; }
   .paperimg { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; margin-top: 4px; display: block; }
   .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 8px 0 12px; }
   .opts { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
@@ -117,6 +122,8 @@ function zpracuj(d) {
     const st = r.ev.find(u => u.udalost === "start");
     let det = {}; try { det = st && st.detail ? JSON.parse(st.detail) : {}; } catch (e) { /* nic */ }
     r.pocet = N(det.pocet) || 0;
+    r.sablona = det.sablona || "";
+    r.konfig = Array.isArray(det.priklady) ? det.priklady : null;     // zadání + správné odpovědi (šablona v21+)
     // poslední souhrn/stav = doby a stavy všech příkladů (i přeskočených)
     const sum = r.ev.filter(u => u.udalost === "souhrn" || u.udalost === "stav").pop();
     let sd = null; try { sd = sum && sum.detail ? JSON.parse(sum.detail) : null; } catch (e) { sd = null; }
@@ -138,8 +145,10 @@ function zpracuj(d) {
       else if (u.udalost === "odchod") { r.odchody++; r.odchody_s += N(u.doba_s); if (n) { const q = Q(n); q._odch = (q._odch || 0) + 1; q._odchS = (q._odchS || 0) + N(u.doba_s); } }
     });
     Object.values(r.q).forEach(q => { if (q._odch > q.odchody) { q.odchody = q._odch; q.odchody_s = q._odchS; } });
+    r._Q = Q;
     if (!r.pocet) r.pocet = Math.max(0, ...Object.keys(r.q).map(Number));
     for (let n = 1; n <= r.pocet; n++) Q(n);
+    if (r.konfig) doplnKonfig(r, r.konfig);
     const qs = Object.values(r.q).filter(q => q.n >= 1).sort((a, b) => a.n - b.n);
     r.qs = qs;
     r.body = qs.reduce((a, q) => a + (BODY[q.stav] || 0), 0);
@@ -152,6 +161,113 @@ function zpracuj(d) {
 }
 /* ---------- stránky s teorií (materiály, taháky, pracovní listy, simulátory, zápisky) a rozcestník: události otevreni / stranka / odchod / klik ---------- */
 const TYPY = { material: "materiál", tahak: "tahák", "pracovni-list": "pracovní list", simulator: "simulátor", zapisky: "zápisky", rozcestnik: "" };
+/* ---------- zadání a správné odpovědi všech příkladů ----------
+   Šablona v21+ je posílá při startu (detail.priklady). U starších testů se načte soubor testu z repozitáře
+   a z bloku KONFIGURACE TESTU se zadání a správné odpovědi spočítají stejně jako v šabloně (zadaniText, fieldText). */
+function doplnKonfig(r, list) {
+  list.forEach(k => {
+    const q = r._Q(N(k.n));
+    if (!q.zadani) q.zadani = k.zadani || "";
+    if (!q.spravna) q.spravna = k.spravna || "";
+    if (!q.sekce) q.sekce = k.sekce || "";
+    if (!q.typ) q.typ = k.typ || "";
+  });
+  if (list.length > r.pocet) r.pocet = list.length;
+}
+const KONF = {};
+const CESTA_TESTU = /^[a-z0-9-]+\/[a-z0-9-]+_test[a-z0-9-]*_v\d\d\.html$/;      // jen testy z repozitáře
+const fmtT = n => Number(n.toFixed(10)).toLocaleString("cs-CZ", { maximumFractionDigits: 10 }).replace(/^[-−]/, "−");
+const fmtV = n => { let x = Math.round(n * 10) / 10; if (Object.is(x, -0)) x = 0; return (x < 0 ? "−" : "") + String(Math.abs(x)).replace(".", ","); };
+const plainT = s => String(s == null ? "" : s).replace(/\{([^{}]+)\}/g, "$1⃗").replace(/\^\(([^()]+)\)/g, "^($1)");
+const popisV = (dx, dy) => { const p = []; if (dx) p.push(fmtV(Math.abs(dx)) + (dx > 0 ? " doprava" : " doleva"));
+  if (dy) p.push(fmtV(Math.abs(dy)) + (dy > 0 ? " nahoru" : " dolů")); return p.length ? p.join(", ") : "nulový vektor"; };
+function prikladyZKonfigurace(T) {
+  const out = []; let sec = null;
+  (T.questions || []).forEach(q => {
+    if (q.section !== undefined) { sec = q.section || "Příklady"; return; }
+    const typ = q.type || "cislo";
+    const fields = typ === "cislo" ? [{ before: q.before, after: q.after, answer: q.answer, tol: q.tol }]
+      : typ === "vyber" ? [{ options: q.options, answer: q.answer }] : typ === "dukaz" ? [] : (q.fields || []);
+    const f = fields.map(f => [f.before, f.options ? "[" + f.options.join(" / ") + "]" : "[ ]", f.after].filter(Boolean).join(" ")).join(" · ");
+    const fieldText = f => { const dec = f.tol ? Math.max(0, Math.ceil(-Math.log10(2 * f.tol))) : null;
+      const v = f.options ? f.options[f.answer] : fmtT(dec === null ? f.answer : Number(f.answer.toFixed(dec)));
+      return [f.before, v, f.after].filter(Boolean).join(" "); };
+    let kresba = "";
+    if (typ === "rysuj") kresba = (q.nazev || "v") + ": " + popisV(q.answer.dx, q.answer.dy);
+    if (typ === "retez") { const s = q.retez.reduce((a, x) => ({ dx: a.dx + x.dx, dy: a.dy + x.dy }), { dx: 0, dy: 0 });
+      kresba = q.retez.map(x => x.nazev + ": " + popisV(x.dx, x.dy)).concat((q.vysledna || "R") + ": " + popisV(s.dx, s.dy)).join("; "); }
+    out.push({ n: out.length + 1, sekce: plainT(sec || "Příklady"), typ,
+      zadani: plainT([q.text, f].filter(Boolean).join(" | ")),
+      spravna: plainT([fields.map(fieldText).join(" · "), kresba].filter(Boolean).join(" | ")) });
+  });
+  return out;
+}
+function konfigTestu(cesta, verze) {
+  const klic = cesta + "|" + verze;
+  if (!KONF[klic]) KONF[klic] = (async () => {
+    if (!CESTA_TESTU.test(cesta)) return null;
+    for (const p of [cesta, "archiv/" + cesta.replace("/", "-")]) {
+      try {
+        const res = await fetch(p, { cache: "no-cache" }); if (!res.ok) continue;
+        const t = await res.text();
+        const a = t.indexOf("const TEST = {"), b = t.indexOf("/* ===================== KONEC KONFIGURACE");
+        if (a < 0 || b < a) continue;
+        const T = new Function("fmt", t.slice(a, b) + "\n;return TEST;")(fmtT);
+        if (!T || T.version !== verze || typeof T.generate === "function") continue;   // jiná verze / náhodná sada
+        return prikladyZKonfigurace(T);
+      } catch (e) { /* další možnost */ }
+    }
+    return null;
+  })();
+  return KONF[klic];
+}
+// doplní zadání u relací bez detail.priklady a přepočítá; pak znovu vykreslí
+async function doplnZadani() {
+  const chybi = RELACE.filter(r => !r.konfig && r.qs.some(q => !q.zadani || !q.spravna && q.typ !== "dukaz"));
+  if (!chybi.length) return;
+  const vysl = await Promise.all(chybi.map(r => konfigTestu(r.test, r.verze)));
+  let zmena = false;
+  chybi.forEach((r, i) => {
+    if (!vysl[i]) return;
+    doplnKonfig(r, vysl[i]); zmena = true;
+    for (let n = 1; n <= r.pocet; n++) r._Q(n);
+    r.qs = Object.values(r.q).filter(q => q.n >= 1).sort((a, b) => a.n - b.n);
+    r.max = r.qs.filter(q => q.typ !== "dukaz").length;
+  });
+  if (zmena) render();
+}
+
+/* ---------- „papír teď“: poslední stav papíru u příkladu ---------- */
+const OBR = {};
+function obrazek(id) { return OBR[id] || (OBR[id] = Zaznam.nacti("obrazek", { id }).then(j => j.url, e => { delete OBR[id]; throw e; })); }
+async function papirTed(b) {
+  const r = RELACE.find(x => x.id === detail); if (!r) return;
+  const n = N(b.dataset.n), q = r.qs.find(x => x.n === n);
+  const row = b.closest(".ted"), box = row.querySelector(".imgbox"), info = row.querySelector(".tedinfo");
+  b.disabled = true; b.textContent = "načítám…";
+  try {
+    let pol = null;
+    try {
+      const j = await Zaznam.nacti("nahled", { relace: r.id });
+      if (Array.isArray(j.nahledy)) pol = j.nahledy.filter(x => N(x.priklad) === n).sort((a, c) => new Date(a.cas) - new Date(c.cas)).pop() || null;
+    } catch (e) { pol = null; }
+    // papír z posledního vyhodnocení v načtených datech (skript bez náhledů nebo novější než náhled)
+    const p = q && q.pokusy.filter(x => x.papir && !String(x.papir).startsWith("chyba")).pop();
+    if (p && (!pol || new Date(p.cas) > new Date(pol.cas))) pol = { papir: p.papir, cas: p.cas, zdroj: "pokus" };
+    const cas = pol ? new Date(pol.cas).toLocaleTimeString("cs-CZ") + (new Date(pol.cas).toDateString() === new Date().toDateString() ? "" : " " + new Date(pol.cas).toLocaleDateString("cs-CZ")) : "";
+    const pozn = r.sablona >= "v21" ? "" : " · tento test posílá papír jen při Vyhodnotit";
+    if (!pol) { box.innerHTML = ""; info.textContent = "na papíře zatím nic není" + pozn; }
+    else if (pol.papir === "prazdne") { box.innerHTML = ""; info.textContent = `papír je prázdný (smazaný), stav z ${cas}`; }
+    else {
+      const url = await obrazek(pol.papir);
+      box.innerHTML = `<img class="paperimg" src="${url}" alt="papír">`;
+      info.textContent = `stav z ${cas} (${pol.zdroj === "nahled" ? "průběžný náhled" : "při vyhodnocení"})` + pozn;
+    }
+    if (q) q.ted = { html: box.innerHTML, info: info.textContent };
+  } catch (e) { info.textContent = "nepodařilo se načíst: " + e.message; }
+  b.disabled = false; b.textContent = "obnovit";
+}
+
 function zpracujStranky(d) {
   const by = {};
   d.udalosti.forEach(u => {
@@ -285,7 +401,8 @@ function renderDetail(r) {
       q.odchody ? `<span class="flag">odchody: ${q.odchody} (${fmtS(q.odchody_s)})</span>` : "", q.stav === "seda" && !q.pokusy.length ? `<span class="flag">přeskočeno</span>` : ""].join("");
     h += `<tr><td><span class="dot st-${q.stav}">${q.n}</span></td>
       <td>${esc(q.zadani || "–")}<div class="small">${esc(q.sekce)}${q.spravna ? " · správně: " + esc(q.spravna) : ""}</div></td>
-      <td>${att || '<span class="small">bez odpovědi</span>'}</td><td class="num">${fmtS(q.doba)}</td><td class="hide-m">${pozn}</td></tr>`;
+      <td>${att || '<span class="small">bez odpovědi</span>'}
+        <div class="ted"><button class="pap-ted" data-n="${q.n}">${q.ted ? "obnovit" : "papír teď"}</button><span class="small tedinfo">${q.ted ? esc(q.ted.info) : ""}</span><div class="imgbox">${q.ted ? q.ted.html : ""}</div></div></td><td class="num">${fmtS(q.doba)}</td><td class="hide-m">${pozn}</td></tr>`;
   });
   return h + `</table>`;
 }
@@ -334,6 +451,7 @@ function render() {
     catch (e) { box.textContent = " nepodařilo se načíst: " + e.message; }
     b.disabled = false; b.textContent = "papír";
   });
+  out.querySelectorAll("button.pap-ted").forEach(b => b.onclick = () => papirTed(b));
 }
 function plnFiltry() {
   const who = [...new Set(RELACE.concat(STRANKY).map(r => kdo(r)).filter(k => k.znamy || $("fUnknown").checked).map(k => k.jm))].sort((a, b) => a.localeCompare(b, "cs"));
@@ -349,6 +467,7 @@ async function load() {
     const od = dni ? new Date(Date.now() - dni * 864e5).toISOString().slice(0, 10) : "";
     DATA = await Zaznam.nacti("data", od ? { od } : {});
     zpracuj(DATA); zpracujStranky(DATA); plnFiltry(); render();
+    doplnZadani();
   } catch (e) {
     $("out").innerHTML = `<p class="err">Výsledky se nepodařilo načíst: ${esc(e.message)}</p>`;
   }
