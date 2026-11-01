@@ -16,6 +16,7 @@
 
    Ovládání: Apple Pencil a myš kreslí a tahají body, prst posouvá stránku
    (Vektory.nastavPrst(true) zapne ovládání prstem). Prst jinak síť jen posouvá (ručně, touch-action: none – i Android).
+   Dotyky pera (touchType „stylus“) mají potlačené výchozí chování, aby je Safari nebralo pro Scribble (01.11.2026).
    ===================================================================== */
 (function (global) {
   "use strict";
@@ -435,6 +436,10 @@
       };
       cv.addEventListener("pointerup", konec);
       cv.addEventListener("pointercancel", konec);
+      // dotyky pera (Apple Pencil) si síť bere sama – Safari je jinak u rychlých tahů po sobě bere pro Scribble
+      // nebo dvojité klepnutí a další tah nedorazí (01.11.2026, Pouceni bod 20); prst se nemění
+      const jePero = e => Array.prototype.some.call(e.changedTouches || [], t => t.touchType === "stylus");
+      ["touchstart", "touchmove", "touchend"].forEach(t => cv.addEventListener(t, e => { if (jePero(e) && e.cancelable) e.preventDefault(); }, { passive: false }));
       // pero ani prst nesmí spustit posun / zoom prohlížeče (touch-action: none); prst posouvá ručně výše
     }
   }
