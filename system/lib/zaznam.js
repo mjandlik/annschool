@@ -19,7 +19,7 @@
   "use strict";
 
   /* ---------- NASTAVENÍ: adresa webové aplikace (…/exec) ---------- */
-  const ENDPOINT = "https://script.google.com/macros/s/AKfycbye7QxraOWZfrZZ-hXfhySeELki89n3U63MA1zPjcZbrUseyDVIu3cT9qDIxz-CKAUPmQ/exec";
+  const ENDPOINT = "https://script.google.com/macros/s/AKfycbwfV4RRD8f4KfxJAu6flSZSYN2Xram2ibeGBqbe7xEqd7xD_yE9iMxjv3LGaqeW-Otecg/exec";
 
   const KEY = "annschool:";
   const endpoint = () => (typeof window.ANNSCHOOL_ENDPOINT === "string" ? window.ANNSCHOOL_ENDPOINT : ENDPOINT);
