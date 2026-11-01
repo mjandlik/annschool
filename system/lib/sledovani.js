@@ -1,10 +1,10 @@
 /* =====================================================================
    SLEDOVÁNÍ STRÁNEK – Ann School (system/lib/sledovani.js)
-   Pro stránky s teorií (PDF v prohlížeči pdf.html, simulátory, zápisky v HTML) a rozcestník.
+   Pro stránky s teorií v HTML (studijní materiály, taháky, simulátory, zápisky) a rozcestník. PDF se nesledují.
    Načítá se za zaznam.js:
      <script src="../system/lib/zaznam.js"></script>
      <script src="../system/lib/sledovani.js" data-typ="simulator"></script>
-   data-typ: material | pdf | simulator | zapisky | rozcestnik | … (nepovinné, jinak se odhadne z adresy)
+   data-typ: material | tahak | pracovni-list | simulator | zapisky | rozcestnik | … (nepovinné, jinak se odhadne z adresy)
 
    Zapisuje (system/lib/zaznam.js → Google tabulka):
    - „otevreni“  … otevření stránky (odkud: rozcestník / přímý odkaz, rozměry okna),
@@ -13,7 +13,7 @@
                    klepnutí, tahy perem a čas v jednotlivých částech (oblastech) stránky.
                    Posílá se při odchodu ze stránky a každou minutu, pokud se něco změnilo.
    Aktivní = stránka je vidět a v posledních 30 s se posouvalo, klepalo nebo psalo.
-   Oblast: u PDF strana („s. 3“), jinak desetina výšky stránky podle středu obrazovky („10–20 %“).
+   Oblast: desetina výšky stránky podle středu obrazovky („10–20 %“), nebo co nastaví stránka (kapitola).
    Stránka může oblast nastavit sama: Sledovani.oblast("s. 3"); Sledovani.pocetOblasti(12).
    Návod: system/Navod_material_vXX.md (sledování) a Navod_test_vXX.md, kap. 9.
    ===================================================================== */
@@ -22,9 +22,7 @@
   if (!window.Zaznam) return;
   const skript = document.currentScript;
   const AKTIVITA_MS = 30000;
-  // u prohlížeče PDF (pdf.html?f=…) je adresou samotné PDF, aby se v přehledu seskupovalo podle souboru
-  const pdfF = (skript && skript.dataset.typ === "pdf") ? new URLSearchParams(location.search).get("f") : null;
-  const cesta = pdfF || location.pathname.replace(/^.*\/annschool\//, "").replace(/^\//, "") || "index.html";
+  const cesta = location.pathname.replace(/^.*\/annschool\//, "").replace(/^\//, "") || "index.html";
   const odhadTyp = () => {
     if (/(^|\/)(index\.html)?$/.test(cesta)) return "rozcestnik";
     const m = cesta.match(/_([a-z0-9-]+)_v\d\d\.html$/);
@@ -32,7 +30,7 @@
   };
   const S = {
     typ: (skript && skript.dataset.typ) || odhadTyp(),
-    adresa: cesta, nazev: pdfF ? pdfF.split("/").pop() : document.title, verze: (cesta.match(/_(v\d\d)\./) || [])[1] || "",
+    adresa: cesta, nazev: document.title, verze: (cesta.match(/_(v\d\d)\./) || [])[1] || "",
     start: Date.now(), viditelne: 0, aktivni: 0, odchody: 0, odchodyMs: 0,
     scrollMax: 0, scrollPx: 0, klepnuti: 0, klavesy: 0, tahy: 0,
     oblasti: {}, pocetOblasti: 0, vlastniOblast: null
@@ -41,7 +39,6 @@
 
   function oblastTed() {
     if (S.vlastniOblast) return S.vlastniOblast;
-    if (pdfF) return "";
     const H = Math.max(1, document.documentElement.scrollHeight);
     const stred = (window.scrollY + innerHeight / 2) / H;
     const p = Math.min(9, Math.max(0, Math.floor(stred * 10)));

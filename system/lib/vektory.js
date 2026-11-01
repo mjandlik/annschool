@@ -15,7 +15,7 @@
      sit.kresli = { id: "b", nazev: "b", barva: "#b3261e" };   // Pencil nakreslí b
 
    Ovládání: Apple Pencil a myš kreslí a tahají body, prst posouvá stránku
-   (Vektory.nastavPrst(true) zapne ovládání prstem).
+   (Vektory.nastavPrst(true) zapne ovládání prstem). Prst jinak síť jen posouvá (ručně, touch-action: none – i Android).
    ===================================================================== */
 (function (global) {
   "use strict";
@@ -343,8 +343,24 @@
       const cv = this.cv;
       const smi = e => e.pointerType === "pen" || e.pointerType === "mouse" || (e.pointerType === "touch" && prst);
       const pos = e => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+      // prst (bez zapnutého „Prst“) síť jen posouvá: touch-action je vypnuté, posun se počítá ručně (funguje i na Androidu, kde
+      // stylus nemá touchType a jinak by s ním posouval prohlížeč)
+      cv.style.touchAction = "none";
+      let pan = null;
+      const rodic = () => {
+        for (let p = cv.parentElement; p; p = p.parentElement) {
+          const cs = getComputedStyle(p);
+          if (/(auto|scroll)/.test(cs.overflowY + cs.overflowX) && (p.scrollHeight > p.clientHeight + 1 || p.scrollWidth > p.clientWidth + 1)) return p;
+        }
+        return document.scrollingElement || document.documentElement;
+      };
       cv.addEventListener("pointerdown", e => {
+        if (e.pointerType === "touch" && !prst) {
+          if (!pan && !this.akce) { pan = { id: e.pointerId, x: e.clientX, y: e.clientY, el: rodic() }; try { cv.setPointerCapture(e.pointerId); } catch (_) { /* nic */ } }
+          return;
+        }
         if (!smi(e) || this.akce) return;
+        pan = null;
         e.preventDefault();
         try { cv.setPointerCapture(e.pointerId); } catch (_) { /* bez capture */ }
         const [cx, cy] = pos(e), u = this.uzel(cx, cy), t = this.trefa(cx, cy);
@@ -358,6 +374,10 @@
         this.prekresli();
       });
       cv.addEventListener("pointermove", e => {
+        if (pan && e.pointerId === pan.id) {
+          pan.el.scrollLeft -= e.clientX - pan.x; pan.el.scrollTop -= e.clientY - pan.y;
+          pan.x = e.clientX; pan.y = e.clientY; return;
+        }
         const a = this.akce; if (!a) return;
         e.preventDefault();
         const [cx, cy] = pos(e), u = this.uzel(cx, cy);
@@ -388,6 +408,7 @@
         }
       });
       const konec = e => {
+        if (pan && e.pointerId === pan.id) { pan = null; return; }
         const a = this.akce; if (!a) return;
         this.akce = null;
         if (!a.pohyb) {   // klepnutí
@@ -414,10 +435,7 @@
       };
       cv.addEventListener("pointerup", konec);
       cv.addEventListener("pointercancel", konec);
-      // iPad: Pencil nesmí posouvat stránku; prst posouvá (pokud není zapnuté ovládání prstem)
-      const block = e => { const t = e.touches[0]; if (t && (t.touchType === "stylus" || prst)) e.preventDefault(); };
-      cv.addEventListener("touchstart", block, { passive: false });
-      cv.addEventListener("touchmove", block, { passive: false });
+      // pero ani prst nesmí spustit posun / zoom prohlížeče (touch-action: none); prst posouvá ručně výše
     }
   }
 

@@ -188,7 +188,7 @@ function renderTeorie() {
   const w = $("fWho").value, unk = $("fUnknown").checked;
   const rs = STRANKY.filter(r => { const k = kdo(r); return (unk || k.znamy) && (!w || k.jm === w); });
   if (!rs.length) return `<p class="meta">Zatím žádná otevřená stránka s teorií${STRANKY.length ? " pro tento výběr" : ""}.</p>`;
-  let h = `<p class="meta">Otevření PDF (přes rozcestník nebo odkaz pdf.html?f=…), simulátorů, zápisků a rozcestníku. Aktivní = stránka byla vidět a v posledních 30 s se s ní pracovalo (posouvání, klepnutí, psaní).</p>`;
+  let h = `<p class="meta">Otevření HTML stránek s teorií (studijní materiály, taháky, simulátory, zápisky) a rozcestníku. Aktivní = stránka byla vidět a v posledních 30 s se s ní pracovalo (posouvání, klepnutí, psaní).</p>`;
   h += `<table><tr><th>Kdy</th><th>Kdo</th><th>Stránka</th><th class="num">Otevřeno</th><th class="num">Aktivně</th><th class="hide-m">Prošla</th><th class="hide-m">Upozornění</th></tr>`;
   rs.forEach(r => {
     const k = kdo(r);
