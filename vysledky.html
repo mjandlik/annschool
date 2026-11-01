@@ -102,7 +102,7 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const N = v => { const n = Number(String(v).replace(",", ".")); return isFinite(n) ? n : 0; };
 const B = v => v === true || v === "ano" || v === "true" || v === "TRUE";
-const STAV = { zelena: "správně napoprvé", oranzova: "správně napodruhé", cervena: "napotřetí / špatně", seda: "nedokončeno", nove: "neotevřeno", hotovo: "řešení zobrazeno" };
+const STAV = { zelena: "správně napoprvé", oranzova: "správně napodruhé", cervena: "napotřetí / špatně", seda: "nedokončeno", nove: "nezačato", hotovo: "řešení zobrazeno" };
 const BODY = { zelena: 1, oranzova: 0.5, cervena: 0 };
 const fmtN = n => String(Math.round(n * 10) / 10).replace(".", ",");
 const fmtS = s => { s = Math.round(N(s)); return s < 60 ? s + " s" : Math.floor(s / 60) + " min " + String(s % 60).padStart(2, "0") + " s"; };
@@ -136,7 +136,7 @@ function zpracuj(d) {
     const sum = r.ev.filter(u => u.udalost === "souhrn" || u.udalost === "stav").pop();
     let sd = null; try { sd = sum && sum.detail ? JSON.parse(sum.detail) : null; } catch (e) { sd = null; }
     const Q = n => r.q[n] || (r.q[n] = { n, pokusy: [], napoveda: false, odchody: 0, odchody_s: 0, doba: 0, stav: "nove", zadani: "", sekce: "", typ: "" });
-    if (sd && sd.priklady) sd.priklady.forEach(p => Object.assign(Q(p.n), { stav: p.stav, doba: N(p.doba_s), napoveda: !!p.napoveda, odchody: N(p.odchody), odchody_s: N(p.odchody_s), sekce: p.sekce, typ: p.typ, zadani: p.zadani || "" }));
+    if (sd && sd.priklady) sd.priklady.forEach(p => Object.assign(Q(p.n), { stav: p.stav, doba: N(p.doba_s), napoveda: !!p.napoveda, odchody: N(p.odchody), odchody_s: N(p.odchody_s), sekce: p.sekce, typ: p.typ, zadani: p.zadani || "", navstiveno: p.navstiveno, zacala: !!p.zacala }));
     r.odchody = 0; r.odchody_s = 0;
     r.ev.forEach(u => {
       const n = N(u.priklad);
@@ -153,6 +153,12 @@ function zpracuj(d) {
       else if (u.udalost === "odchod") { r.odchody++; r.odchody_s += N(u.doba_s); if (n) { const q = Q(n); q._odch = (q._odch || 0) + 1; q._odchS = (q._odchS || 0) + N(u.doba_s); } }
     });
     Object.values(r.q).forEach(q => { if (q._odch > q.odchody) { q.odchody = q._odch; q.odchody_s = q._odchS; } });
+    // šedá (nedokončeno) jen rozpracovaný příklad: pokus, nápověda, nebo (šablona v24+) něco na papíře / v odpovědi;
+    // otevřený a přeskočený = bílá se štítkem „jen prohlédnuto“ (u starších testů se papír nepozná)
+    Object.values(r.q).forEach(q => {
+      if (q.stav === "seda" && !q.pokusy.length && !q.napoveda && !q.zacala) { q.stav = "nove"; q.prohlednuto = true; }
+      else if (q.stav === "nove" && q.navstiveno) q.prohlednuto = true;
+    });
     // za jak dlouho po otevření nápovědy (čas na příkladu) přišla odpověď
     Object.values(r.q).forEach(q => { if (q.napDoba !== undefined) q.pokusy.forEach(p => { if (p.napoveda && !p.reseni) p.poNap = Math.max(0, p.doba - q.napDoba); }); });
     r._Q = Q;
@@ -465,7 +471,8 @@ function renderDetail(r) {
     const rp = q.pokusy.find(p => p.ok && p.poNap !== undefined && p.poNap < lim);
     const pozn = [q.napoveda ? `<span class="flag">nápověda${q.napDoba !== undefined ? " po " + fmtS(q.napDoba) : ""}</span>` : "",
       rp ? `<span class="flag red">správně ${fmtS(rp.poNap)} po nápovědě</span>` : "", f.has(q.n) ? `<span class="flag">rychlá odpověď</span>` : "",
-      q.odchody ? `<span class="flag">odchody: ${q.odchody} (${fmtS(q.odchody_s)})</span>` : "", q.stav === "seda" && !q.pokusy.length ? `<span class="flag">přeskočeno</span>` : ""].join("");
+      q.odchody ? `<span class="flag">odchody: ${q.odchody} (${fmtS(q.odchody_s)})</span>` : "", q.stav === "seda" && !q.pokusy.length ? `<span class="flag">rozpracováno</span>` : "",
+      q.prohlednuto ? `<span class="flag gray">jen prohlédnuto</span>` : ""].join("");
     h += `<tr${pol && pol.n === q.n ? ' class="here"' : ""}><td><span class="dot st-${q.stav}">${q.n}</span></td>
       <td>${esc(q.zadani || "–")}<div class="small">${esc(q.sekce)}${q.spravna ? " · správně: " + esc(q.spravna) : ""}</div>${q.napoveda && q.hintText ? `<div class="hinttxt">nápověda: ${esc(q.hintText)}</div>` : ""}</td>
       <td>${att || '<span class="small">bez odpovědi</span>'}
