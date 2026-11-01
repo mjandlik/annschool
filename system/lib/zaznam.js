@@ -136,7 +136,7 @@
     nastavPrezdivku,
     nastavKontext(k) { kontext = Object.assign({}, k); },
     noveId: rid,
-    zapis, odesli, nacti,
+    zapis, odesli, nacti, beacon,
     get fronta() { return fronta.length; },
     get zapnuto() { return !!endpoint(); },
     naStav(f) { posluchaci.push(f); oznam(); }

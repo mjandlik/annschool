@@ -7,8 +7,11 @@
 <title>Ann School</title>
 <link rel="icon" type="image/svg+xml" href="system/img/cat.svg">
 <link rel="apple-touch-icon" href="system/img/apple-touch-icon.png">
+<script src="system/lib/zaznam.js"></script>
+<script src="system/lib/sledovani.js" data-typ="rozcestnik"></script>
 <!--
   ROZCESTNÍK – Ann School (index.html, stálá adresa, proto bez _vXX; historie je v gitu)
+  PDF se otevírají v prohlížeči pdf.html (záznam čtení); otevření rozcestníku a klepnutí na položky se zaznamenávají (system/lib/sledovani.js).
   Seznam souborů se načítá automaticky z GitHubu (aktuální = nejvyšší _vXX v každé složce předmětu).
   Při novém tématu nebo předmětu doplň jen český název do NAZVY níže (nové téma na konec NAZVY.temata – určuje pořadí).
 -->
@@ -152,7 +155,9 @@ async function load() {
         list.forEach(typ => {
           const it = data[subj][topic][typ];
           const a = document.createElement("a"); a.className = "item" + (typ.startsWith("test") ? " test" : "");
-          a.href = it.path;
+          // PDF se otevírá v prohlížeči pdf.html (zaznamená čtení), HTML stránky přímo
+          a.href = it.path.endsWith(".pdf") ? "pdf.html?f=" + encodeURIComponent(it.path).replace(/%2F/g, "/") : it.path;
+          a.onclick = () => { if (window.Sledovani) Sledovani.klik(it.path, a.textContent); };
           const pre = PREF.find(([, p]) => isP(typ, p));
           const sub = pre ? typ.slice(pre[1].length).replace(/^-/, "") : "";
           const text = NAZVY.typy[typ] || (pre ? (NAZVY.typy[pre[1]] || nice(pre[1])) + (sub ? " – " + nice(sub) : "") : nice(typ));

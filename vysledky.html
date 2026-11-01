@@ -75,6 +75,7 @@
   <div class="tabs" id="tabs">
     <button data-t="relace" class="on">Testy</button>
     <button data-t="chyby">Chyby k procvičení</button>
+    <button data-t="teorie">Teorie a stránky</button>
     <button data-t="zarizeni">Zařízení</button>
   </div>
   <div class="opts">Rychlá odpověď = první pokus za méně než <input type="number" id="fFast" min="0" max="120" value="10"> s
@@ -94,6 +95,7 @@ const fmtD = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocale
 const pref = k => { try { return localStorage.getItem("annschool:vys:" + k); } catch (e) { return null; } };
 const setPref = (k, v) => { try { localStorage.setItem("annschool:vys:" + k, v); } catch (e) { /* nic */ } };
 
+let STRANKY = [], detailS = null;
 let DATA = null, RELACE = [], ZAR = {}, tab = "relace", detail = null;
 
 /* ---------- zpracování událostí na „relace“ (= jedno otevření testu) ---------- */
@@ -145,6 +147,91 @@ function zpracuj(d) {
     r.pokusu = qs.reduce((a, q) => a + q.pokusy.length, 0);
     return r;
   }).filter(r => r.pocet || r.pokusu).sort((a, b) => new Date(b.start) - new Date(a.start));
+}
+/* ---------- stránky s teorií (pdf.html, simulátory, zápisky, rozcestník): události otevreni / stranka / odchod / klik ---------- */
+const TYPY = { pdf: "PDF", simulator: "simulátor", zapisky: "zápisky", rozcestnik: "rozcestník", material: "materiál" };
+function zpracujStranky(d) {
+  const by = {};
+  d.udalosti.forEach(u => {
+    if (!u.relace || !["otevreni", "stranka", "odchod", "klik"].includes(u.udalost)) return;
+    const r = by[u.relace] || (by[u.relace] = { id: u.relace, ev: [], zarizeni: u.zarizeni, prezdivka: "", test: u.test, nazev: u.nazev, verze: u.verze });
+    r.ev.push(u); if (u.prezdivka) r.prezdivka = u.prezdivka;
+  });
+  STRANKY = Object.values(by).filter(r => r.ev.some(u => u.udalost === "otevreni")).map(r => {
+    r.ev.sort((a, b) => new Date(a.cas) - new Date(b.cas));
+    const ot = r.ev.find(u => u.udalost === "otevreni");
+    let od = {}; try { od = JSON.parse(ot.detail || "{}"); } catch (e) { /* nic */ }
+    r.start = ot.cas; r.konec = r.ev[r.ev.length - 1].cas; r.typ = ot.typ || od.typ || ""; r.odkud = od.odkud || "";
+    // nejnovější souhrn (čísla jen rostou)
+    r.s = {}; r.ev.filter(u => u.udalost === "stranka").forEach(u => { try { const x = JSON.parse(u.detail || "{}"); if (N(x.otevreno_s) >= N(r.s.otevreno_s || -1)) r.s = x; } catch (e) { /* nic */ } });
+    const odch = r.ev.filter(u => u.udalost === "odchod");
+    r.odchody = Math.max(N(r.s.odchody), odch.length); r.odchody_s = Math.max(N(r.s.odchody_s), odch.reduce((a, u) => a + N(u.doba_s), 0));
+    r.kliky = r.ev.filter(u => u.udalost === "klik").map(u => { try { return JSON.parse(u.detail || "{}"); } catch (e) { return {}; } });
+    return r;
+  }).sort((a, b) => new Date(b.start) - new Date(a.start));
+}
+function nazevStranky(r) {
+  const m = String(r.test || "").match(/^([a-z0-9-]+)\/([a-z0-9-]+)_([a-z0-9-]+)_v(\d\d)\.(pdf|html)$/);
+  const TN = { material: "studijní materiál", tahak: "tahák", "pracovni-list": "pracovní list", zapisky: "zápisky", simulator: "simulátor", "skolni-material": "školní materiál" };
+  if (m) { const t = TN[m[3]] || (Object.keys(TN).find(k => m[3].startsWith(k + "-")) ? TN[Object.keys(TN).find(k => m[3].startsWith(k + "-"))] + " – " + m[3].split("-").slice(-1)[0] : m[3].replace(/-/g, " "));
+    return m[2].charAt(0).toUpperCase() + m[2].slice(1).replace(/-/g, " ") + " – " + t + " · v" + m[4]; }
+  return r.typ === "rozcestnik" ? "Rozcestník" : (r.nazev || r.test);
+}
+function prosla(r) {
+  if (r.typ === "pdf" && r.s.pocet_oblasti) {
+    const n = Object.entries(r.s.oblasti || {}).filter(([, v]) => N(v) >= 5).length;
+    return `${n} / ${r.s.pocet_oblasti} stran`;
+  }
+  return r.s.scroll_max_pct ? `${r.s.scroll_max_pct} % stránky` : "–";
+}
+function renderTeorie() {
+  const w = $("fWho").value, unk = $("fUnknown").checked;
+  const rs = STRANKY.filter(r => { const k = kdo(r); return (unk || k.znamy) && (!w || k.jm === w); });
+  if (!rs.length) return `<p class="meta">Zatím žádná otevřená stránka s teorií${STRANKY.length ? " pro tento výběr" : ""}.</p>`;
+  let h = `<p class="meta">Otevření PDF (přes rozcestník nebo odkaz pdf.html?f=…), simulátorů, zápisků a rozcestníku. Aktivní = stránka byla vidět a v posledních 30 s se s ní pracovalo (posouvání, klepnutí, psaní).</p>`;
+  h += `<table><tr><th>Kdy</th><th>Kdo</th><th>Stránka</th><th class="num">Otevřeno</th><th class="num">Aktivně</th><th class="hide-m">Prošla</th><th class="hide-m">Upozornění</th></tr>`;
+  rs.forEach(r => {
+    const k = kdo(r);
+    const fl = [flagsKdo(k), r.odchody ? `<span class="flag">odchody: ${r.odchody} (${fmtS(r.odchody_s)})</span>` : "",
+      r.s.otevreno_s && N(r.s.aktivni_s) < 0.3 * N(r.s.otevreno_s) && N(r.s.otevreno_s) > 60 ? `<span class="flag">většinou nečinná</span>` : ""].join("");
+    h += `<tr class="click" data-s="${esc(r.id)}"><td>${fmtD(r.start)}</td><td class="who">${esc(k.jm)}</td>
+      <td>${esc(nazevStranky(r))} <span class="small">${esc(TYPY[r.typ] || r.typ)}</span></td>
+      <td class="num">${r.s.otevreno_s !== undefined ? fmtS(r.s.otevreno_s) : "–"}</td><td class="num">${r.s.aktivni_s !== undefined ? fmtS(r.s.aktivni_s) : "–"}</td>
+      <td class="hide-m">${prosla(r)}</td><td class="hide-m">${fl}</td></tr>`;
+  });
+  return h + `</table>`;
+}
+function renderStranka(r) {
+  const k = kdo(r), s = r.s;
+  let h = `<button class="back" id="back">← Zpět na přehled</button>`;
+  h += `<div class="card"><div style="font-size:18px;font-weight:600">${esc(nazevStranky(r))} <span class="small">${esc(TYPY[r.typ] || r.typ)} · ${esc(r.test)}</span></div>
+    <div class="meta">${fmtD(r.start)} – ${fmtD(r.konec)} · <span class="who">${esc(k.jm)}</span> ${flagsKdo(k)} · zařízení ${esc(r.zarizeni)} · otevřeno: ${esc({ web: "z rozcestníku / webu", primo: "přímým odkazem", jinde: "z jiné aplikace" }[r.odkud] || r.odkud || "?")}</div>
+    <div class="kpis" style="margin-top:8px">
+      <div class="kpi"><b>${fmtS(s.otevreno_s || 0)}</b><span>otevřeno</span></div>
+      <div class="kpi"><b>${fmtS(s.viditelne_s || 0)}</b><span>na obrazovce</span></div>
+      <div class="kpi"><b>${fmtS(s.aktivni_s || 0)}</b><span>aktivně</span></div>
+      <div class="kpi"><b>${r.odchody}</b><span>odchodů (${fmtS(r.odchody_s)})</span></div>
+      <div class="kpi"><b>${prosla(r)}</b><span>prošla</span></div>
+      <div class="kpi"><b>${N(s.klepnuti)}</b><span>klepnutí${N(s.tahy_perem) ? " (perem " + N(s.tahy_perem) + ")" : ""}</span></div>
+      <div class="kpi"><b>${Math.round(N(s.scroll_px) / 1000)} tis. px</b><span>posouvání</span></div></div></div>`;
+  const ob = Object.entries(s.oblasti || {});
+  if (ob.length) {
+    const key = x => { const m = String(x).match(/\d+/); return m ? Number(m[0]) : 0; };
+    if (r.typ === "pdf" && s.pocet_oblasti) for (let n = 1; n <= s.pocet_oblasti; n++) if (!ob.some(([kk]) => kk === "s. " + n)) ob.push(["s. " + n, 0]);
+    ob.sort((a, b) => key(a[0]) - key(b[0]));
+    const mx = Math.max(...ob.map(([, v]) => N(v)), 1);
+    h += `<div class="card"><div class="meta" style="margin-bottom:6px">Aktivní čas podle ${r.typ === "pdf" ? "stran" : "části stránky (shora dolů)"}</div>`;
+    ob.forEach(([kk, v]) => {
+      h += `<div style="display:flex;align-items:center;gap:8px;font-size:13px;margin:2px 0"><span style="flex:0 0 5.5em;color:var(--muted)">${esc(kk)}</span>
+        <span style="flex:1;background:#f0f0ea;border-radius:4px;height:12px"><span style="display:block;height:12px;border-radius:4px;background:var(--accent);width:${Math.round(N(v) / mx * 100)}%"></span></span>
+        <span class="num" style="flex:0 0 5em">${fmtS(v)}</span></div>`;
+    });
+    h += `</div>`;
+  }
+  if (r.kliky.length) h += `<div class="card"><div class="meta">Otevřela z rozcestníku:</div>` + r.kliky.map(x => `<div style="font-size:14px">${esc(x.text || "")} <span class="small">${esc(x.cil || "")}</span></div>`).join("") + `</div>`;
+  const od = r.ev.filter(u => u.udalost === "odchod");
+  if (od.length) h += `<div class="card"><div class="meta">Odchody ze stránky:</div>` + od.map(u => `<div style="font-size:14px">${fmtD(u.cas)} · pryč ${fmtS(u.doba_s)}</div>`).join("") + `</div>`;
+  return h;
 }
 function kdo(r) {
   const z = ZAR[r.zarizeni] || {};
@@ -236,9 +323,11 @@ function render() {
   const out = $("out");
   if (!DATA) return;
   if (detail) { const r = RELACE.find(x => x.id === detail); out.innerHTML = r ? renderDetail(r) : ""; }
-  else out.innerHTML = tab === "relace" ? renderRelace() : tab === "chyby" ? renderChyby() : renderZarizeni();
+  else if (detailS) { const r = STRANKY.find(x => x.id === detailS); out.innerHTML = r ? renderStranka(r) : ""; }
+  else out.innerHTML = tab === "relace" ? renderRelace() : tab === "chyby" ? renderChyby() : tab === "teorie" ? renderTeorie() : renderZarizeni();
+  out.querySelectorAll("tr[data-s]").forEach(tr => tr.onclick = () => { detailS = tr.dataset.s; render(); scrollTo(0, 0); });
   out.querySelectorAll("tr[data-r]").forEach(tr => tr.onclick = () => { detail = tr.dataset.r; render(); scrollTo(0, 0); });
-  const back = $("back"); if (back) back.onclick = () => { detail = null; render(); };
+  const back = $("back"); if (back) back.onclick = () => { detail = null; detailS = null; render(); };
   out.querySelectorAll("button.pap").forEach(b => b.onclick = async () => {
     const box = b.nextElementSibling;
     if (box.innerHTML) { box.innerHTML = ""; return; }
@@ -249,7 +338,7 @@ function render() {
   });
 }
 function plnFiltry() {
-  const who = [...new Set(RELACE.map(r => kdo(r)).filter(k => k.znamy || $("fUnknown").checked).map(k => k.jm))].sort((a, b) => a.localeCompare(b, "cs"));
+  const who = [...new Set(RELACE.concat(STRANKY).map(r => kdo(r)).filter(k => k.znamy || $("fUnknown").checked).map(k => k.jm))].sort((a, b) => a.localeCompare(b, "cs"));
   const tests = {}; RELACE.forEach(r => { if (!tests[r.test] || r.verze > tests[r.test].verze) tests[r.test] = r; });
   const w = $("fWho").value || pref("who") || "", t = $("fTest").value || "";
   $("fWho").innerHTML = `<option value="">Všichni</option>` + who.map(x => `<option${x === w ? " selected" : ""}>${esc(x)}</option>`).join("");
@@ -259,12 +348,12 @@ async function load() {
   $("out").innerHTML = `<p class="meta">Načítám…</p>`;
   try {
     DATA = await Zaznam.nacti("data");
-    zpracuj(DATA); plnFiltry(); render();
+    zpracuj(DATA); zpracujStranky(DATA); plnFiltry(); render();
   } catch (e) {
     $("out").innerHTML = `<p class="err">Výsledky se nepodařilo načíst: ${esc(e.message)}</p>`;
   }
 }
-$("tabs").onclick = e => { const b = e.target.closest("button"); if (!b) return; tab = b.dataset.t; detail = null; render(); };
+$("tabs").onclick = e => { const b = e.target.closest("button"); if (!b) return; tab = b.dataset.t; detail = null; detailS = null; render(); };
 $("fWho").onchange = () => { setPref("who", $("fWho").value); render(); };
 $("fTest").onchange = render;
 $("fFast").value = pref("fast") || 10;
