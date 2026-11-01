@@ -13,6 +13,9 @@
   Zadání a správné odpovědi všech příkladů (i neodeslaných): ze startu testu (šablona v21+), jinak z konfigurace
   souboru testu v repozitáři (aktuální cesta, pak archiv/). „papír teď“ u příkladu: poslední stav papíru
   (náhled každých 20 s u šablony v21+, jinak papír z posledního vyhodnocení), tlačítko „obnovit“ načte znovu.
+  Poloha v testu: šablona v23+ posílá „pozice“ (skript v04, list Stav) – přehled ukáže „● teď: příklad N“ s časem
+  a dokud nějaký test běží, každých 20 s se sám zeptá na stav (akce=stav). U starších testů jen přibližně
+  podle poslední události. U pokusů po otevření nápovědy: za jak dlouho (čas na příkladu) po nápovědě odpověděla.
 -->
 <script src="system/lib/zaznam.js"></script>
 <style>
@@ -58,6 +61,10 @@
   .att { margin: 2px 0; }
   .att .ok { color: var(--zelena); font-weight: 600; } .att .bad { color: var(--cervena); font-weight: 600; }
   .ted { margin-top: 4px; }
+  .flag.live { background: #e6f4ea; color: var(--zelena); border-color: #b7dfc2; font-weight: 600; }
+  .flag.gray { background: #f1f1ee; color: var(--muted); border-color: var(--line); }
+  tr.here td { background: #eef7f0; }
+  .hinttxt { font-size: 12px; color: var(--warn); margin-top: 2px; }
   .ted .tedinfo { margin-left: 4px; }
   .paperimg { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; margin-top: 4px; display: block; }
   .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 8px 0 12px; }
@@ -85,6 +92,7 @@
     <button data-t="zarizeni">Zařízení</button>
   </div>
   <div class="opts">Rychlá odpověď = první pokus za méně než <input type="number" id="fFast" min="0" max="120" value="10"> s
+    <span>· Odpověď rychle po nápovědě = za méně než <input type="number" id="fNap" min="0" max="300" value="20"> s</span>
     <label><input type="checkbox" id="fUnknown"> zobrazit i neznámá zařízení</label>
     <label>Období <select id="fOd"><option value="30">30 dní</option><option value="90">90 dní</option><option value="365">rok</option><option value="0">vše</option></select></label></div>
   <div id="out"><p class="meta">Načítám…</p></div>
@@ -141,10 +149,12 @@ function zpracuj(d) {
         if (u.udalost === "reseni") q.stav = "hotovo";
         else if (B(u.konecny)) q.stav = u.vysledek === "spravne" ? (N(u.pokus) === 1 ? "zelena" : N(u.pokus) === 2 ? "oranzova" : "cervena") : "cervena";
         else if (q.stav === "nove") q.stav = "seda";
-      } else if (u.udalost === "napoveda") { const q = Q(n); q.napoveda = true; q.zadani = q.zadani || u.zadani; }
+      } else if (u.udalost === "napoveda") { const q = Q(n); q.napoveda = true; q.zadani = q.zadani || u.zadani; if (q.napDoba === undefined) q.napDoba = N(u.doba_s); }
       else if (u.udalost === "odchod") { r.odchody++; r.odchody_s += N(u.doba_s); if (n) { const q = Q(n); q._odch = (q._odch || 0) + 1; q._odchS = (q._odchS || 0) + N(u.doba_s); } }
     });
     Object.values(r.q).forEach(q => { if (q._odch > q.odchody) { q.odchody = q._odch; q.odchody_s = q._odchS; } });
+    // za jak dlouho po otevření nápovědy (čas na příkladu) přišla odpověď
+    Object.values(r.q).forEach(q => { if (q.napDoba !== undefined) q.pokusy.forEach(p => { if (p.napoveda && !p.reseni) p.poNap = Math.max(0, p.doba - q.napDoba); }); });
     r._Q = Q;
     if (!r.pocet) r.pocet = Math.max(0, ...Object.keys(r.q).map(Number));
     for (let n = 1; n <= r.pocet; n++) Q(n);
@@ -171,6 +181,7 @@ function doplnKonfig(r, list) {
     if (!q.spravna) q.spravna = k.spravna || "";
     if (!q.sekce) q.sekce = k.sekce || "";
     if (!q.typ) q.typ = k.typ || "";
+    if (q.hintText === undefined && k.napoveda !== undefined) q.hintText = k.napoveda || "";
   });
   if (list.length > r.pocet) r.pocet = list.length;
 }
@@ -198,7 +209,7 @@ function prikladyZKonfigurace(T) {
       kresba = q.retez.map(x => x.nazev + ": " + popisV(x.dx, x.dy)).concat((q.vysledna || "R") + ": " + popisV(s.dx, s.dy)).join("; "); }
     out.push({ n: out.length + 1, sekce: plainT(sec || "Příklady"), typ,
       zadani: plainT([q.text, f].filter(Boolean).join(" | ")),
-      spravna: plainT([fields.map(fieldText).join(" · "), kresba].filter(Boolean).join(" | ")) });
+      spravna: plainT([fields.map(fieldText).join(" · "), kresba].filter(Boolean).join(" | ")), napoveda: plainT(q.hint || "") });
   });
   return out;
 }
@@ -223,7 +234,7 @@ function konfigTestu(cesta, verze) {
 }
 // doplní zadání u relací bez detail.priklady a přepočítá; pak znovu vykreslí
 async function doplnZadani() {
-  const chybi = RELACE.filter(r => !r.konfig && r.qs.some(q => !q.zadani || !q.spravna && q.typ !== "dukaz"));
+  const chybi = RELACE.filter(r => r.qs.some(q => (!r.konfig && (!q.zadani || !q.spravna && q.typ !== "dukaz")) || (q.napoveda && q.hintText === undefined)));
   if (!chybi.length) return;
   const vysl = await Promise.all(chybi.map(r => konfigTestu(r.test, r.verze)));
   let zmena = false;
@@ -363,6 +374,58 @@ function flagsKdo(k) {
   return k.schvaleno ? "" : `<span class="flag" title="Zařízení není schválené v listu Zarizeni (sloupec schvaleno = ano)">neschválené zařízení</span>`;
 }
 
+/* ---------- poloha v testu: kde teď je a jak dlouho ----------
+   Šablona v23+ posílá „pozice“ (skript v04 → list Stav): přesně, aktivní = poslední stav „ano“ a mladší než 60 s.
+   Starší testy: přibližně podle poslední události s číslem příkladu. */
+let STAV_R = {}, POSUN = 0;                         // poloha podle relace; posun hodin serveru proti prohlížeči
+const AKTIVNI_MS = 60000, NEDAVNO_MS = 30 * 60000;
+function nactiStav(j) {
+  if (!j || !Array.isArray(j.stav)) return false;
+  STAV_R = {}; j.stav.forEach(s => STAV_R[s.relace] = s);
+  if (j.cas) POSUN = new Date(j.cas) - Date.now();
+  return true;
+}
+const ted = () => Date.now() + POSUN;
+const pred = ms => { const s = Math.max(0, Math.round(ms / 1000)); return s < 60 ? s + " s" : s < 3600 ? Math.floor(s / 60) + " min" : Math.floor(s / 3600) + " h " + Math.floor(s % 3600 / 60) + " min"; };
+function poloha(r) {
+  const s = STAV_R[r.id];
+  if (s) {
+    const vek = ted() - new Date(s.cas), akt = B(s.aktivni) && vek < AKTIVNI_MS, plus = akt ? vek / 1000 : 0;
+    return { presne: true, aktivni: akt, n: N(s.priklad), na: N(s.na_prikladu_s) + plus, celkem: N(s.celkem_s) + plus, vek };
+  }
+  const u = r.ev.filter(e => N(e.priklad) > 0 && ["vyhodnoceni", "reseni", "napoveda", "odchod", "presun"].includes(e.udalost)).pop();
+  return u ? { presne: false, aktivni: false, n: N(u.priklad), vek: ted() - new Date(u.cas) } : null;
+}
+function polohaHtml(r, vSeznamu) {
+  const p = poloha(r);
+  if (!p) return "";
+  const kde = p.n ? "příklad " + p.n : "souhrn";
+  if (p.aktivni) return `<span class="flag live">● teď: ${kde}${p.n ? ` · ${fmtS(p.na)} na něm (celkem ${fmtS(p.celkem)})` : ""}</span>`;
+  if (vSeznamu && p.vek > NEDAVNO_MS) return "";
+  if (p.presne) return `<span class="flag gray">neaktivní – naposledy ${p.n ? "na příkladu " + p.n : "v souhrnu"} před ${pred(p.vek)}</span>`;
+  return `<span class="flag gray" title="Test je na starší šabloně (před v23) – posílá jen vyhodnocení, nápovědy a odchody.">přibližně: poslední aktivita ${kde}, před ${pred(p.vek)}</span>`;
+}
+// po sekundách přepisuje štítky polohy; každých 20 s se zeptá na stav, dokud nějaký test běží
+setInterval(() => document.querySelectorAll("[data-poloha]").forEach(el => {
+  const r = RELACE.find(x => x.id === el.dataset.poloha); if (r) el.innerHTML = polohaHtml(r, el.dataset.seznam === "1");
+}), 1000);
+let stavBezi = false;
+const otisk = () => JSON.stringify(RELACE.map(r => { const p = poloha(r); return p && [p.n, p.aktivni]; }));
+setInterval(async () => {
+  if (stavBezi || !DATA || document.visibilityState !== "visible") return;
+  stavBezi = true;
+  try {
+    const pred0 = otisk(), j = await Zaznam.nacti("stav");
+    if (nactiStav(j)) {
+      // nově otevřený test, který přehled ještě nezná → načíst vše znovu
+      if (j.stav.some(s => !RELACE.some(r => r.id === s.relace) && B(s.aktivni) && ted() - new Date(s.cas) < AKTIVNI_MS)) await load();
+      else if (otisk() !== pred0) render();
+    }
+  } catch (e) { /* skript bez akce=stav nebo offline – zkusí to za 20 s */ }
+  stavBezi = false;
+}, 20000);
+function rychlePoNap(r) { const lim = N($("fNap").value); return r.qs.filter(q => q.pokusy.some(p => p.ok && p.poNap !== undefined && p.poNap < lim)); }
+
 /* ---------- pohledy ---------- */
 function renderRelace() {
   const rs = filtr();
@@ -372,19 +435,21 @@ function renderRelace() {
   rs.forEach(r => {
     const k = kdo(r), f = rychle(r);
     const fl = [flagsKdo(k), f.length ? `<span class="flag">rychlé: ${f.length}</span>` : "", r.odchody ? `<span class="flag">odchody: ${r.odchody} (${fmtS(r.odchody_s)})</span>` : "",
-      r.napovedy ? `<span class="flag">nápověda: ${r.napovedy}</span>` : ""].join("");
+      r.napovedy ? `<span class="flag">nápověda: ${r.napovedy}</span>` : "",
+      rychlePoNap(r).length ? `<span class="flag red" title="Správná odpověď krátce po otevření nápovědy">rychle po nápovědě: ${rychlePoNap(r).length}</span>` : ""].join("");
     h += `<tr class="click" data-r="${esc(r.id)}"><td>${fmtD(r.start)}</td><td class="who">${esc(k.jm)}</td>
-      <td>${esc(r.nazev)} <span class="small">${esc(r.verze)}</span></td>
+      <td>${esc(r.nazev)} <span class="small">${esc(r.verze)}</span><div data-poloha="${esc(r.id)}" data-seznam="1">${polohaHtml(r, true)}</div></td>
       <td class="num">${r.max ? fmtN(r.body) + " / " + r.max + `<div class="small">${Math.round(r.body / r.max * 100)} %</div>` : "–"}</td>
       <td>${dots(r)}</td><td class="num hide-m">${fmtS(r.doba)}</td><td class="hide-m">${fl}</td></tr>`;
   });
   return h + `</table>`;
 }
 function renderDetail(r) {
-  const k = kdo(r), f = new Set(rychle(r).map(q => q.n));
+  const k = kdo(r), f = new Set(rychle(r).map(q => q.n)), lim = N($("fNap").value), pol = poloha(r);
   let h = `<button class="back" id="back">← Zpět na přehled</button>`;
   h += `<div class="card"><div style="font-size:18px;font-weight:600">${esc(r.nazev)} <span class="small">${esc(r.verze)} · ${esc(r.test)}</span></div>
     <div class="meta">${fmtD(r.start)} – ${fmtD(r.konec)} · <span class="who">${esc(k.jm)}</span> ${flagsKdo(k)} · zařízení ${esc(r.zarizeni)}</div>
+    <div data-poloha="${esc(r.id)}" style="margin-top:6px">${polohaHtml(r, false)}</div>
     <div class="kpis" style="margin-top:8px">
       <div class="kpi"><b>${r.max ? fmtN(r.body) + " / " + r.max : "–"}</b><span>body</span></div>
       <div class="kpi"><b>${fmtS(r.doba)}</b><span>čas v testu</span></div>
@@ -396,11 +461,13 @@ function renderDetail(r) {
   h += `<table><tr><th>#</th><th>Příklad</th><th>Pokusy</th><th class="num">Čas</th><th class="hide-m">Poznámky</th></tr>`;
   r.qs.forEach(q => {
     const att = q.pokusy.map(p => `<div class="att">${p.reseni ? "řešení zobrazeno" : `${p.pokus}. <span class="${p.ok ? "ok" : "bad"}">${p.ok ? "✓" : "✗"}</span> ${esc(p.odpoved)}`}
-      <span class="small">(${fmtS(p.doba)})</span>${p.papir && !String(p.papir).startsWith("chyba") ? ` <button class="pap" data-id="${esc(p.papir)}">papír</button><span class="imgbox"></span>` : ""}</div>`).join("");
-    const pozn = [q.napoveda ? `<span class="flag">nápověda</span>` : "", f.has(q.n) ? `<span class="flag">rychlá odpověď</span>` : "",
+      <span class="small">(${fmtS(p.doba)})</span>${p.poNap !== undefined ? ` <span class="${p.ok && p.poNap < lim ? "flag red" : "small"}">${fmtS(p.poNap)} po nápovědě</span>` : ""}${p.papir && !String(p.papir).startsWith("chyba") ? ` <button class="pap" data-id="${esc(p.papir)}">papír</button><span class="imgbox"></span>` : ""}</div>`).join("");
+    const rp = q.pokusy.find(p => p.ok && p.poNap !== undefined && p.poNap < lim);
+    const pozn = [q.napoveda ? `<span class="flag">nápověda${q.napDoba !== undefined ? " po " + fmtS(q.napDoba) : ""}</span>` : "",
+      rp ? `<span class="flag red">správně ${fmtS(rp.poNap)} po nápovědě</span>` : "", f.has(q.n) ? `<span class="flag">rychlá odpověď</span>` : "",
       q.odchody ? `<span class="flag">odchody: ${q.odchody} (${fmtS(q.odchody_s)})</span>` : "", q.stav === "seda" && !q.pokusy.length ? `<span class="flag">přeskočeno</span>` : ""].join("");
-    h += `<tr><td><span class="dot st-${q.stav}">${q.n}</span></td>
-      <td>${esc(q.zadani || "–")}<div class="small">${esc(q.sekce)}${q.spravna ? " · správně: " + esc(q.spravna) : ""}</div></td>
+    h += `<tr${pol && pol.n === q.n ? ' class="here"' : ""}><td><span class="dot st-${q.stav}">${q.n}</span></td>
+      <td>${esc(q.zadani || "–")}<div class="small">${esc(q.sekce)}${q.spravna ? " · správně: " + esc(q.spravna) : ""}</div>${q.napoveda && q.hintText ? `<div class="hinttxt">nápověda: ${esc(q.hintText)}</div>` : ""}</td>
       <td>${att || '<span class="small">bez odpovědi</span>'}
         <div class="ted"><button class="pap-ted" data-n="${q.n}">${q.ted ? "obnovit" : "papír teď"}</button><span class="small tedinfo">${q.ted ? esc(q.ted.info) : ""}</span><div class="imgbox">${q.ted ? q.ted.html : ""}</div></div></td><td class="num">${fmtS(q.doba)}</td><td class="hide-m">${pozn}</td></tr>`;
   });
@@ -466,6 +533,7 @@ async function load() {
     const dni = N($("fOd").value);
     const od = dni ? new Date(Date.now() - dni * 864e5).toISOString().slice(0, 10) : "";
     DATA = await Zaznam.nacti("data", od ? { od } : {});
+    STAV_R = {}; nactiStav(DATA);
     zpracuj(DATA); zpracujStranky(DATA); plnFiltry(); render();
     doplnZadani();
   } catch (e) {
@@ -477,6 +545,8 @@ $("fWho").onchange = () => { setPref("who", $("fWho").value); render(); };
 $("fTest").onchange = render;
 $("fFast").value = pref("fast") || 10;
 $("fFast").oninput = () => { setPref("fast", $("fFast").value); render(); };
+$("fNap").value = pref("nap") || 20;
+$("fNap").oninput = () => { setPref("nap", $("fNap").value); render(); };
 $("fUnknown").onchange = () => { plnFiltry(); render(); };
 $("fOd").value = pref("od") || "365";
 $("fOd").onchange = () => { setPref("od", $("fOd").value); load(); };
