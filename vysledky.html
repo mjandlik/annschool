@@ -9,6 +9,7 @@
   PŘEHLED VÝSLEDKŮ – Ann School (vysledky.html, stálá adresa, proto bez _vXX; historie je v gitu)
   Načte data z webové aplikace Google Apps Script (adresa v system/lib/zaznam.js, ENDPOINT).
   Nové testy se přidávají samy – stačí, že pošlou první výsledek. Návod: system/Navod_test_vXX.md, kap. 9.
+  „Období“ načte jen události od zvoleného data (parametr od=YYYY-MM-DD), aby se přehled časem nezpomaloval.
 -->
 <script src="system/lib/zaznam.js"></script>
 <style>
@@ -79,7 +80,8 @@
     <button data-t="zarizeni">Zařízení</button>
   </div>
   <div class="opts">Rychlá odpověď = první pokus za méně než <input type="number" id="fFast" min="0" max="120" value="10"> s
-    <label><input type="checkbox" id="fUnknown"> zobrazit i neznámá zařízení</label></div>
+    <label><input type="checkbox" id="fUnknown"> zobrazit i neznámá zařízení</label>
+    <label>Období <select id="fOd"><option value="30">30 dní</option><option value="90">90 dní</option><option value="365">rok</option><option value="0">vše</option></select></label></div>
   <div id="out"><p class="meta">Načítám…</p></div>
 </main>
 <script>
@@ -148,8 +150,8 @@ function zpracuj(d) {
     return r;
   }).filter(r => r.pocet || r.pokusu).sort((a, b) => new Date(b.start) - new Date(a.start));
 }
-/* ---------- stránky s teorií (pdf.html, simulátory, zápisky, rozcestník): události otevreni / stranka / odchod / klik ---------- */
-const TYPY = { pdf: "PDF", simulator: "simulátor", zapisky: "zápisky", rozcestnik: "rozcestník", material: "materiál" };
+/* ---------- stránky s teorií (materiály, taháky, pracovní listy, simulátory, zápisky) a rozcestník: události otevreni / stranka / odchod / klik ---------- */
+const TYPY = { material: "materiál", tahak: "tahák", "pracovni-list": "pracovní list", simulator: "simulátor", zapisky: "zápisky", rozcestnik: "" };
 function zpracujStranky(d) {
   const by = {};
   d.udalosti.forEach(u => {
@@ -177,11 +179,8 @@ function nazevStranky(r) {
     return m[2].charAt(0).toUpperCase() + m[2].slice(1).replace(/-/g, " ") + " – " + t + " · v" + m[4]; }
   return r.typ === "rozcestnik" ? "Rozcestník" : (r.nazev || r.test);
 }
+const typL = r => (r.typ in TYPY ? TYPY[r.typ] : r.typ) || "";
 function prosla(r) {
-  if (r.typ === "pdf" && r.s.pocet_oblasti) {
-    const n = Object.entries(r.s.oblasti || {}).filter(([, v]) => N(v) >= 5).length;
-    return `${n} / ${r.s.pocet_oblasti} stran`;
-  }
   return r.s.scroll_max_pct ? `${r.s.scroll_max_pct} % stránky` : "–";
 }
 function renderTeorie() {
@@ -195,7 +194,7 @@ function renderTeorie() {
     const fl = [flagsKdo(k), r.odchody ? `<span class="flag">odchody: ${r.odchody} (${fmtS(r.odchody_s)})</span>` : "",
       r.s.otevreno_s && N(r.s.aktivni_s) < 0.3 * N(r.s.otevreno_s) && N(r.s.otevreno_s) > 60 ? `<span class="flag">většinou nečinná</span>` : ""].join("");
     h += `<tr class="click" data-s="${esc(r.id)}"><td>${fmtD(r.start)}</td><td class="who">${esc(k.jm)}</td>
-      <td>${esc(nazevStranky(r))} <span class="small">${esc(TYPY[r.typ] || r.typ)}</span></td>
+      <td>${esc(nazevStranky(r))} <span class="small">${esc(typL(r))}</span></td>
       <td class="num">${r.s.otevreno_s !== undefined ? fmtS(r.s.otevreno_s) : "–"}</td><td class="num">${r.s.aktivni_s !== undefined ? fmtS(r.s.aktivni_s) : "–"}</td>
       <td class="hide-m">${prosla(r)}</td><td class="hide-m">${fl}</td></tr>`;
   });
@@ -204,7 +203,7 @@ function renderTeorie() {
 function renderStranka(r) {
   const k = kdo(r), s = r.s;
   let h = `<button class="back" id="back">← Zpět na přehled</button>`;
-  h += `<div class="card"><div style="font-size:18px;font-weight:600">${esc(nazevStranky(r))} <span class="small">${esc(TYPY[r.typ] || r.typ)} · ${esc(r.test)}</span></div>
+  h += `<div class="card"><div style="font-size:18px;font-weight:600">${esc(nazevStranky(r))} <span class="small">${esc(typL(r) ? typL(r) + " · " : "")}${esc(r.test)}</span></div>
     <div class="meta">${fmtD(r.start)} – ${fmtD(r.konec)} · <span class="who">${esc(k.jm)}</span> ${flagsKdo(k)} · zařízení ${esc(r.zarizeni)} · otevřeno: ${esc({ web: "z rozcestníku / webu", primo: "přímým odkazem", jinde: "z jiné aplikace" }[r.odkud] || r.odkud || "?")}</div>
     <div class="kpis" style="margin-top:8px">
       <div class="kpi"><b>${fmtS(s.otevreno_s || 0)}</b><span>otevřeno</span></div>
@@ -217,10 +216,9 @@ function renderStranka(r) {
   const ob = Object.entries(s.oblasti || {});
   if (ob.length) {
     const key = x => { const m = String(x).match(/\d+/); return m ? Number(m[0]) : 0; };
-    if (r.typ === "pdf" && s.pocet_oblasti) for (let n = 1; n <= s.pocet_oblasti; n++) if (!ob.some(([kk]) => kk === "s. " + n)) ob.push(["s. " + n, 0]);
     ob.sort((a, b) => key(a[0]) - key(b[0]));
     const mx = Math.max(...ob.map(([, v]) => N(v)), 1);
-    h += `<div class="card"><div class="meta" style="margin-bottom:6px">Aktivní čas podle ${r.typ === "pdf" ? "stran" : "části stránky (shora dolů)"}</div>`;
+    h += `<div class="card"><div class="meta" style="margin-bottom:6px">Aktivní čas podle části stránky (shora dolů nebo podle kapitol)</div>`;
     ob.forEach(([kk, v]) => {
       h += `<div style="display:flex;align-items:center;gap:8px;font-size:13px;margin:2px 0"><span style="flex:0 0 5.5em;color:var(--muted)">${esc(kk)}</span>
         <span style="flex:1;background:#f0f0ea;border-radius:4px;height:12px"><span style="display:block;height:12px;border-radius:4px;background:var(--accent);width:${Math.round(N(v) / mx * 100)}%"></span></span>
@@ -347,7 +345,9 @@ function plnFiltry() {
 async function load() {
   $("out").innerHTML = `<p class="meta">Načítám…</p>`;
   try {
-    DATA = await Zaznam.nacti("data");
+    const dni = N($("fOd").value);
+    const od = dni ? new Date(Date.now() - dni * 864e5).toISOString().slice(0, 10) : "";
+    DATA = await Zaznam.nacti("data", od ? { od } : {});
     zpracuj(DATA); zpracujStranky(DATA); plnFiltry(); render();
   } catch (e) {
     $("out").innerHTML = `<p class="err">Výsledky se nepodařilo načíst: ${esc(e.message)}</p>`;
@@ -359,6 +359,8 @@ $("fTest").onchange = render;
 $("fFast").value = pref("fast") || 10;
 $("fFast").oninput = () => { setPref("fast", $("fFast").value); render(); };
 $("fUnknown").onchange = () => { plnFiltry(); render(); };
+$("fOd").value = pref("od") || "365";
+$("fOd").onchange = () => { setPref("od", $("fOd").value); load(); };
 $("btnReload").onclick = load;
 load();
 </script>

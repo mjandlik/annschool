@@ -156,12 +156,13 @@ async function load() {
           const it = data[subj][topic][typ];
           const a = document.createElement("a"); a.className = "item" + (typ.startsWith("test") ? " test" : "");
           a.href = it.path;
-          a.onclick = () => { if (window.Sledovani) Sledovani.klik(it.path, a.textContent); };
           const pre = PREF.find(([, p]) => isP(typ, p));
           const sub = pre ? typ.slice(pre[1].length).replace(/^-/, "") : "";
-          const text = NAZVY.typy[typ] || (pre ? (NAZVY.typy[pre[1]] || nice(pre[1])) + (sub ? " – " + nice(sub) : "") : nice(typ));
+          const opr = typ.match(/^test-opravny-(\d+)$/);
+          const text = NAZVY.typy[typ] || (opr ? "Opravný test " + opr[1] : pre ? (NAZVY.typy[pre[1]] || nice(pre[1])) + (sub ? " – " + nice(sub) : "") : nice(typ));
           a.textContent = text;
           const v = document.createElement("span"); v.className = "v"; v.textContent = "v" + it.ver; a.appendChild(v);
+          a.onclick = () => { if (window.Sledovani) Sledovani.klik(it.path, text + " v" + it.ver); };
           g.querySelector(".items").appendChild(a); count++;
         });
         row.appendChild(g);
