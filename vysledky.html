@@ -288,7 +288,7 @@ async function papirTed(b) {
 function zpracujStranky(d) {
   const by = {};
   d.udalosti.forEach(u => {
-    if (!u.relace || !["otevreni", "stranka", "odchod", "klik"].includes(u.udalost)) return;
+    if (!u.relace || !["otevreni", "stranka", "odchod", "klik", "porozumeni"].includes(u.udalost)) return;
     const r = by[u.relace] || (by[u.relace] = { id: u.relace, ev: [], zarizeni: u.zarizeni, prezdivka: "", test: u.test, nazev: u.nazev, verze: u.verze });
     r.ev.push(u); if (u.prezdivka) r.prezdivka = u.prezdivka;
   });
@@ -301,6 +301,11 @@ function zpracujStranky(d) {
     r.s = {}; r.ev.filter(u => u.udalost === "stranka").forEach(u => { try { const x = JSON.parse(u.detail || "{}"); if (N(x.otevreno_s) >= N(r.s.otevreno_s || -1)) r.s = x; } catch (e) { /* nic */ } });
     const odch = r.ev.filter(u => u.udalost === "odchod");
     r.odchody = Math.max(N(r.s.odchody), odch.length); r.odchody_s = Math.max(N(r.s.odchody_s), odch.reduce((a, u) => a + N(u.doba_s), 0));
+    // porozumění (Chápu / Nechápu): stav ze souhrnu (pamatuje i dřívější otevření) + kliky v této relaci
+    r.porKliky = r.ev.filter(u => u.udalost === "porozumeni").map(u => { let x = {}; try { x = JSON.parse(u.detail || "{}"); } catch (e) { /* nic */ } return Object.assign({ cas: u.cas }, x); });
+    r.por = Object.assign({}, r.s.porozumeni || {});
+    r.porPoradi = {};
+    r.porKliky.forEach(k => { if (!k.cast) return; if (k.stav === "zruseno") delete r.por[k.cast]; else r.por[k.cast] = k.stav; if (k.poradi) r.porPoradi[k.cast] = k.poradi; });
     r.kliky = r.ev.filter(u => u.udalost === "klik").map(u => { try { return JSON.parse(u.detail || "{}"); } catch (e) { return {}; } });
     return r;
   }).sort((a, b) => new Date(b.start) - new Date(a.start));
@@ -316,20 +321,65 @@ const typL = r => (r.typ in TYPY ? TYPY[r.typ] : r.typ) || "";
 function prosla(r) {
   return r.s.scroll_max_pct ? `${r.s.scroll_max_pct} % stránky` : "–";
 }
+function porSouhrn(r) {
+  const v = Object.values(r.por || {}), a = v.filter(x => x === "chapu").length, n = v.filter(x => x === "nechapu").length;
+  return a || n ? `<span style="color:var(--ok,#1f7a3a)">✓ ${a}</span> · <span style="color:var(--bad,#b3261e)">✗ ${n}</span>` : "–";
+}
+// Aktuální porozumění napříč všemi otevřeními (i z různých zařízení téže osoby):
+// pro každou stránku (bez verze v názvu) a část teorie poslední volba podle času + vývoj.
+function porozumeniAktualne(rs) {
+  const by = {};
+  rs.forEach(r => (r.porKliky || []).forEach(k => {
+    if (!k.cast) return;
+    const jm = kdo(r).jm, str = String(r.test || "").replace(/_v\d\d\.html$/, "");
+    const key = jm + "|" + str;
+    const g = by[key] || (by[key] = { jm, r, casti: {} });
+    if (new Date(r.start) > new Date(g.r.start)) g.r = r;
+    (g.casti[k.cast] = g.casti[k.cast] || []).push(Object.assign({}, k));
+  }));
+  return Object.values(by).map(g => {
+    const casti = Object.entries(g.casti).map(([c, l]) => {
+      l.sort((x, y) => new Date(x.cas) - new Date(y.cas));
+      const posl = l[l.length - 1];
+      const vyvoj = l.filter(x => x.stav !== "zruseno").map(x => x.stav === "chapu" ? "chápu" : "nechápu")
+        .filter((x, i, arr) => i === 0 || x !== arr[i - 1]);
+      return { c, stav: posl.stav, cas: posl.cas, poradi: Math.max(0, ...l.map(x => Number(x.poradi) || 0)) || 999, vyvoj };
+    }).sort((x, y) => x.poradi - y.poradi || x.c.localeCompare(y.c, "cs", { numeric: true }));
+    return { jm: g.jm, r: g.r, casti };
+  });
+}
+function renderPorozumeni(rs) {
+  const sk = porozumeniAktualne(rs);
+  if (!sk.length) return "";
+  let h = `<h3 style="margin:14px 0 4px">Aktuální stav porozumění</h3><p class="meta">Poslední volba Chápu / Nechápu u každé části teorie ze všech otevření stránky (i na jiném zařízení). Vývoj ukazuje, jak se volba měnila.</p>`;
+  sk.forEach(g => {
+    const n = g.casti.filter(x => x.stav === "nechapu").length, a = g.casti.filter(x => x.stav === "chapu").length;
+    h += `<div class="card"><div style="font-weight:600">${esc(nazevStranky(g.r))} <span class="who">${esc(g.jm)}</span>
+      <span class="small">✓ ${a} · ✗ ${n}</span></div>`;
+    g.casti.forEach(x => {
+      const zn = x.stav === "chapu" ? `<b style="color:var(--ok,#1f7a3a)">✓ chápe</b>` : x.stav === "nechapu" ? `<b style="color:var(--bad,#b3261e)">✗ nechápe</b>` : `<b style="color:var(--muted)">– bez volby</b>`;
+      h += `<div style="font-size:14px;margin:3px 0">${zn} – ${esc(x.c)} <span class="small">(${fmtD(x.cas)}${x.vyvoj.length > 1 ? " · vývoj: " + esc(x.vyvoj.join(" → ")) : ""})</span></div>`;
+    });
+    h += `</div>`;
+  });
+  return h;
+}
 function renderTeorie() {
   const w = $("fWho").value, unk = $("fUnknown").checked;
   const rs = STRANKY.filter(r => { const k = kdo(r); return (unk || k.znamy) && (!w || k.jm === w); });
   if (!rs.length) return `<p class="meta">Zatím žádná otevřená stránka s teorií${STRANKY.length ? " pro tento výběr" : ""}.</p>`;
-  let h = `<p class="meta">Otevření HTML stránek s teorií (studijní materiály, taháky, simulátory, zápisky) a rozcestníku. Aktivní = stránka byla vidět a v posledních 30 s se s ní pracovalo (posouvání, klepnutí, psaní).</p>`;
-  h += `<table><tr><th>Kdy</th><th>Kdo</th><th>Stránka</th><th class="num">Otevřeno</th><th class="num">Aktivně</th><th class="hide-m">Prošla</th><th class="hide-m">Upozornění</th></tr>`;
+  let h = renderPorozumeni(rs) + `<h3 style="margin:14px 0 4px">Otevření stránek</h3>`;
+  h += `<p class="meta">Otevření HTML stránek s teorií (studijní materiály, taháky, simulátory, zápisky) a rozcestníku. Aktivní = stránka byla vidět a v posledních 30 s se s ní pracovalo (posouvání, klepnutí, psaní). Chápe / nechápe = poslední volba tlačítek Chápu / Nechápu u částí teorie (detail po klepnutí na řádek).</p>`;
+  h += `<table><tr><th>Kdy</th><th>Kdo</th><th>Stránka</th><th class="num">Otevřeno</th><th class="num">Aktivně</th><th class="hide-m">Prošla</th><th class="hide-m">Chápe / nechápe</th><th class="hide-m">Upozornění</th></tr>`;
   rs.forEach(r => {
     const k = kdo(r);
     const fl = [flagsKdo(k), r.odchody ? `<span class="flag">odchody: ${r.odchody} (${fmtS(r.odchody_s)})</span>` : "",
-      r.s.otevreno_s && N(r.s.aktivni_s) < 0.3 * N(r.s.otevreno_s) && N(r.s.otevreno_s) > 60 ? `<span class="flag">většinou nečinná</span>` : ""].join("");
+      r.s.otevreno_s && N(r.s.aktivni_s) < 0.3 * N(r.s.otevreno_s) && N(r.s.otevreno_s) > 60 ? `<span class="flag">většinou nečinná</span>` : "",
+      Object.values(r.por || {}).includes("nechapu") ? `<span class="flag">nechápe: ${Object.values(r.por).filter(x => x === "nechapu").length}</span>` : ""].join("");
     h += `<tr class="click" data-s="${esc(r.id)}"><td>${fmtD(r.start)}</td><td class="who">${esc(k.jm)}</td>
       <td>${esc(nazevStranky(r))} <span class="small">${esc(typL(r))}</span></td>
       <td class="num">${r.s.otevreno_s !== undefined ? fmtS(r.s.otevreno_s) : "–"}</td><td class="num">${r.s.aktivni_s !== undefined ? fmtS(r.s.aktivni_s) : "–"}</td>
-      <td class="hide-m">${prosla(r)}</td><td class="hide-m">${fl}</td></tr>`;
+      <td class="hide-m">${prosla(r)}</td><td class="hide-m">${porSouhrn(r)}</td><td class="hide-m">${fl}</td></tr>`;
   });
   return h + `</table>`;
 }
@@ -357,6 +407,17 @@ function renderStranka(r) {
         <span style="flex:1;background:#f0f0ea;border-radius:4px;height:12px"><span style="display:block;height:12px;border-radius:4px;background:var(--accent);width:${Math.round(N(v) / mx * 100)}%"></span></span>
         <span class="num" style="flex:0 0 5em">${fmtS(v)}</span></div>`;
     });
+    h += `</div>`;
+  }
+  const por = Object.entries(r.por || {});
+  if (por.length || r.porKliky.length) {
+    const PP = {};       // pořadí částí na stránce ze všech otevření téže stránky
+    STRANKY.filter(x => String(x.test).replace(/_v\d\d\.html$/, "") === String(r.test).replace(/_v\d\d\.html$/, ""))
+      .forEach(x => Object.entries(x.porPoradi || {}).forEach(([c, n]) => PP[c] = Math.max(PP[c] || 0, n)));
+    por.sort((a, b) => (PP[a[0]] || 999) - (PP[b[0]] || 999) || a[0].localeCompare(b[0], "cs", { numeric: true }));
+    h += `<div class="card"><div class="meta" style="margin-bottom:6px">Porozumění v tomto otevření – tlačítka Chápu / Nechápu (aktuální stav ze všech otevření je v přehledu nahoře)</div>`;
+    h += por.map(([c, st]) => `<div style="font-size:14px;margin:2px 0"><b style="color:${st === "chapu" ? "var(--ok,#1f7a3a)" : "var(--bad,#b3261e)"}">${st === "chapu" ? "✓ chápe" : "✗ nechápe"}</b> – ${esc(c)}</div>`).join("") || `<div class="small">Všechny volby zrušila.</div>`;
+    if (r.porKliky.length) h += `<div class="meta" style="margin-top:8px">Klepnutí v tomto otevření:</div>` + r.porKliky.map(k => `<div style="font-size:13px">${fmtD(k.cas)} · ${esc({ chapu: "Chápu", nechapu: "Nechápu", zruseno: "zrušila volbu" }[k.stav] || k.stav)} – ${esc(k.cast || "")}</div>`).join("");
     h += `</div>`;
   }
   if (r.kliky.length) h += `<div class="card"><div class="meta">Otevřela z rozcestníku:</div>` + r.kliky.map(x => `<div style="font-size:14px">${esc(x.text || "")} <span class="small">${esc(x.cil || "")}</span></div>`).join("") + `</div>`;

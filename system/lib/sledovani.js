@@ -15,6 +15,12 @@
    Aktivní = stránka je vidět a v posledních 30 s se posouvalo, klepalo nebo psalo.
    Oblast: desetina výšky stránky podle středu obrazovky („10–20 %“), nebo co nastaví stránka (kapitola).
    Stránka může oblast nastavit sama: Sledovani.oblast("s. 3"); Sledovani.pocetOblasti(12).
+   - „porozumeni“ … klepnutí na Chápu / Nechápu (od 01.11.2026). Stránka označí místo pro tlačítka prázdným
+                   prvkem <div data-porozumeni="3. Křížové pravidlo – horní a dolní index"></div> na konci každé
+                   části teorie; knihovna do něj vloží malá tlačítka. Volba se pamatuje v prohlížeči (po návratu
+                   je vidět), druhé klepnutí na stejné tlačítko volbu zruší. Událost: sekce = název části,
+                   detail { cast, stav: "chapu" | "nechapu" | "zruseno", poradi }. Souhrn „stranka“ nese
+                   v detail.porozumeni aktuální stav všech částí { "název": "chapu" | "nechapu" }.
    Návod: system/Navod_material_vXX.md (sledování) a Navod_test_vXX.md, kap. 9.
    ===================================================================== */
 (function () {
@@ -35,6 +41,9 @@
     scrollMax: 0, scrollPx: 0, klepnuti: 0, klavesy: 0, tahy: 0,
     oblasti: {}, pocetOblasti: 0, vlastniOblast: null
   };
+  const POR_KEY = "annschool:porozumeni:" + cesta;
+  let POR = {};
+  try { POR = JSON.parse(localStorage.getItem(POR_KEY) || "{}") || {}; } catch (e) { POR = {}; }
   let posledniVstup = Date.now(), tik = Date.now(), skryto = 0, posledniY = window.scrollY, posledniPodpis = "";
 
   function oblastTed() {
@@ -71,9 +80,10 @@
       aktivni_s: Math.round(S.aktivni / 1000), odchody: S.odchody, odchody_s: Math.round(S.odchodyMs / 1000),
       scroll_max_pct: S.scrollMax, scroll_px: Math.round(S.scrollPx), klepnuti: S.klepnuti, klavesy: S.klavesy, tahy_perem: S.tahy,
       pocet_oblasti: S.pocetOblasti || undefined,
+      porozumeni: Object.keys(POR).length ? Object.assign({}, POR) : undefined,
       oblasti: Object.fromEntries(Object.entries(S.oblasti).map(([k, v]) => [k, Math.round(v / 1000)]).filter(([, v]) => v > 0))
     };
-    const podpis = JSON.stringify([det.aktivni_s, det.odchody, det.scroll_max_pct, det.klepnuti, det.oblasti]);
+    const podpis = JSON.stringify([det.aktivni_s, det.odchody, det.scroll_max_pct, det.klepnuti, det.oblasti, det.porozumeni]);
     if (!vynutit && podpis === posledniPodpis) return;
     posledniPodpis = podpis;
     Zaznam.zapis({ udalost: "stranka", typ: S.typ, doba_s: det.aktivni_s, odchody: S.odchody, odchody_s: det.odchody_s, detail: det });
@@ -105,11 +115,53 @@
   setInterval(pricti, 1000);
   setInterval(() => { if (document.visibilityState === "visible") souhrn(false); }, 60000);
 
+  /* ---------- porozumění: tlačítka Chápu / Nechápu u částí teorie ---------- */
+  function ulozPor() { try { localStorage.setItem(POR_KEY, JSON.stringify(POR)); } catch (e) { /* soukromé okno */ } }
+  function porozumeni(cast, stav, poradi) {
+    cast = String(cast || "").slice(0, 120);
+    if (!cast) return;
+    if (stav === "zruseno") delete POR[cast]; else POR[cast] = stav;
+    ulozPor(); vstup();
+    Zaznam.zapis({ udalost: "porozumeni", typ: S.typ, sekce: cast, detail: { cast, stav, poradi } });
+    souhrn(true);
+  }
+  function stylPor() {
+    if (document.getElementById("porozumeni-styl")) return;
+    const st = document.createElement("style"); st.id = "porozumeni-styl";
+    st.textContent = ".porozumeni{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin:10px 0 4px;font-size:13px;color:#6b6b66}" +
+      ".porozumeni button{font:inherit;font-size:13px;line-height:1.2;padding:3px 10px;border-radius:12px;border:1px solid #c9c9c2;background:#fff;color:#1d1d1b;cursor:pointer}" +
+      ".porozumeni button.on.ano{background:#1f7a3a;border-color:#1f7a3a;color:#fff}" +
+      ".porozumeni button.on.ne{background:#b3261e;border-color:#b3261e;color:#fff}" +
+      "@media print{.porozumeni{display:none}}";
+    document.head.appendChild(st);
+  }
+  function vlozTlacitka() {
+    const mista = document.querySelectorAll("[data-porozumeni]");
+    if (!mista.length) return;
+    stylPor();
+    mista.forEach((el, i) => {
+      if (el.dataset.porozumeniHotovo) return;
+      el.dataset.porozumeniHotovo = "1";
+      const cast = el.getAttribute("data-porozumeni");
+      el.classList.add("porozumeni");
+      el.innerHTML = '<span>Rozumíš tomu?</span><button type="button" class="ano">Chápu</button><button type="button" class="ne">Nechápu</button>';
+      const [bA, bN] = el.querySelectorAll("button");
+      const ukaz = () => { bA.classList.toggle("on", POR[cast] === "chapu"); bN.classList.toggle("on", POR[cast] === "nechapu"); };
+      const klik = stav => { porozumeni(cast, POR[cast] === stav ? "zruseno" : stav, i + 1); ukaz(); };
+      bA.addEventListener("click", () => klik("chapu"));
+      bN.addEventListener("click", () => klik("nechapu"));
+      ukaz();
+    });
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", vlozTlacitka); else vlozTlacitka();
+
   window.Sledovani = {
     oblast(k) { pricti(); S.vlastniOblast = k; },
     pocetOblasti(n) { S.pocetOblasti = n; },
     klik(cil, text) { Zaznam.zapis({ udalost: "klik", typ: S.typ, detail: { cil, text } }); },
     souhrn: () => souhrn(true),
+    porozumeni: (cast, stav) => porozumeni(cast, stav, 0),
+    vlozTlacitka,
     get stav() { pricti(); return JSON.parse(JSON.stringify(S)); }
   };
 })();
