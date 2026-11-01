@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Označení zařízení – Ann School</title>
+<link rel="icon" type="image/svg+xml" href="system/img/cat.svg">
+<!--
+  OZNAČENÍ ZAŘÍZENÍ – Ann School (zarizeni.html, stálá adresa, proto bez _vXX; historie je v gitu)
+  Otevři v Safari na iPadu dítěte: https://mjandlik.github.io/annschool/zarizeni.html?u=<přezdívka>
+  Uloží přezdívku do zařízení (localStorage). Testy ji pak posílají spolu s náhodným ID zařízení.
+  Návod: system/Navod_test_vXX.md, kap. 9.
+-->
+<script src="system/lib/zaznam.js"></script>
+<style>
+  :root { --bg: #fafaf7; --paper: #fff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5; --accent: #2b5cab; --ok: #1f7a3a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: 28px 16px; }
+  h1 { font-size: 22px; margin: 0 0 14px; }
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 14px; }
+  .row { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; }
+  .row b { font-size: 20px; }
+  .ok { color: var(--ok); font-weight: 600; }
+  .muted { color: var(--muted); font-size: 14px; }
+  input { font: inherit; padding: 6px 10px; border: 2px solid var(--line); border-radius: 8px; width: 12em; }
+  button, a.btn { font: inherit; font-size: 15px; padding: 6px 14px; border-radius: 8px; border: 2px solid var(--accent);
+    background: var(--accent); color: #fff; cursor: pointer; text-decoration: none; }
+  button.sec { background: #fff; color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Označení zařízení</h1>
+  <div class="card" id="msg" hidden></div>
+  <div class="card">
+    <div class="row"><span>Přezdívka</span><b id="nick">–</b></div>
+    <div class="row"><span>ID zařízení</span><b id="dev">–</b></div>
+    <p class="muted">Pod touto přezdívkou a ID se budou zapisovat výsledky testů otevřených v tomto prohlížeči.</p>
+  </div>
+  <div class="card">
+    <label class="muted" for="inp">Změnit přezdívku</label><br>
+    <input id="inp" autocomplete="off" autocapitalize="off" spellcheck="false"> <button id="save">Uložit</button>
+    <button id="clear" class="sec">Zrušit</button>
+  </div>
+  <p><a class="btn" href="./">Na rozcestník</a></p>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+function ukaz() { $("nick").textContent = Zaznam.prezdivka || "není nastavená"; $("dev").textContent = Zaznam.zarizeni; }
+function zprava(t) { $("msg").hidden = false; $("msg").innerHTML = t; }
+const u = new URLSearchParams(location.search).get("u");
+if (u !== null) {
+  const p = Zaznam.nastavPrezdivku(u);
+  Zaznam.zapis({ udalost: "oznaceni", detail: { prezdivka: p } });
+  zprava(p ? `<span class="ok">Hotovo.</span> Zařízení je označené jako <b>${p}</b>.` : "Přezdívka byla zrušena.");
+  history.replaceState(null, "", location.pathname);       // odkaz s ?u= nezůstane v adrese
+}
+$("save").onclick = () => { const p = Zaznam.nastavPrezdivku($("inp").value); Zaznam.zapis({ udalost: "oznaceni", detail: { prezdivka: p } });
+  zprava(p ? `<span class="ok">Uloženo:</span> ${p}` : "Přezdívka je prázdná – zrušena."); ukaz(); };
+$("clear").onclick = () => { Zaznam.nastavPrezdivku(""); zprava("Přezdívka zrušena."); ukaz(); };
+ukaz();
+</script>
+</body>
+</html>

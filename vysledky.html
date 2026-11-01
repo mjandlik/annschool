@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Výsledky testů – Ann School</title>
+<link rel="icon" type="image/svg+xml" href="system/img/cat.svg">
+<!--
+  PŘEHLED VÝSLEDKŮ – Ann School (vysledky.html, stálá adresa, proto bez _vXX; historie je v gitu)
+  Načte data z webové aplikace Google Apps Script (adresa v system/lib/zaznam.js, ENDPOINT).
+  Nové testy se přidávají samy – stačí, že pošlou první výsledek. Návod: system/Navod_test_vXX.md, kap. 9.
+-->
+<script src="system/lib/zaznam.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7; --paper: #fff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5; --accent: #2b5cab; --panel-h: 48px;
+    --zelena: #1f8a3c; --oranzova: #e08a00; --cervena: #b3261e; --seda: #a9a9a2; --hotovo: #2b5cab; --warn: #9a5b00;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #panel { position: sticky; top: 0; z-index: 20; min-height: var(--panel-h); padding: 6px 12px;
+    background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .title { font-weight: 600; font-size: 15px; flex: 1 1 auto; }
+  .title img { width: 24px; height: 24px; vertical-align: -6px; margin-left: 4px; }
+  select, button, a.btn { font: inherit; font-size: 14px; padding: 5px 10px; border-radius: 8px; border: 2px solid var(--accent);
+    background: var(--paper); color: var(--accent); cursor: pointer; text-decoration: none; }
+  select { color: var(--text); border-color: var(--line); max-width: 16em; }
+  main { max-width: 1100px; margin: 0 auto; padding: 12px 14px 60px; }
+  .tabs { display: flex; gap: 6px; margin: 4px 0 12px; flex-wrap: wrap; }
+  .tabs button.on { background: var(--accent); color: #fff; }
+  .meta { color: var(--muted); font-size: 13px; }
+  .err { color: var(--cervena); background: #fbe9e7; padding: 10px 12px; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid #ecece6; vertical-align: top; font-size: 14px; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; background: #f6f6f2; }
+  tr.click { cursor: pointer; }
+  tr.click:hover td { background: #f3f6fc; }
+  .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .dot { display: inline-block; width: 18px; height: 18px; line-height: 18px; border-radius: 50%; text-align: center;
+    font-size: 10px; font-weight: 600; color: #fff; margin: 1px; border: 1px solid #0002; vertical-align: middle; }
+  .dot.nove { background: #fff; color: var(--text); }
+  .st-zelena { background: var(--zelena); } .st-oranzova { background: var(--oranzova); } .st-cervena { background: var(--cervena); }
+  .st-seda { background: var(--seda); } .st-hotovo { background: var(--hotovo); } .st-nove { background: #fff; color: var(--text) !important; }
+  .flag { display: inline-block; font-size: 11px; padding: 1px 6px; border-radius: 10px; background: #fff3e0; color: var(--warn); border: 1px solid #f0d2a8; margin: 1px 2px; white-space: nowrap; }
+  .flag.red { background: #fbe9e7; color: var(--cervena); border-color: #f2c4bf; }
+  .who { font-weight: 600; }
+  .small { font-size: 12px; color: var(--muted); }
+  .back { margin-bottom: 10px; }
+  .card { background: var(--paper); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; }
+  .kpis { display: flex; gap: 22px; flex-wrap: wrap; }
+  .kpi b { display: block; font-size: 22px; }
+  .kpi span { font-size: 12px; color: var(--muted); }
+  .att { margin: 2px 0; }
+  .att .ok { color: var(--zelena); font-weight: 600; } .att .bad { color: var(--cervena); font-weight: 600; }
+  .paperimg { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; margin-top: 4px; display: block; }
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 8px 0 12px; }
+  .opts { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+  .opts input[type=number] { width: 4em; font: inherit; padding: 3px 6px; border: 2px solid var(--line); border-radius: 6px; }
+  @media (max-width: 700px) {
+    .hide-m { display: none; }
+    th, td { padding: 6px 6px; }
+  }
+</style>
+</head>
+<body>
+<div id="panel">
+  <div class="title">Výsledky testů <img src="system/img/cat.svg" alt=""></div>
+  <select id="fWho" aria-label="Uživatel"></select>
+  <select id="fTest" aria-label="Test"></select>
+  <button id="btnReload" type="button">Obnovit</button>
+  <a class="btn" href="./">Rozcestník</a>
+</div>
+<main>
+  <div class="tabs" id="tabs">
+    <button data-t="relace" class="on">Testy</button>
+    <button data-t="chyby">Chyby k procvičení</button>
+    <button data-t="zarizeni">Zařízení</button>
+  </div>
+  <div class="opts">Rychlá odpověď = první pokus za méně než <input type="number" id="fFast" min="0" max="120" value="10"> s
+    <label><input type="checkbox" id="fUnknown"> zobrazit i neznámá zařízení</label></div>
+  <div id="out"><p class="meta">Načítám…</p></div>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const N = v => { const n = Number(String(v).replace(",", ".")); return isFinite(n) ? n : 0; };
+const B = v => v === true || v === "ano" || v === "true" || v === "TRUE";
+const STAV = { zelena: "správně napoprvé", oranzova: "správně napodruhé", cervena: "napotřetí / špatně", seda: "nedokončeno", nove: "neotevřeno", hotovo: "řešení zobrazeno" };
+const BODY = { zelena: 1, oranzova: 0.5, cervena: 0 };
+const fmtN = n => String(Math.round(n * 10) / 10).replace(".", ",");
+const fmtS = s => { s = Math.round(N(s)); return s < 60 ? s + " s" : Math.floor(s / 60) + " min " + String(s % 60).padStart(2, "0") + " s"; };
+const fmtD = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("cs-CZ") + " " + d.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" }); };
+const pref = k => { try { return localStorage.getItem("annschool:vys:" + k); } catch (e) { return null; } };
+const setPref = (k, v) => { try { localStorage.setItem("annschool:vys:" + k, v); } catch (e) { /* nic */ } };
+
+let DATA = null, RELACE = [], ZAR = {}, tab = "relace", detail = null;
+
+/* ---------- zpracování událostí na „relace“ (= jedno otevření testu) ---------- */
+function zpracuj(d) {
+  ZAR = {};
+  (d.zarizeni || []).forEach(z => ZAR[z.zarizeni] = z);
+  const by = {};
+  d.udalosti.forEach(u => {
+    if (!u.relace) return;
+    const r = by[u.relace] || (by[u.relace] = { id: u.relace, ev: [], q: {}, zarizeni: u.zarizeni, prezdivka: "", test: u.test, nazev: u.nazev, verze: u.verze });
+    r.ev.push(u);
+    if (u.prezdivka) r.prezdivka = u.prezdivka;
+  });
+  RELACE = Object.values(by).map(r => {
+    r.ev.sort((a, b) => new Date(a.cas) - new Date(b.cas));
+    r.start = r.ev[0].cas; r.konec = r.ev[r.ev.length - 1].cas;
+    const st = r.ev.find(u => u.udalost === "start");
+    let det = {}; try { det = st && st.detail ? JSON.parse(st.detail) : {}; } catch (e) { /* nic */ }
+    r.pocet = N(det.pocet) || 0;
+    // poslední souhrn/stav = doby a stavy všech příkladů (i přeskočených)
+    const sum = r.ev.filter(u => u.udalost === "souhrn" || u.udalost === "stav").pop();
+    let sd = null; try { sd = sum && sum.detail ? JSON.parse(sum.detail) : null; } catch (e) { sd = null; }
+    const Q = n => r.q[n] || (r.q[n] = { n, pokusy: [], napoveda: false, odchody: 0, odchody_s: 0, doba: 0, stav: "nove", zadani: "", sekce: "", typ: "" });
+    if (sd && sd.priklady) sd.priklady.forEach(p => Object.assign(Q(p.n), { stav: p.stav, doba: N(p.doba_s), napoveda: !!p.napoveda, odchody: N(p.odchody), odchody_s: N(p.odchody_s), sekce: p.sekce, typ: p.typ, zadani: p.zadani || "" }));
+    r.odchody = 0; r.odchody_s = 0;
+    r.ev.forEach(u => {
+      const n = N(u.priklad);
+      if (u.udalost === "vyhodnoceni" || u.udalost === "reseni") {
+        const q = Q(n);
+        q.pokusy.push({ pokus: N(u.pokus), ok: u.vysledek === "spravne", odpoved: u.odpoved, doba: N(u.doba_s), papir: u.papir, cas: u.cas, napoveda: B(u.napoveda), reseni: u.udalost === "reseni" });
+        q.zadani = u.zadani || q.zadani; q.sekce = u.sekce; q.typ = u.typ; q.spravna = u.spravna;
+        q.doba = Math.max(q.doba, N(u.doba_s));
+        if (B(u.napoveda)) q.napoveda = true;
+        if (u.udalost === "reseni") q.stav = "hotovo";
+        else if (B(u.konecny)) q.stav = u.vysledek === "spravne" ? (N(u.pokus) === 1 ? "zelena" : N(u.pokus) === 2 ? "oranzova" : "cervena") : "cervena";
+        else if (q.stav === "nove") q.stav = "seda";
+      } else if (u.udalost === "napoveda") { const q = Q(n); q.napoveda = true; q.zadani = q.zadani || u.zadani; }
+      else if (u.udalost === "odchod") { r.odchody++; r.odchody_s += N(u.doba_s); if (n) { const q = Q(n); q._odch = (q._odch || 0) + 1; q._odchS = (q._odchS || 0) + N(u.doba_s); } }
+    });
+    Object.values(r.q).forEach(q => { if (q._odch > q.odchody) { q.odchody = q._odch; q.odchody_s = q._odchS; } });
+    if (!r.pocet) r.pocet = Math.max(0, ...Object.keys(r.q).map(Number));
+    for (let n = 1; n <= r.pocet; n++) Q(n);
+    const qs = Object.values(r.q).filter(q => q.n >= 1).sort((a, b) => a.n - b.n);
+    r.qs = qs;
+    r.body = qs.reduce((a, q) => a + (BODY[q.stav] || 0), 0);
+    r.max = qs.filter(q => q.typ !== "dukaz").length;
+    r.doba = sd ? N(sd.celkem_s) : qs.reduce((a, q) => a + q.doba, 0);
+    r.napovedy = qs.filter(q => q.napoveda).length;
+    r.pokusu = qs.reduce((a, q) => a + q.pokusy.length, 0);
+    return r;
+  }).filter(r => r.pocet || r.pokusu).sort((a, b) => new Date(b.start) - new Date(a.start));
+}
+function kdo(r) {
+  const z = ZAR[r.zarizeni] || {};
+  const jm = z.prirazena_prezdivka || r.prezdivka || z.prezdivka_ze_zarizeni || "";
+  return { jm: jm || "neznámé zařízení", znamy: !!jm, schvaleno: String(z.schvaleno).toLowerCase() === "ano" };
+}
+function rychle(r) { const lim = N($("fFast").value); return r.qs.filter(q => q.pokusy[0] && !q.pokusy[0].reseni && q.pokusy[0].doba < lim && q.typ !== "dukaz"); }
+function filtr() {
+  const w = $("fWho").value, t = $("fTest").value, unk = $("fUnknown").checked;
+  return RELACE.filter(r => { const k = kdo(r); return (unk || k.znamy) && (!w || k.jm === w) && (!t || r.test === t); });
+}
+function dots(r) { return r.qs.map(q => `<span class="dot st-${q.stav}" title="${q.n}: ${STAV[q.stav]}">${q.n}</span>`).join(""); }
+function flagsKdo(k) {
+  if (!k.znamy) return `<span class="flag red">neznámé</span>`;
+  return k.schvaleno ? "" : `<span class="flag" title="Zařízení není schválené v listu Zarizeni (sloupec schvaleno = ano)">neschválené zařízení</span>`;
+}
+
+/* ---------- pohledy ---------- */
+function renderRelace() {
+  const rs = filtr();
+  if (!rs.length) return `<p class="meta">Zatím žádné výsledky${RELACE.length ? " pro tento výběr" : ""}.</p>`;
+  let h = `<div class="legend">${["zelena", "oranzova", "cervena", "seda", "nove", "hotovo"].map(s => `<span><span class="dot st-${s}"></span> ${STAV[s]}</span>`).join("")}</div>`;
+  h += `<table><tr><th>Kdy</th><th>Kdo</th><th>Test</th><th class="num">Body</th><th>Příklady</th><th class="num hide-m">Čas</th><th class="hide-m">Upozornění</th></tr>`;
+  rs.forEach(r => {
+    const k = kdo(r), f = rychle(r);
+    const fl = [flagsKdo(k), f.length ? `<span class="flag">rychlé: ${f.length}</span>` : "", r.odchody ? `<span class="flag">odchody: ${r.odchody} (${fmtS(r.odchody_s)})</span>` : "",
+      r.napovedy ? `<span class="flag">nápověda: ${r.napovedy}</span>` : ""].join("");
+    h += `<tr class="click" data-r="${esc(r.id)}"><td>${fmtD(r.start)}</td><td class="who">${esc(k.jm)}</td>
+      <td>${esc(r.nazev)} <span class="small">${esc(r.verze)}</span></td>
+      <td class="num">${r.max ? fmtN(r.body) + " / " + r.max + `<div class="small">${Math.round(r.body / r.max * 100)} %</div>` : "–"}</td>
+      <td>${dots(r)}</td><td class="num hide-m">${fmtS(r.doba)}</td><td class="hide-m">${fl}</td></tr>`;
+  });
+  return h + `</table>`;
+}
+function renderDetail(r) {
+  const k = kdo(r), f = new Set(rychle(r).map(q => q.n));
+  let h = `<button class="back" id="back">← Zpět na přehled</button>`;
+  h += `<div class="card"><div style="font-size:18px;font-weight:600">${esc(r.nazev)} <span class="small">${esc(r.verze)} · ${esc(r.test)}</span></div>
+    <div class="meta">${fmtD(r.start)} – ${fmtD(r.konec)} · <span class="who">${esc(k.jm)}</span> ${flagsKdo(k)} · zařízení ${esc(r.zarizeni)}</div>
+    <div class="kpis" style="margin-top:8px">
+      <div class="kpi"><b>${r.max ? fmtN(r.body) + " / " + r.max : "–"}</b><span>body</span></div>
+      <div class="kpi"><b>${fmtS(r.doba)}</b><span>čas v testu</span></div>
+      <div class="kpi"><b>${r.pokusu}</b><span>vyhodnocení</span></div>
+      <div class="kpi"><b>${r.napovedy}</b><span>nápověd</span></div>
+      <div class="kpi"><b>${r.odchody}</b><span>odchodů (${fmtS(r.odchody_s)})</span></div>
+      <div class="kpi"><b>${f.size}</b><span>rychlých odpovědí</span></div></div>
+    <div style="margin-top:8px">${dots(r)}</div></div>`;
+  h += `<table><tr><th>#</th><th>Příklad</th><th>Pokusy</th><th class="num">Čas</th><th class="hide-m">Poznámky</th></tr>`;
+  r.qs.forEach(q => {
+    const att = q.pokusy.map(p => `<div class="att">${p.reseni ? "řešení zobrazeno" : `${p.pokus}. <span class="${p.ok ? "ok" : "bad"}">${p.ok ? "✓" : "✗"}</span> ${esc(p.odpoved)}`}
+      <span class="small">(${fmtS(p.doba)})</span>${p.papir && !String(p.papir).startsWith("chyba") ? ` <button class="pap" data-id="${esc(p.papir)}">papír</button><span class="imgbox"></span>` : ""}</div>`).join("");
+    const pozn = [q.napoveda ? `<span class="flag">nápověda</span>` : "", f.has(q.n) ? `<span class="flag">rychlá odpověď</span>` : "",
+      q.odchody ? `<span class="flag">odchody: ${q.odchody} (${fmtS(q.odchody_s)})</span>` : "", q.stav === "seda" && !q.pokusy.length ? `<span class="flag">přeskočeno</span>` : ""].join("");
+    h += `<tr><td><span class="dot st-${q.stav}">${q.n}</span></td>
+      <td>${esc(q.zadani || "–")}<div class="small">${esc(q.sekce)}${q.spravna ? " · správně: " + esc(q.spravna) : ""}</div></td>
+      <td>${att || '<span class="small">bez odpovědi</span>'}</td><td class="num">${fmtS(q.doba)}</td><td class="hide-m">${pozn}</td></tr>`;
+  });
+  return h + `</table>`;
+}
+function renderChyby() {
+  // všechny příklady, které nebyly zeleně (napoprvé správně) – podklad pro opravné testy
+  const rs = filtr(), rows = [];
+  rs.forEach(r => r.qs.forEach(q => { if (["oranzova", "cervena", "seda"].includes(q.stav) && q.typ !== "dukaz") rows.push({ r, q }); }));
+  if (!rows.length) return `<p class="meta">Žádné chyby pro tento výběr.</p>`;
+  let h = `<p class="meta">Příklady, které nebyly správně napoprvé (oranžové, červené a nedokončené). Podle nich připraví Claude opravné testy.</p>`;
+  h += `<table><tr><th>Kdy</th><th>Kdo</th><th>Test · příklad</th><th>Chybné odpovědi</th><th>Správně</th></tr>`;
+  rows.forEach(({ r, q }) => {
+    const spatne = q.pokusy.filter(p => !p.ok && !p.reseni).map(p => esc(p.odpoved)).join("<br>") || '<span class="small">bez odpovědi</span>';
+    h += `<tr class="click" data-r="${esc(r.id)}"><td>${fmtD(r.start)}</td><td class="who">${esc(kdo(r).jm)}</td>
+      <td><span class="dot st-${q.stav}">${q.n}</span> ${esc(r.nazev)}<div class="small">${esc(q.zadani)}</div></td>
+      <td>${spatne}</td><td>${esc(q.spravna || "")}</td></tr>`;
+  });
+  return h + `</table>`;
+}
+function renderZarizeni() {
+  const z = DATA.zarizeni || [];
+  let h = `<p class="meta">Zařízení se zapisují sama při prvním výsledku. Schválení a přiřazení přezdívky se dělá v Google tabulce, list <b>Zarizeni</b>:
+    sloupec <b>schvaleno</b> = ano, případně <b>prirazena_prezdivka</b> (přebije přezdívku ze zařízení).</p>`;
+  if (!z.length) return h + `<p class="meta">Zatím žádná zařízení.</p>`;
+  h += `<table><tr><th>ID</th><th>Přezdívka ze zařízení</th><th>Přiřazená</th><th>Schváleno</th><th class="hide-m">Poprvé</th><th>Naposledy</th><th class="num">Událostí</th></tr>`;
+  z.forEach(x => {
+    h += `<tr><td>${esc(x.zarizeni)}</td><td>${esc(x.prezdivka_ze_zarizeni) || '<span class="flag red">žádná</span>'}</td><td>${esc(x.prirazena_prezdivka)}</td>
+      <td>${String(x.schvaleno).toLowerCase() === "ano" ? "ano" : '<span class="flag">ne</span>'}</td><td class="hide-m">${fmtD(x.prvni)}</td><td>${fmtD(x.posledni)}</td><td class="num">${esc(x.udalosti)}</td></tr>`;
+  });
+  return h + `</table>`;
+}
+function render() {
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.t === tab));
+  const out = $("out");
+  if (!DATA) return;
+  if (detail) { const r = RELACE.find(x => x.id === detail); out.innerHTML = r ? renderDetail(r) : ""; }
+  else out.innerHTML = tab === "relace" ? renderRelace() : tab === "chyby" ? renderChyby() : renderZarizeni();
+  out.querySelectorAll("tr[data-r]").forEach(tr => tr.onclick = () => { detail = tr.dataset.r; render(); scrollTo(0, 0); });
+  const back = $("back"); if (back) back.onclick = () => { detail = null; render(); };
+  out.querySelectorAll("button.pap").forEach(b => b.onclick = async () => {
+    const box = b.nextElementSibling;
+    if (box.innerHTML) { box.innerHTML = ""; return; }
+    b.disabled = true; b.textContent = "načítám…";
+    try { const j = await Zaznam.nacti("obrazek", { id: b.dataset.id }); box.innerHTML = `<img class="paperimg" src="${j.url}" alt="papír">`; }
+    catch (e) { box.textContent = " nepodařilo se načíst: " + e.message; }
+    b.disabled = false; b.textContent = "papír";
+  });
+}
+function plnFiltry() {
+  const who = [...new Set(RELACE.map(r => kdo(r)).filter(k => k.znamy || $("fUnknown").checked).map(k => k.jm))].sort((a, b) => a.localeCompare(b, "cs"));
+  const tests = {}; RELACE.forEach(r => { if (!tests[r.test] || r.verze > tests[r.test].verze) tests[r.test] = r; });
+  const w = $("fWho").value || pref("who") || "", t = $("fTest").value || "";
+  $("fWho").innerHTML = `<option value="">Všichni</option>` + who.map(x => `<option${x === w ? " selected" : ""}>${esc(x)}</option>`).join("");
+  $("fTest").innerHTML = `<option value="">Všechny testy</option>` + Object.keys(tests).sort().map(x => `<option value="${esc(x)}"${x === t ? " selected" : ""}>${esc(tests[x].nazev)} (${esc(x.split("/")[0])})</option>`).join("");
+}
+async function load() {
+  $("out").innerHTML = `<p class="meta">Načítám…</p>`;
+  try {
+    DATA = await Zaznam.nacti("data");
+    zpracuj(DATA); plnFiltry(); render();
+  } catch (e) {
+    $("out").innerHTML = `<p class="err">Výsledky se nepodařilo načíst: ${esc(e.message)}</p>`;
+  }
+}
+$("tabs").onclick = e => { const b = e.target.closest("button"); if (!b) return; tab = b.dataset.t; detail = null; render(); };
+$("fWho").onchange = () => { setPref("who", $("fWho").value); render(); };
+$("fTest").onchange = render;
+$("fFast").value = pref("fast") || 10;
+$("fFast").oninput = () => { setPref("fast", $("fFast").value); render(); };
+$("fUnknown").onchange = () => { plnFiltry(); render(); };
+$("btnReload").onclick = load;
+load();
+</script>
+</body>
+</html>
