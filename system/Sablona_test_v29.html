@@ -1,0 +1,1229 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Test</title>
+<!--
+  ŠABLONA HTML TESTU – Ann School (system/Sablona_test_vXX.html)
+  Nový test = kopie této šablony do složky předmětu: <předmět>/<tema>_<typ>_vXX.html (typ: test, test-1, test-opravny …).
+  Měň JEN blok „KONFIGURACE TESTU“ níže. Postup: system/Navod_test_vXX.md.
+  Knihovny: ../system/lib/ (stránka musí ležet o jednu složku pod rootem):
+  PDF (html2canvas, jsPDF), vektorová síť (vektory.js + vektory.css), záznam výsledků (zaznam.js).
+  v16: jedna stránka na příklad (zadání → odpověď → papír), časová osa dole, 3 pokusy,
+       záznam výsledků do Google tabulky, iPad na výšku i na šířku.
+  v17: píše se jen perem (Pencil, stylus) nebo myší, prst vždy jen posouvá (i na Androidu);
+       ‹ › v časové ose, menší kolečka a tlačítka; rozpracovaný test se průběžně ukládá v prohlížeči
+       a po znovuotevření se nabídne „Pokračovat“ (odpovědi, kresby, sítě, pokusy, časy).
+  v18: název PDF obsahuje i podtyp testu (Test_<tema>_<typ>_vXX_<datum>_NN.pdf, typ ze jména souboru);
+       z konfigurace odstraněny volby finalScratch, sideScratch, scratch (od v16 bez účinku).
+  v19: tlačítka papíru (Zpět, Smazat, ↖ Na začátek) vlevo nahoře, text lišty za nimi –
+       vpravo nahoře překážela pravákovi při psaní.
+  v20: z lišty papíru odstraněno tlačítko „↖ Na začátek“ (není potřeba), zůstávají Zpět a Smazat.
+  v21: náhled papíru pro přehled výsledků: každých 20 s (jen když se papír změnil a nic nečeká ve frontě)
+       se pošle obrázek papíru (událost „nahled“, skript v03 drží jen poslední pro každý příklad);
+       start posílá zadání a správné odpovědi všech příkladů; Zpět a Smazat na papíře mění verzi papíru
+       (dřív se po nich obrázek u dalšího pokusu neposlal znovu).
+  v22: na stránce se nic neoznačuje dlouhým stiskem (dlaň, prst, pero) – user-select: none, potlačené
+       selectstart a místní nabídka; psát a označovat jde jen v polích odpovědí (dřív se náhodně označila
+       lišta papíru nebo zadání).
+  v23: poloha v testu pro přehled: přechod na jiný příklad = událost „presun“, každých 20 s (a při odchodu
+       a návratu) událost „pozice“ – příklad, čas na něm v této návštěvě a celkem, aktivní ano/ne
+       (skript v04 drží jen poslední stav v listu Stav); start posílá u příkladů i text nápovědy.
+  v24: šedá (nedokončeno) jen když příklad rozpracovala – otevřela nápovědu, napsala něco na papír nebo
+       vyplnila odpověď (_st.zacala); jen otevřený a přeskočený příklad zůstane bílý (souhrn posílá navstiveno, zacala).
+  v25: dotyky pera (Apple Pencil) na papíře si stránka bere sama (touchstart/touchmove/touchend s touchType „stylus“
+       → preventDefault); Safari je jinak u rychlých tahů po sobě bralo pro Scribble nebo dvojité klepnutí a tah
+       se ztratil (H bez vodorovné čárky). Prst se nemění, Scribble v polích odpovědí funguje dál.
+  v26: zlomky s vodorovnou zlomkovou čarou: v textech konfigurace [[čitatel/jmenovatel]] (např. [[3/4]], −[[27/8]],
+       [[√5 + 1/2]], i v exponentu a^([[2/3]])); do záznamu jde jako 3/4, se závorkami u složeného čitatele/jmenovatele.
+  v27: odmocniny jako ve škole – čára nad celým odmocněncem, bez závorek: v textech konfigurace √(a + b), ∛(−[[27/8]]),
+       ⁴√(a³), ⁿ√(aᵏ), √12, 2√3, √a; závorka hned za √ jen ohraničuje odmocněnce a nezobrazí se. Do záznamu jde text beze změny.
+  v28: znak odmocniny se kreslí (SVG) přes celou výšku odmocněnce a plynule navazuje na čáru nad ním (jako v zápiscích, KaTeX);
+       odmocnitel (∛, ∜, ⁴√, ⁿ√) je malý vlevo nahoře v háčku odmocniny. Zápis v konfiguraci se nemění.
+  v29: zlomek v exponentu (a^([[2/3]])) je menší a výš, aby se nepletl s normálními čísly (dřív skoro velikosti základu).
+  Horní panel: nová systémová tlačítka přidávej do <div class="panel-actions">.
+-->
+<script src="../system/lib/html2canvas-1.4.1.min.js"></script>
+<script src="../system/lib/jspdf-2.5.2.min.js"></script>
+<link rel="stylesheet" href="../system/lib/vektory.css">
+<script src="../system/lib/vektory.js"></script>
+<script src="../system/lib/zaznam.js"></script>
+<style>
+  :root {
+    --bg: #fafaf7; --paper: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5;
+    --ok: #1f7a3a; --ok-bg: #e6f4ea; --bad: #b3261e; --bad-bg: #fbe9e7;
+    --accent: #2b5cab; --panel-h: 48px; --tl-h: 56px;
+    --st-zelena: #1f8a3c; --st-oranzova: #e08a00; --st-cervena: #b3261e; --st-seda: #a9a9a2; --st-hotovo: #2b5cab;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  html, body { height: 100%; overflow: hidden; }
+  /* v22: dlouhý stisk (dlaň, prst, pero) nic neoznačuje ani neotevře nabídku; psát a označovat jde jen v polích */
+  html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  input, textarea { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 17px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+  /* ---------- horní panel ---------- */
+  #panel { position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+    min-height: var(--panel-h); padding: 6px 12px; padding-top: calc(6px + env(safe-area-inset-top));
+    background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; gap: 12px; }
+  .panel-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-title .ver { color: var(--muted); font-weight: 400; }
+  .panel-title .timer { margin-left: 10px; color: var(--accent); }
+  .panel-title .timer.over { color: var(--bad); }
+  .panel-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+  .panel-actions .sep { width: 1px; height: 24px; background: var(--line); margin: 0 4px; }
+  .panel-actions button { font: inherit; font-size: 13px; padding: 3px 8px; border-radius: 7px;
+    border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer; white-space: nowrap; }
+  .panel-actions button.on { background: var(--accent); color: #fff; }
+  .panel-actions button.ready { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .panel-actions .swatch { width: 22px; height: 22px; border-radius: 50%; padding: 0; border: 3px solid transparent; }
+  .panel-actions .swatch.on { border-color: var(--text); background-clip: padding-box; }
+  .panel-actions button.width { width: 30px; height: 26px; padding: 0 6px; display: inline-flex; align-items: center; }
+  .panel-actions button.width i { display: block; width: 100%; background: currentColor; border-radius: 3px; }
+  .draw-tools { display: flex; align-items: center; gap: 6px; }
+  @media (max-width: 700px) {
+    .panel-actions .swatch { width: 20px; height: 20px; }
+    .panel-actions button { padding: 3px 6px; font-size: 12px; }
+    .panel-actions button.width { width: 24px; }
+    .panel-actions .sep { margin: 0 1px; }
+  }
+
+  /* ---------- plocha mezi panelem a časovou osou ---------- */
+  #stage { position: fixed; left: 0; right: 0; top: var(--panel-h); bottom: var(--tl-h);
+    overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 10px 16px 12px; }
+  .qpage { max-width: 1160px; margin: 0 auto; }
+  .qpage[hidden] { display: none; }
+  .q-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--muted); }
+  .q-head .q-num { font-weight: 600; color: var(--text); font-size: 14px; }
+  .q-head .q-state { margin-left: auto; font-weight: 600; }
+  .q-head .q-state.st-zelena { color: var(--st-zelena); }
+  .q-head .q-state.st-oranzova { color: var(--st-oranzova); }
+  .q-head .q-state.st-cervena { color: var(--st-cervena); }
+  .q-head .q-state.st-hotovo { color: var(--st-hotovo); }
+  .intro { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
+  .q-text { font-size: 19px; margin-top: 6px; }
+  .q-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 19px; margin-top: 8px; }
+  input.ans { width: 8em; font-size: 19px; padding: 4px 8px; border: 2px solid var(--line);
+    border-radius: 6px; background: var(--paper); color: var(--text); text-align: right; }
+  input.ans:focus { outline: none; border-color: var(--accent); }
+  input.ans:disabled { color: var(--text); -webkit-text-fill-color: var(--text); opacity: 1; }
+  input.ans.f-ok { border-color: var(--ok); background: var(--ok-bg); }
+  input.ans.f-bad { border-color: var(--bad); background: var(--bad-bg); }
+  .q-row.multi input.ans { width: 4.6em; }
+  /* šipka nad písmenem: {F} v textu konfigurace (CSS rámečky – html2canvas ji přenese do PDF) */
+  .vec { position: relative; display: inline-block; font-family: Georgia, "Times New Roman", serif; font-style: italic; padding: 0 1px; }
+  .vec::before { content: ""; position: absolute; left: 2px; right: 2px; top: 1px; border-top: 1.3px solid currentColor; }
+  .vec::after { content: ""; position: absolute; right: 0; top: -1.6px; width: 0; height: 0;
+    border-left: 5px solid currentColor; border-top: 3px solid transparent; border-bottom: 3px solid transparent; }
+  sup { font-size: .72em; line-height: 0; }
+  .per { text-decoration: overline; }
+  /* v26: zlomek s vodorovnou čarou – [[čitatel/jmenovatel]] v textu konfigurace (html2canvas ho přenese do PDF) */
+  .zl { display: inline-flex; flex-direction: column; align-items: stretch; vertical-align: middle;
+    text-align: center; line-height: 1.12; font-size: .9em; margin: 0 .12em; }
+  .zl > .zc { padding: 0 .18em 1px; border-bottom: 1.5px solid currentColor; white-space: nowrap; }
+  .zl > .zj { padding: 1px .18em 0; white-space: nowrap; }
+  /* v29: zlomek v exponentu menší a výš – nesmí vypadat jako normální číslo vedle základu */
+  sup .zl { font-size: .75em; line-height: 1; vertical-align: .55em; margin: 0 .05em; }
+  sup .zl > .zc, sup .zl > .zj { padding-left: .08em; padding-right: .08em; }
+  sup .zl > .zc { border-bottom-width: 1px; }
+  /* v27: odmocnina s čarou nad celým odmocněncem – √(a + b), ∛(…), ⁿ√(…), √12 (html2canvas ho přenese do PDF) */
+  /* v28: znak odmocniny je SVG přes celou výšku odmocněnce a navazuje na čáru nad ním */
+  .odm { position: relative; display: inline-block; white-space: nowrap; padding-left: .62em; margin: 0 .04em; }
+  .odm > .oz { position: absolute; left: 0; top: 0; width: .66em; height: 100%; overflow: visible; }
+  .odm > .oz path { fill: none; stroke: currentColor; stroke-width: 1.3px; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+  .odm > .op { display: inline-block; border-top: 1.3px solid currentColor; padding: .1em .12em 0 .1em; line-height: 1.15; }
+  .odm > .oi { position: absolute; left: .02em; bottom: 52%; font-size: .55em; line-height: 1; }
+  .odm.si { padding-left: .72em; }
+  sup .odm > .op { border-top-width: 1px; }
+  sup .odm > .oz path { stroke-width: 1px; }
+  /* výběr z možností */
+  .opts { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+  .opts button { font: inherit; font-size: 16px; padding: 4px 12px; border-radius: 8px; border: 2px solid var(--line);
+    background: var(--paper); color: var(--text); cursor: pointer; }
+  .opts button.on { border-color: var(--accent); background: #e8eefa; font-weight: 600; }
+  .opts button:disabled { cursor: default; }
+  .opts.f-ok button.on { border-color: var(--ok); background: var(--ok-bg); }
+  .opts.f-bad button.on { border-color: var(--bad); background: var(--bad-bg); }
+  /* vektorová síť */
+  .q-grid { max-width: 560px; margin-top: 6px; }
+  .grid-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 14px; color: var(--muted); }
+  .grid-tools button { font: inherit; font-size: 15px; padding: 3px 10px; border-radius: 8px; border: 2px solid var(--line);
+    background: var(--paper); color: var(--text); cursor: pointer; }
+  .grid-tools button.on { border-color: var(--accent); background: #e8eefa; font-weight: 600; }
+  .grid-tools button:disabled { opacity: .5; cursor: default; }
+  /* tlačítka příkladu */
+  .q-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  button.btn { font: inherit; font-size: 14px; padding: 4px 12px; border-radius: 7px;
+    border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer; }
+  button.btn.primary { background: var(--accent); color: #fff; }
+  button.btn:disabled { opacity: .4; cursor: default; }
+  .fb { font-size: 15px; margin-top: 6px; }
+  .fb:empty { display: none; }
+  .fb.ok { color: var(--ok); } .fb.bad { color: var(--bad); }
+  .hint { font-size: 15px; color: var(--muted); margin-top: 6px; padding: 4px 10px; border-left: 3px solid var(--line); }
+  .hint[hidden], .reseni[hidden] { display: none; }
+  .reseni { margin-top: 6px; padding: 6px 10px; border-left: 3px solid var(--accent); background: #f2f5fb; font-size: 15px; line-height: 1.5; }
+  .reseni b { color: var(--accent); }
+
+  /* ---------- papír (jeden, sdílený; tahy má každý příklad vlastní) ---------- */
+  #paperBox { max-width: 1160px; margin: 10px auto 0; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); overflow: hidden; }
+  #paperBox[hidden] { display: none; }
+  .paper-bar { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 6px; border-bottom: 1px solid #ecece6; font-size: 12px; color: #9a9a93; }
+  .paper-bar span { flex: 1 1 auto; margin-left: 6px; }
+  .paper-bar button { font-size: 12px; padding: 2px 7px; border-radius: 6px; border: 1px solid var(--line); background: #fff; color: var(--text); cursor: pointer; }
+  #paperView { overflow: auto; overscroll-behavior: contain; height: 300px; touch-action: none; }   /* v17: posun prstem řeší skript */
+  #paper { display: block; background-color: #fff;
+    background-image: linear-gradient(#edf1f6 1px, transparent 1px), linear-gradient(90deg, #edf1f6 1px, transparent 1px);
+    background-size: 24px 24px; }
+
+  /* ---------- souhrn ---------- */
+  .sum h1 { font-size: 22px; margin: 4px 0 2px; }
+  .sum .meta { color: var(--muted); font-size: 13px; }
+  .sum .big { font-size: 26px; font-weight: 700; margin: 10px 0 2px; }
+  .sum table { border-collapse: collapse; margin-top: 10px; font-size: 15px; }
+  .sum td, .sum th { padding: 4px 10px; border-bottom: 1px solid #ecece6; text-align: left; }
+  .sum .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 12px; }
+  .sum .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 4px; border: 1px solid #0002; }
+  .sum .send { font-size: 13px; color: var(--muted); margin-top: 14px; }
+  .note { font-size: 13px; color: var(--muted); margin-top: 12px; }
+
+  /* ---------- časová osa ---------- */
+  #timeline { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: rgba(255,255,255,.97);
+    border-top: 1px solid var(--line); padding: 6px 8px; padding-bottom: calc(6px + env(safe-area-inset-bottom));
+    display: flex; align-items: center; gap: 8px; }
+  #tlItems { flex: 1 1 auto; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+  .tl-sec { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .tl-sec .tl-lbl { font-size: 11px; color: var(--muted); max-width: 8em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tl-b { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--line); background: #fff; color: var(--text);
+    font: 600 12px/1 -apple-system, "Segoe UI", Roboto, sans-serif; cursor: pointer; padding: 0; flex: 0 0 auto; }
+  .tl-b.st-seda { background: var(--st-seda); border-color: var(--st-seda); color: #fff; }
+  .tl-b.st-zelena { background: var(--st-zelena); border-color: var(--st-zelena); color: #fff; }
+  .tl-b.st-oranzova { background: var(--st-oranzova); border-color: var(--st-oranzova); color: #fff; }
+  .tl-b.st-cervena { background: var(--st-cervena); border-color: var(--st-cervena); color: #fff; }
+  .tl-b.st-hotovo { background: var(--st-hotovo); border-color: var(--st-hotovo); color: #fff; }
+  .tl-b.cur { border: 2.5px solid var(--text); }
+  .tl-b.sum-b { width: auto; border-radius: 14px; padding: 0 10px; border-color: var(--accent); color: var(--accent); }
+  .tl-b.sum-b.cur { background: var(--accent); color: #fff; border-color: var(--text); }
+  .tl-nav { flex: 0 0 auto; display: flex; gap: 6px; align-self: flex-end; }
+  .tl-nav button { width: 34px; height: 30px; border-radius: 7px; border: 2px solid var(--accent); background: #fff; color: var(--accent);
+    font: 700 18px/1 -apple-system, "Segoe UI", Roboto, sans-serif; cursor: pointer; padding: 0; }
+  .tl-nav button:disabled { opacity: .35; cursor: default; }
+
+  /* při tvorbě PDF skryj ovládací prvky */
+  body.capturing .no-pdf { display: none !important; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <div class="panel-title"><span id="pTitle"></span> <span class="ver" id="pVer"></span><span class="timer" id="timer"></span></div>
+  <div class="panel-actions">
+    <div class="draw-tools" id="drawTools">
+      <button class="swatch on" data-color="#1d1d1b" style="background:#1d1d1b" aria-label="černá"></button>
+      <button class="swatch" data-color="#2b5cab" style="background:#2b5cab" aria-label="modrá"></button>
+      <button class="swatch" data-color="#b3261e" style="background:#b3261e" aria-label="červená"></button>
+      <button class="swatch" data-color="#1f8a3c" style="background:#1f8a3c" aria-label="zelená"></button>
+      <button class="swatch" data-color="#e0529c" style="background:#e0529c" aria-label="růžová"></button>
+      <span class="sep"></span>
+      <button class="width on" data-w="1.1" aria-label="tenké pero"><i style="height:1.5px"></i></button>
+      <button class="width" data-w="2" aria-label="střední pero"><i style="height:3px"></i></button>
+      <button class="width" data-w="3.4" aria-label="silné pero"><i style="height:5px"></i></button>
+      <span class="sep"></span>
+      <button id="toolPen" class="on">Pero</button>
+      <button id="toolEraser">Guma</button>
+      <span class="sep"></span>
+    </div>
+    <!-- systémová tlačítka – další přidávej sem -->
+    <button id="btnNew" hidden>Nová sada</button>
+    <button id="btnPdf">PDF</button>
+  </div>
+</div>
+
+<div id="stage">
+  <div id="pages"></div>
+  <div id="paperBox" class="no-pdf">
+    <div class="paper-bar"><button type="button" id="pUndo">Zpět</button><button type="button" id="pClear">Smazat</button>
+      <span>Místo na výpočty – pero píše, prst posouvá</span></div>
+    <div id="paperView"><canvas id="paper"></canvas></div>
+  </div>
+</div>
+
+<nav id="timeline" class="no-pdf"><div id="tlItems"></div>
+  <div class="tl-nav"><button type="button" id="navPrev" aria-label="předchozí příklad">‹</button><button type="button" id="navNext" aria-label="další příklad">›</button></div></nav>
+
+<script>
+/* =====================================================================
+   KONFIGURACE TESTU – měň jen tuto část
+   ---------------------------------------------------------------------
+   title, version     … název a verze (zobrazí se v panelu a v PDF)
+   intro              … pokyny (zobrazí se u 1. příkladu a v souhrnu)
+   topic              … téma pro název PDF (bez diakritiky, pomlčky)
+   timeLimitMin       … časový limit v minutách (0 = bez limitu)
+   showHints          … u příkladů tlačítko „Nápověda“ (otevření se zaznamená)
+   questions          … pevná sada; { section: "…" } začíná novou sekci (skupina na časové ose)
+   generate           … funkce vracející novou náhodnou sadu (nebo null);
+                        pokud je zadaná, použije se místo questions
+                        a v panelu se zobrazí tlačítko „Nová sada“
+
+   OVLÁDÁNÍ (v17): pero (Pencil, stylus) a myš píší a kreslí do sítě, prst jen posouvá.
+   PRŮBĚH (v16): každý příklad má vlastní stránku a „Vyhodnotit“. Nejvýš 3 pokusy;
+   po špatném pokusu se správný výsledek neukáže, po 3. špatném ano a příklad se zamkne.
+   Barvy na časové ose: bílá = nezačato (i otevřený a přeskočený), šedá = rozpracováno (nápověda, papír, odpověď), zelená = napoprvé,
+   oranžová = napodruhé, červená = napotřetí nebo vůbec; modrá = důkaz (řešení zobrazeno).
+   Body: zelená 1, oranžová ½, červená 0.
+
+   TYPY PŘÍKLADŮ (type; všechny části příkladu musí být správně)
+   V textech {F} = písmeno se šipkou nad ním (vektor), a^(2) = exponent nahoře,
+   0,‾(56) = perioda s čarou nahoře, [[3/4]] = zlomek s vodorovnou čarou (v26; i a^([[2/3]])),
+   √(a + b), ∛(…), ⁿ√(…), √12 = odmocnina s čarou nad celým odmocněncem (v27; závorka za √ se nezobrazí). Podrobně: Navod_test_vXX.md.
+   - číslo (bez type):
+       { before: "5 m =", after: "mm", answer: 5000,
+         tol: 0,           … povolená odchylka (např. 0.05 u zaokrouhlení)
+         hint: "…",        … nápověda; po 3. špatném pokusu se ukáže jako vysvětlení
+         text: "…" }       … (nepovinné) zadání nad řádkem s polem
+   - "vyber": { type: "vyber", text, options: ["…", "…", "…", "…", "…"], answer: 2 }   (answer = index;
+                 aspoň 5 možností, kromě otázek, kde smysluplně existují jen 2)
+   - "pole":  { type: "pole", text, fields: [ { before: "Δx =", answer: 5 },
+                 { before: "Δy =", answer: -2, after: "(záporné = dolů)" },
+                 { options: ["doprava", "doleva"], answer: 0 } ] }   … víc polí v jednom příkladu
+   - "rysuj": { type: "rysuj", text, sit, dane, nazev: "v", answer: { dx: 4, dy: -4 } }
+   - "retez": { type: "retez", text, sit, dane, retez: [ { nazev: "A", dx: 4, dy: 0 }, … ], vysledna: "R" }
+   - "dukaz": { type: "dukaz", text, hint, reseni: ["řádek 1", "řádek 2", …] }
+                 … píše se na papír; NEBODUJE SE, „Vyhodnotit“ ukáže vzorové řešení
+   Síť u kteréhokoli typu: sit: { xmin: -7, xmax: 7, ymin: -6, ymax: 6 } (výchozí, osy bez čísel),
+   dane: [ { nazev: "F", x1, y1, x2, y2 } ] … zadané vektory (nejdou chytit).
+   ===================================================================== */
+const TEST = {
+  title: "Ukázkový test – převody jednotek a vektory",
+  version: "v29",
+  intro: "Doplň číslo do prázdného pole. Desetinná čárka i tečka jsou v pořádku, mezery v čísle nevadí.",
+  topic: "ukazka",
+  timeLimitMin: 0,
+  showHints: true,
+  questions: [
+    { section: "Délka" },
+    { before: "5 m =", after: "mm", answer: 5000, hint: "m → mm: DOLŮ na menší jednotku → násobím 1000 (·10³) → 5 · 1000 = 5000" },
+    { before: "320 mm =", after: "m", answer: 0.32, hint: "mm → m: NAHORU na větší jednotku → dělím 1000 (:10³) → 320 : 1000 = 0,32" },
+    { section: "Čas" },
+    { before: "23 500 s ≈", after: "h (na 1 des. místo)", answer: 6.5, tol: 0.05,
+      hint: "1 h = 3600 s → 23 500 : 3600 ≈ 6,53 ≈ 6,5" },
+    { section: "Vektory – výběr a pole" },
+    { type: "vyber", text: "Kolik je 36 km/h v m/s?", options: ["3,6 m/s", "10 m/s", "36 m/s", "129,6 m/s", "0,1 m/s"], answer: 1,
+      hint: "km/h → m/s: dělím 3,6 → 36 : 3,6 = 10" },
+    { type: "vyber", text: "[[2/3]] + [[1/6]] =", options: ["[[3/9]]", "[[5/6]]", "[[3/6]]", "[[1/2]]", "[[2/18]]"], answer: 1,
+      hint: "Společný jmenovatel 6: [[4/6]] + [[1/6]] = [[5/6]] (zlomky v textu: [[čitatel/jmenovatel]])." },
+    { type: "vyber", text: "√(a + b) · √(a + b) =   (a + b ≥ 0)", options: ["√(2a + 2b)", "a + b", "2√(a + b)", "√a + √b", "(a + b)²"], answer: 1,
+      hint: "Platí √x · √x = x (odmocniny v textu: √(…), ∛(…), ⁿ√(…), √12 – čára nad celým odmocněncem)." },
+    { type: "pole", text: "F₁ = 9 N doprava, F₂ = 4 N doleva. Urči velikost a orientaci výslednice.",
+      fields: [{ before: "F =", after: "N", answer: 5 }, { options: ["doprava", "doleva"], answer: 0 }],
+      hint: "Opačná orientace → odečtu: 9 − 4 = 5 N, orientace většího vektoru." },
+    { section: "Vektory – rýsování" },
+    { type: "rysuj", text: "Narýsuj kamkoli do sítě vektor {v} = 2{F}.", nazev: "v",
+      dane: [{ nazev: "F", x1: -5, y1: 2, x2: -3, y2: 0 }], answer: { dx: 4, dy: -4 },
+      hint: "Oba posuny vynásob 2: 2 · 2 doprava, 2 · 2 dolů." },
+    { type: "retez", text: "Šipkou za šipkou sečti {A} (3 doprava), {B} (2 nahoru) a narýsuj výslednici {R}.",
+      retez: [{ nazev: "A", dx: 3, dy: 0 }, { nazev: "B", dx: 0, dy: 2 }], vysledna: "R",
+      hint: "{B} začíná na konci {A}; {R} vede od začátku {A} ke konci {B}." },
+    { section: "Důkaz" },
+    { type: "dukaz", text: "Dokaž, že součet dvou sudých čísel je sudé číslo.",
+      reseni: ["a = 2k, b = 2m (k, m celá čísla)", "a + b = 2k + 2m = 2(k + m)", "k + m je celé číslo → a + b je sudé."] }
+  ],
+  generate: null
+  /* Ukázka náhodné sady:
+  generate: () => {
+    const r = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+    const out = [{ section: "Délka" }];
+    for (let i = 0; i < 5; i++) { const m = r(2, 95) / 10;
+      out.push({ before: `${fmt(m)} m =`, after: "cm", answer: m * 100, hint: "dolů = násobím, ×100" }); }
+    return out;
+  } */
+};
+/* ===================== KONEC KONFIGURACE ===================== */
+
+/* ---------- v22: dlouhý stisk nic neoznačuje (jen pole odpovědí) ---------- */
+const jePole = e => { const el = e.target && e.target.nodeType === 1 ? e.target : e.target && e.target.parentElement;
+  return !!(el && el.closest && el.closest("input, textarea")); };
+document.addEventListener("selectstart", e => { if (!jePole(e)) e.preventDefault(); });
+document.addEventListener("contextmenu", e => { if (!jePole(e)) e.preventDefault(); });
+
+/* ---------- pomocné funkce ---------- */
+function fmt(n) { return Number(n.toFixed(10)).toLocaleString("cs-CZ", { maximumFractionDigits: 10 }).replace(/^[-−]/, "−"); }
+function parseAnswer(s) {
+  const t = String(s).replace(/[\s  ]/g, "").replace(/−/g, "-").replace(",", ".");
+  if (t === "" || !/^[-+]?(\d+\.?\d*|\.\d+)$/.test(t)) return null;
+  return Number(t);
+}
+function isCorrect(value, answer, tol) {
+  if (value === null) return false;
+  const t = Math.max(tol || 0, Math.abs(answer) * 1e-9, 1e-12);
+  return Math.abs(value - answer) <= t;
+}
+const $ = id => document.getElementById(id);
+const MAX_POKUSU = 3;
+const BODY = { zelena: 1, oranzova: 0.5, cervena: 0 };
+const STAV_TEXT = { nove: "nezačato", seda: "nedokončeno", zelena: "správně napoprvé", oranzova: "správně napodruhé",
+  cervena: "napotřetí / špatně", hotovo: "řešení zobrazeno" };
+
+/* ---------- text s vektory: {F} = písmeno se šipkou ---------- */
+// v26: [[čitatel/jmenovatel]] = zlomek s vodorovnou čarou (čitatel bez lomítka)
+const ZLOMEK = /\[\[([^\[\]\/]+)\/([^\[\]]+?)\]\]/g;
+function rich(s) {
+  return String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(ZLOMEK, (m, c, j) => '<span class="zl"><span class="zc">' + c.trim() + '</span><span class="zj">' + j.trim() + '</span></span>')
+    .replace(/[^]*/, odmocniny)
+    .replace(/\{([^{}]+)\}/g, '<span class="vec">$1</span>')
+    .replace(/\^\(([^()]+)\)/g, '<sup>$1</sup>')
+    .replace(/‾\(([^()]+)\)/g, '<span class="per">$1</span>');
+}
+// v27: odmocnina √(…), ∛(…), ⁿ√(…), √12, √a → znak odmocniny a čára nad celým odmocněncem (závorka za √ se nezobrazí)
+function odmocniny(h) {
+  let o = "", i = 0;
+  while (i < h.length) {
+    const c = h[i];
+    if (c !== "√" && c !== "∛" && c !== "∜") { o += c; i++; continue; }
+    let j = i + 1, vnitrek = null;
+    if (h[j] === "(") {
+      let d = 0, k = j;
+      for (; k < h.length; k++) { if (h[k] === "(") d++; else if (h[k] === ")" && --d === 0) break; }
+      if (k < h.length) { vnitrek = h.slice(j + 1, k); j = k + 1; }
+    }
+    if (vnitrek === null) {
+      const m = /^(?:\d+(?:[ \u00a0\u202f]\d{3})*(?:,\d+(?:[ \u00a0\u202f]\d{3})*)?|[A-Za-zα-ω])/.exec(h.slice(j));   // i 125 000, 0,000 008
+      if (!m) { o += c; i++; continue; }
+      vnitrek = m[0]; j += m[0].length;
+    }
+    // v28: odmocnitel – z ∛ / ∜ nebo z horních indexů těsně před √ (⁴√, ⁿ√)
+    let idx = c === "∛" ? "3" : c === "∜" ? "4" : "";
+    if (c === "√") { const mi = /[⁰¹²³⁴⁵⁶⁷⁸⁹ⁿᵐᵏ]+$/.exec(o); if (mi) { idx = mi[0].replace(/./g, z => "0123456789nmk"["⁰¹²³⁴⁵⁶⁷⁸⁹ⁿᵐᵏ".indexOf(z)]); o = o.slice(0, -mi[0].length); } }
+    o += '<span class="odm' + (idx ? ' si' : '') + '">' + (idx ? '<span class="oi">' + idx + '</span>' : '') +
+      '<svg class="oz" viewBox="0 0 10 20" preserveAspectRatio="none" aria-hidden="true"><path d="M0.6 12.6 L2.6 11.4 L5.4 19.4 L9.8 0.35 L10.6 0.35"/></svg>' +
+      '<span class="op">' + odmocniny(vnitrek) + '</span></span>';
+    i = j;
+  }
+  return o;
+}
+// čistý text pro záznam (bez značek)
+function plain(s) { return String(s == null ? "" : s)
+  .replace(ZLOMEK, (m, c, j) => { const z = x => (x = x.trim(), /[\s+−\-·:]/.test(x) ? "(" + x + ")" : x); return z(c) + "/" + z(j); })
+  .replace(/\{([^{}]+)\}/g, "$1⃗").replace(/\^\(([^()]+)\)/g, "^($1)"); }
+function popisV(dx, dy) { return Vektory.popisSlozek(dx, dy); }
+
+/* ---------- papír: jedno plátno, tahy má každý příklad (q._strokes) ---------- */
+const draw = { color: "#1d1d1b", eraser: false, width: 1.1 };
+const PAPER_W = 1150, PAPER_H = 1600;          // pevná velikost papíru (CSS px) – stačí na šířku i na výšku
+const Paper = {
+  q: null,
+  init() {
+    const cv = this.cv = $("paper"), view = this.view = $("paperView");
+    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.style.width = PAPER_W + "px"; cv.style.height = PAPER_H + "px";
+    cv.width = Math.round(PAPER_W * this.dpr); cv.height = Math.round(PAPER_H * this.dpr);
+    this.ctx = cv.getContext("2d");
+    $("pUndo").onclick = () => { if (this.q && this.q._strokes.length) { this.q._strokes.pop(); this.q._paperVer = (this.q._paperVer || 0) + 1; this.redraw(); changed(); } };
+    $("pClear").onclick = () => { if (this.q && this.q._strokes.length && confirm("Smazat celý papír u tohoto příkladu?")) { this.q._strokes = []; this.q._paperVer = (this.q._paperVer || 0) + 1; this.redraw(); changed(); } };
+    this.bind();
+  },
+  attach(q) { this.q = q; q._strokes = q._strokes || []; this.redraw(); this.view.scrollLeft = q._scroll ? q._scroll[0] : 0; this.view.scrollTop = q._scroll ? q._scroll[1] : 0; },
+  detach() { if (this.q) this.q._scroll = [this.view.scrollLeft, this.view.scrollTop]; },
+  redraw() {
+    const c = this.ctx;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, this.cv.width, this.cv.height);
+    c.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    if (this.q) this.q._strokes.forEach(s => Paper.segments(c, s, 1));
+  },
+  static_width(s, p) { return s.eraser ? 22 : s.width * (0.55 + p * 0.9); },
+  // vyhlazené kreslení: kvadratické křivky přes středy úseků; od bodu `from` dál
+  segments(c, s, from) {
+    const P = s.pts;
+    c.save(); c.lineCap = "round"; c.lineJoin = "round";
+    c.globalCompositeOperation = s.eraser ? "destination-out" : "source-over";
+    c.strokeStyle = c.fillStyle = s.color;
+    if (P.length === 1 && from <= 1) { c.beginPath(); c.arc(P[0][0], P[0][1], Paper.static_width(s, P[0][2]) / 2, 0, 7); c.fill(); }
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    for (let i = Math.max(1, from); i < P.length; i++) {
+      const p0 = i === 1 ? P[0] : mid(P[i - 2], P[i - 1]);
+      const p1 = mid(P[i - 1], P[i]);
+      c.lineWidth = Paper.static_width(s, P[i - 1][2]);
+      c.beginPath(); c.moveTo(p0[0], p0[1]); c.quadraticCurveTo(P[i - 1][0], P[i - 1][1], p1[0], p1[1]); c.stroke();
+    }
+    c.restore();
+  },
+  bind() {
+    const cv = this.cv, view = this.view;
+    // v17: kreslí jen pero (Pencil, stylus) a myš; prst papír posouvá (ručně – touch-action: none, funguje i na Androidu)
+    const can = e => e.pointerType === "pen" || e.pointerType === "mouse";
+    let rect = null, drawn = 1, raf = 0, pr = 0.5, cur = null, pan = null;
+    // v25: dotyky pera si papír bere sám – jinak je Safari u rychlých tahů po sobě bere pro Scribble
+    // nebo dvojité klepnutí a další tah nedorazí (H bez vodorovné čárky); prst se nemění
+    const jePero = e => Array.prototype.some.call(e.changedTouches || [], t => t.touchType === "stylus");
+    ["touchstart", "touchmove", "touchend"].forEach(t => view.addEventListener(t, e => { if (jePero(e) && e.cancelable) e.preventDefault(); }, { passive: false }));
+    const pos = e => {
+      const raw = e.pointerType === "pen" ? (e.pressure || .5) : .5;
+      pr = pr * 0.6 + raw * 0.4;
+      return [e.clientX - rect.left, e.clientY - rect.top, pr];
+    };
+    const flush = () => { raf = 0; if (!cur) return; Paper.segments(this.ctx, cur, drawn); drawn = cur.pts.length; };
+    view.addEventListener("pointerdown", e => {
+      if (e.pointerType === "touch") {
+        if (cur || pan) return;                                    // jen jeden prst / pero naráz
+        pan = { id: e.pointerId, x: e.clientX, y: e.clientY };
+        try { view.setPointerCapture(e.pointerId); } catch (_) { /* nic */ }
+        return;
+      }
+      if (!this.q || this.q._lockedPaper || !can(e) || e.target !== cv) return;
+      if (pan) pan = null;                                       // pero má přednost před prstem (dlaň)
+      e.preventDefault(); try { cv.setPointerCapture(e.pointerId); } catch (_) { /* nic */ }
+      rect = cv.getBoundingClientRect(); pr = e.pointerType === "pen" ? (e.pressure || .5) : .5;
+      cur = { color: draw.color, width: draw.width, eraser: draw.eraser, pts: [pos(e)] };
+      this.q._strokes.push(cur); drawn = 0; flush(); drawn = 1;
+    });
+    view.addEventListener("pointermove", e => {
+      if (pan && e.pointerId === pan.id) {
+        view.scrollLeft -= e.clientX - pan.x; view.scrollTop -= e.clientY - pan.y;
+        pan.x = e.clientX; pan.y = e.clientY;
+        return;
+      }
+      if (!cur || e.pointerType === "touch") return;
+      e.preventDefault();
+      const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+      (evs.length ? evs : [e]).forEach(ev => {
+        const p = pos(ev), last = cur.pts[cur.pts.length - 1];
+        if (Math.abs(p[0] - last[0]) + Math.abs(p[1] - last[1]) >= 0.4) cur.pts.push(p);
+      });
+      if (!raf) raf = requestAnimationFrame(flush);
+    });
+    ["pointerup", "pointercancel"].forEach(t => view.addEventListener(t, e => {
+      if (pan && e.pointerId === pan.id) { pan = null; return; }
+      if (!cur || e.pointerType === "touch") return;
+      const P = cur.pts;
+      if (P.length > 1) P.push(P[P.length - 1].slice());
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      flush(); cur = null; this.q._paperVer = (this.q._paperVer || 0) + 1; zacala(this.q); changed();
+    }));
+  },
+  // obrázek popsané části papíru (pro záznam a PDF): { url, w, h } v CSS px papíru, nebo null
+  snapshot(q, scale, typ) {
+    const S = q._strokes || [];
+    if (!S.some(s => !s.eraser)) return null;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    S.forEach(s => s.pts.forEach(p => { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); }));
+    const m = 16; x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m); x1 = Math.min(PAPER_W, x1 + m); y1 = Math.min(PAPER_H, y1 + m);
+    const w = x1 - x0, h = y1 - y0, W = Math.max(1, Math.round(w * scale)), H = Math.max(1, Math.round(h * scale));
+    const ink = document.createElement("canvas"); ink.width = W; ink.height = H;
+    const ic = ink.getContext("2d"); ic.setTransform(scale, 0, 0, scale, -x0 * scale, -y0 * scale);
+    S.forEach(s => Paper.segments(ic, s, 1));
+    const out = document.createElement("canvas"); out.width = W; out.height = H;
+    const oc = out.getContext("2d"); oc.fillStyle = "#fff"; oc.fillRect(0, 0, W, H);
+    oc.strokeStyle = "#edf1f6"; oc.lineWidth = 1; oc.beginPath();
+    for (let x = Math.ceil(x0 / 24) * 24; x < x1; x += 24) { const X = Math.round((x - x0) * scale) + .5; oc.moveTo(X, 0); oc.lineTo(X, H); }
+    for (let y = Math.ceil(y0 / 24) * 24; y < y1; y += 24) { const Y = Math.round((y - y0) * scale) + .5; oc.moveTo(0, Y); oc.lineTo(W, Y); }
+    oc.stroke(); oc.drawImage(ink, 0, 0);
+    return { url: out.toDataURL(typ || "image/jpeg", 0.75), w, h, W, H };
+  }
+};
+
+/* ---------- vektorová síť v příkladu ---------- */
+const GRIDS = [];
+const BARVY_DANE = ["#2b5cab", "#1d1d1b", "#6b6b66"];
+const BARVY_RETEZ = ["#2b5cab", "#b3261e", "#1d1d1b", "#e0529c"];
+const BARVA_KRESLI = "#b3261e", BARVA_VYSL = "#7a3db8", BARVA_SPRAVNE = "#1f8a3c";
+function annIds(q) {
+  if (q._typ === "rysuj") return ["v"];
+  if (q._typ === "retez") return q.retez.map((_, i) => "r" + i).concat("R");
+  return [];
+}
+function annTpl(q, i) {
+  if (q._typ === "rysuj") return { id: "v", nazev: q.nazev || "v", barva: BARVA_KRESLI };
+  const n = q.retez.length;
+  if (i < n) return { id: "r" + i, nazev: q.retez[i].nazev, barva: BARVY_RETEZ[i % BARVY_RETEZ.length] };
+  return { id: "R", nazev: q.vysledna || "R", barva: BARVA_VYSL };
+}
+function setActive(q, i) {
+  q._act = i;
+  const ids = annIds(q), sit = q._sit;
+  sit.vektory.forEach(v => { if (ids.includes(v.id)) v.upravitelny = v.id === ids[i]; });
+  sit.kresli = q._locked ? null : annTpl(q, i);
+  sit.vybrany = null;
+  if (q._tools) q._tools.querySelectorAll("button[data-i]").forEach(b => b.classList.toggle("on", +b.dataset.i === i));
+  sit.prekresli();
+}
+function makeGrid(q, d) {
+  const box = document.createElement("div"); box.className = "q-grid"; d.appendChild(box);
+  const o = Object.assign({ xmin: -7, xmax: 7, ymin: -6, ymax: 6, osy: true, cisla: false, popisOs: true }, q.sit || {});
+  o.upravy = true; o.posun = true;
+  o.onChange = (sit, info) => {
+    if (["nakreslen", "bod", "posun", "smazan"].includes(info.typ)) { zacala(q); changed(); clearMarks(q); }
+    if (info.typ === "nakreslen" && q._typ === "retez" && q._act < annIds(q).length - 1) setActive(q, q._act + 1);
+  };
+  const sit = new Vektory.Sit(box, o);
+  (q.dane || []).forEach((v, i) => sit.pridej(Object.assign({ id: "dane" + i, barva: BARVY_DANE[i % BARVY_DANE.length] }, v, { upravitelny: false })));
+  q._sit = sit; GRIDS.push(sit);
+  if (q._typ === "rysuj" || q._typ === "retez") {
+    const t = document.createElement("div"); t.className = "grid-tools no-pdf";
+    let h = "Kreslím: ";
+    if (q._typ === "retez") annIds(q).forEach((_, i) => { h += `<button type="button" data-i="${i}">${rich("{" + annTpl(q, i).nazev + "}")}</button>`; });
+    else h += `<button type="button" data-i="0" class="on">${rich("{" + annTpl(q, 0).nazev + "}")}</button>`;
+    h += `<button type="button" data-del="1">Smazat ${q._typ === "retez" ? "vybraný" : ""}</button>`;
+    t.innerHTML = h;
+    t.querySelectorAll("button[data-i]").forEach(b => b.onclick = () => { if (!q._locked) setActive(q, +b.dataset.i); });
+    t.querySelector("button[data-del]").onclick = () => { if (!q._locked) sit.odeber(annIds(q)[q._act]); };
+    d.insertBefore(t, box);
+    q._tools = t;
+    setActive(q, 0);
+  }
+}
+function fitStart(sit, x, y, pts) {
+  const o = sit.o, xs = pts.map(p => p.dx), ys = pts.map(p => p.dy);
+  x = Math.min(o.xmax - Math.max(...xs), Math.max(o.xmin - Math.min(...xs), x));
+  y = Math.min(o.ymax - Math.max(...ys), Math.max(o.ymin - Math.min(...ys), y));
+  return [x, y];
+}
+// vyhodnocení kresby: { ok, msg } (msg = HTML); správné řešení dá čárkovaně do sit.pomocne
+function checkDrawing(q) {
+  const sit = q._sit, S = Vektory.slozky;
+  if (q._typ === "rysuj") {
+    const v = sit.vektor("v"), e = q.answer;
+    const ok = !!v && S(v).dx === e.dx && S(v).dy === e.dy;
+    if (ok) return { ok, msg: "" };
+    const st = q.start || { x: 0, y: 0 };
+    const [x, y] = fitStart(sit, v ? v.x1 : st.x, v ? v.y1 : st.y, [{ dx: 0, dy: 0 }, e]);
+    sit.pomocne = [{ x1: x, y1: y, x2: x + e.dx, y2: y + e.dy, barva: BARVA_SPRAVNE, carkovane: true, tloustka: 2.2 }];
+    const tvuj = v ? `tvůj vektor: ${popisV(S(v).dx, S(v).dy)}` : "vektor chybí";
+    return { ok, msg: `Správně je ${rich("{" + (q.nazev || "v") + "}")} = ${popisV(e.dx, e.dy)} (${tvuj}), správný vektor je čárkovaně zeleně.` };
+  }
+  const ids = annIds(q), n = q.retez.length, chyby = [];
+  const nm = i => rich("{" + annTpl(q, i).nazev + "}");
+  const vs = ids.map(id => sit.vektor(id));
+  q.retez.forEach((r, i) => {
+    const v = vs[i];
+    if (!v) chyby.push(`${nm(i)} chybí`);
+    else if (S(v).dx !== r.dx || S(v).dy !== r.dy) chyby.push(`${nm(i)} má být ${popisV(r.dx, r.dy)}`);
+    if (i > 0 && v && vs[i - 1] && (v.x1 !== vs[i - 1].x2 || v.y1 !== vs[i - 1].y2)) chyby.push(`${nm(i)} nezačíná na konci ${nm(i - 1)}`);
+  });
+  const sum = Vektory.soucet(q.retez), R = vs[n];
+  if (!R) chyby.push(`výslednice ${nm(n)} chybí`);
+  else {
+    if (S(R).dx !== sum.dx || S(R).dy !== sum.dy) chyby.push(`${nm(n)} má být ${popisV(sum.dx, sum.dy)}`);
+    else if (vs[0] && vs[n - 1] && (R.x1 !== vs[0].x1 || R.y1 !== vs[0].y1 || R.x2 !== vs[n - 1].x2 || R.y2 !== vs[n - 1].y2))
+      chyby.push(`${nm(n)} má vést od začátku ${nm(0)} ke konci ${nm(n - 1)}`);
+  }
+  if (!chyby.length) return { ok: true, msg: "" };
+  const pts = [{ dx: 0, dy: 0 }]; q.retez.forEach(r => pts.push({ dx: pts[pts.length - 1].dx + r.dx, dy: pts[pts.length - 1].dy + r.dy }));
+  const st = q.start || { x: 0, y: 0 };
+  const [x, y] = fitStart(sit, vs[0] ? vs[0].x1 : st.x, vs[0] ? vs[0].y1 : st.y, pts);
+  sit.pomocne = q.retez.map((r, i) => ({ x1: x + pts[i].dx, y1: y + pts[i].dy, x2: x + pts[i + 1].dx, y2: y + pts[i + 1].dy,
+    barva: BARVA_SPRAVNE, carkovane: true, tloustka: 2.2 }))
+    .concat({ x1: x, y1: y, x2: x + sum.dx, y2: y + sum.dy, barva: BARVA_SPRAVNE, carkovane: true, tloustka: 2.2 });
+  return { ok: false, msg: `Chyba: ${chyby.join("; ")}. Správný řetěz je čárkovaně zeleně (${nm(n)} = ${popisV(sum.dx, sum.dy)}).` };
+}
+function lockGrid(q, lock) {
+  q._locked = lock;
+  if (!q._sit) return;
+  const sit = q._sit;
+  sit.o.upravy = !lock;
+  if (q._tools) q._tools.querySelectorAll("button").forEach(b => b.disabled = lock);
+  if (lock) { sit.kresli = null; sit.vybrany = null; sit.prekresli(); }
+  else if (q._typ === "rysuj" || q._typ === "retez") setActive(q, q._act || 0);
+}
+function kresbaText(q) {
+  if (!q._sit || !(q._typ === "rysuj" || q._typ === "retez")) return "";
+  const S = Vektory.slozky;
+  return annIds(q).map((id, i) => { const v = q._sit.vektor(id); return annTpl(q, i).nazev + ": " + (v ? popisV(S(v).dx, S(v).dy) : "–"); }).join("; ");
+}
+function kresbaSpravne(q) {
+  if (q._typ === "rysuj") return (q.nazev || "v") + ": " + popisV(q.answer.dx, q.answer.dy);
+  if (q._typ === "retez") { const s = Vektory.soucet(q.retez);
+    return q.retez.map(r => r.nazev + ": " + popisV(r.dx, r.dy)).concat((q.vysledna || "R") + ": " + popisV(s.dx, s.dy)).join("; "); }
+  return "";
+}
+
+/* ---------- pole a výběr ---------- */
+function makeField(f, row, q) {
+  if (f.before) { const s = document.createElement("span"); s.className = "b"; s.innerHTML = rich(f.before); row.appendChild(s); }
+  if (f.options) {
+    const o = document.createElement("span"); o.className = "opts";
+    f.options.forEach((t, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.innerHTML = rich(t);
+      b.onclick = () => { if (q._locked) return; o.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); f._val = i; clearMarks(q); zacala(q); changed(); };
+      o.appendChild(b);
+    });
+    f._el = o; f._val = null; row.appendChild(o);
+  } else {
+    const inp = document.createElement("input");
+    inp.className = "ans"; inp.type = "text"; inp.setAttribute("inputmode", "decimal"); inp.autocomplete = "off";
+    inp.setAttribute("autocorrect", "off"); inp.setAttribute("autocapitalize", "off"); inp.spellcheck = false;
+    inp.setAttribute("aria-label", "odpověď " + q._n);
+    inp.addEventListener("input", () => { clearMarks(q); if (inp.value.trim()) zacala(q); changed(); });
+    f._el = inp; row.appendChild(inp);
+  }
+  if (f.after) { const s = document.createElement("span"); s.className = "a"; s.innerHTML = rich(f.after); row.appendChild(s); }
+}
+function fieldOk(f) {
+  if (f.options) return f._val === f.answer;
+  return isCorrect(parseAnswer(f._el.value), f.answer, f.tol);
+}
+function fieldText(f) {
+  const dec = f.tol ? Math.max(0, Math.ceil(-Math.log10(2 * f.tol))) : null;
+  const v = f.options ? f.options[f.answer] : fmt(dec === null ? f.answer : Number(f.answer.toFixed(dec)));
+  return [f.before, v, f.after].filter(Boolean).join(" ");
+}
+function fieldValue(f) { return f.options ? (f._val === null ? "–" : f.options[f._val]) : (f._el.value.trim() || "–"); }
+function fieldEmpty(f) { return f.options ? f._val === null : !f._el.value.trim(); }
+function clearMarks(q) { if (q._locked) return; q._fields.forEach(f => f._el.classList.remove("f-ok", "f-bad")); }
+
+/* ---------- stav příkladu ---------- */
+// v24: příklad je rozpracovaný (tah na papír, vyplněná odpověď, kresba v síti) – časová osa ho ukáže šedě
+function zacala(q) { if (q && q._st && !q._st.zacala) { q._st.zacala = true; if (typeof updateTimeline === "function") updateTimeline(); } }
+function stav(q) {
+  const s = q._st;
+  // v24: šedá jen rozpracovaný příklad (nápověda, pokus, něco na papíře nebo v odpovědi), přeskočený zůstane bílý
+  const rozpr = s.navstiveno && (s.zacala || s.napoveda || s.pokusy > 0);
+  if (q._typ === "dukaz") return s.hotovo ? "hotovo" : rozpr ? "seda" : "nove";
+  if (s.hotovo) return !s.spravne ? "cervena" : s.pokusy === 1 ? "zelena" : s.pokusy === 2 ? "oranzova" : "cervena";
+  return rozpr ? "seda" : "nove";
+}
+function skore() {
+  let b = 0, max = 0;
+  QS.forEach(q => { if (q._typ === "dukaz") return; max++; b += BODY[stav(q)] || 0; });
+  return { b, max };
+}
+
+/* ---------- vykreslení testu ---------- */
+let QS = [], SECTIONS = [], cur = -1, relace = "";
+function build(x) {
+  const list = x && x.list ? x.list : (typeof TEST.generate === "function") ? TEST.generate() : TEST.questions;
+  puvodniList = typeof TEST.generate === "function" ? JSON.parse(JSON.stringify(list)) : null;
+  GRIDS.length = 0; QS = []; SECTIONS = [];
+  const box = $("pages"); box.innerHTML = "";
+  let sec = null;
+  list.forEach(q => {
+    if (q.section !== undefined) { sec = { name: q.section || "Příklady", qs: [] }; SECTIONS.push(sec); return; }
+    if (!sec) { sec = { name: "Příklady", qs: [] }; SECTIONS.push(sec); }
+    q._n = QS.length + 1; q._sec = sec; q._typ = q.type || "cislo";
+    q._fields = q._typ === "cislo" ? [{ before: q.before, after: q.after, answer: q.answer, tol: q.tol }]
+      : q._typ === "vyber" ? [{ options: q.options, answer: q.answer }]
+      : q._typ === "dukaz" ? [] : (q.fields || []);
+    q._st = { pokusy: 0, hotovo: false, spravne: false, navstiveno: false, cas: 0, napoveda: false, odchody: 0, odchodCas: 0, papirOdeslan: -1, nahledOdeslan: -1 };
+    q._strokes = []; q._locked = false; q._lockedPaper = false; q._paperVer = 0;
+    sec.qs.push(q); QS.push(q);
+  });
+  QS.forEach(q => {
+    const p = document.createElement("div"); p.className = "qpage"; p.hidden = true;
+    const head = document.createElement("div"); head.className = "q-head";
+    head.innerHTML = `<span class="q-num">Příklad ${q._n} / ${QS.length}</span><span class="q-sec"></span><span class="q-state"></span>`;
+    head.querySelector(".q-sec").innerHTML = rich(q._sec.name);
+    p.appendChild(head);
+    if (q._n === 1 && TEST.intro) { const i = document.createElement("p"); i.className = "intro no-pdf"; i.textContent = TEST.intro; p.appendChild(i); }
+    if (q.text) { const t = document.createElement("div"); t.className = "q-text"; t.innerHTML = rich(q.text); p.appendChild(t); }
+    const hasGrid = q.sit || q.dane || q._typ === "rysuj" || q._typ === "retez";
+    if (hasGrid) makeGrid(q, p);
+    if (q._fields.length) {
+      const row = document.createElement("div"); row.className = "q-row" + (q._fields.length > 1 ? " multi" : "");
+      q._fields.forEach(f => makeField(f, row, q));
+      p.appendChild(row);
+    }
+    const act = document.createElement("div"); act.className = "q-actions no-pdf";
+    act.innerHTML = `<button class="btn primary" data-a="eval">Vyhodnotit</button>` +
+      (TEST.showHints && q.hint && q._typ !== "dukaz" ? `<button class="btn" data-a="hint">Nápověda</button>` : "") +
+      "";
+    act.querySelector('[data-a="eval"]').onclick = () => evaluateQ(q);
+    const hb = act.querySelector('[data-a="hint"]'); if (hb) hb.onclick = () => toggleHint(q);
+    p.appendChild(act);
+    const fb = document.createElement("div"); fb.className = "fb"; p.appendChild(fb);
+    const ht = document.createElement("div"); ht.className = "hint"; ht.hidden = true; ht.innerHTML = rich(q.hint || ""); p.appendChild(ht);
+    if (q._typ === "dukaz") {
+      const r = document.createElement("div"); r.className = "reseni"; r.hidden = true;
+      r.innerHTML = "<b>Vzorové řešení:</b><br>" + (q.reseni || []).map(rich).join("<br>");
+      p.appendChild(r); q._res = r;
+    }
+    q._page = p; q._fb = fb; q._hint = ht; q._evalBtn = act.querySelector('[data-a="eval"]');
+    box.appendChild(p);
+    // Enter = další pole, v posledním poli Vyhodnotit
+    const inputs = [...p.querySelectorAll("input.ans")];
+    inputs.forEach((inp, i) => inp.addEventListener("keydown", e => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      if (inputs[i + 1]) inputs[i + 1].focus(); else { inp.blur(); evaluateQ(q); }
+    }));
+  });
+  // souhrn
+  const s = document.createElement("div"); s.className = "qpage sum"; s.hidden = true; s.id = "summary";
+  box.appendChild(s);
+  buildTimeline();
+  relace = x ? x.relace : Zaznam.noveId(8);
+  Zaznam.nastavKontext({ relace, test: location.pathname.replace(/^.*\/annschool\//, "").replace(/^\//, ""), nazev: TEST.title, verze: TEST.version });
+  cur = -1;
+  if (x) {                                     // pokračování v rozpracovaném testu (stejná relace)
+    obnov(x);
+    Zaznam.zapis({ udalost: "pokracovani", detail: { ulozeno: new Date(x.ulozeno).toISOString(), priklad: x.cur + 1 } });
+    show(Math.max(0, Math.min(x.cur, QS.length)));
+  } else {
+    Zaznam.zapis({ udalost: "start", detail: { pocet: QS.length, sekce: SECTIONS.map(x => x.name), orientace: orient(),
+      sirka: innerWidth, vyska: innerHeight, nahodna: typeof TEST.generate === "function", sablona: SABLONA,
+      priklady: QS.map(q => ({ n: q._n, sekce: plain(q._sec.name), typ: q._typ, zadani: zadaniText(q), spravna: plain(spravnaText(q)), napoveda: plain(q.hint || "") })) } });
+    show(0);
+  }
+  pdfReset();
+}
+/* ---------- uložení rozpracovaného testu (v17): localStorage, klíč podle adresy testu ---------- */
+const ULOZ_KEY = "annschool:test:" + location.pathname;
+let ulozT = 0, puvodniList = null, ukladat = true;
+function nactiUlozeny() {
+  try { const x = JSON.parse(localStorage.getItem(ULOZ_KEY) || "null"); return x && x.verze === TEST.version && x.qs ? x : null; }
+  catch (e) { return null; }
+}
+function smazUlozeny() { clearTimeout(ulozT); try { localStorage.removeItem(ULOZ_KEY); } catch (e) { /* nic */ } }
+function stavTestu() {
+  const r1 = v => Math.round(v * 10) / 10;
+  return { verze: TEST.version, ulozeno: Date.now(), relace, cur, list: puvodniList,
+    qs: QS.map(q => ({ st: Object.assign({}, q._st, { cas: casQ(q) }), hint: !q._hint.hidden,
+      f: q._fields.map(f => f.options ? f._val : f._el.value),
+      v: q._sit ? annIds(q).map(id => q._sit.vektor(id)).filter(Boolean).map(v => ({ id: v.id, x1: v.x1, y1: v.y1, x2: v.x2, y2: v.y2 })) : [],
+      s: q._strokes.map(t => ({ c: t.color, w: t.width, e: t.eraser ? 1 : 0, p: t.pts.map(p => [r1(p[0]), r1(p[1]), Math.round(p[2] * 100) / 100]) })),
+      fb: q._fb.innerHTML, fbc: q._fb.className })) };
+}
+function uloz(hned) {
+  if (!ukladat || !QS.length) return;
+  clearTimeout(ulozT);
+  const f = () => { try { localStorage.setItem(ULOZ_KEY, JSON.stringify(stavTestu())); } catch (e) { /* plné úložiště – test půjde jen bez obnovy */ } };
+  if (hned) f(); else ulozT = setTimeout(f, 400);
+}
+function obnov(x) {
+  QS.forEach((q, i) => {
+    const d = x.qs[i]; if (!d) return;
+    Object.assign(q._st, d.st);
+    q._fields.forEach((f, k) => {
+      const v = d.f[k];
+      if (f.options) { if (v !== null && v !== undefined) { f._val = v; f._el.querySelectorAll("button").forEach((b, j) => b.classList.toggle("on", j === v)); } }
+      else f._el.value = v || "";
+    });
+    if (q._sit && d.v && d.v.length) {
+      d.v.forEach(v => { const j = annIds(q).indexOf(v.id); if (j >= 0) q._sit.pridej(Object.assign(annTpl(q, j), v)); });
+      if (q._typ === "rysuj" || q._typ === "retez") setActive(q, Math.min(annIds(q).length - 1, d.v.length));
+    }
+    q._strokes = (d.s || []).map(t => ({ color: t.c, width: t.w, eraser: !!t.e, pts: t.p }));
+    // verze papíru: nad posledním odeslaným obrázkem; s tahy o 1 výš, aby se po obnovení poslal aktuální stav
+    q._paperVer = Math.max(0, q._st.papirOdeslan || 0, q._st.nahledOdeslan || 0) + (q._strokes.length ? 1 : 0);
+    q._fb.innerHTML = d.fb || ""; q._fb.className = d.fbc || "fb";
+    if (d.hint) q._hint.hidden = false;
+    if (q._st.hotovo) {
+      q._locked = true; q._evalBtn.disabled = true;
+      if (q._typ === "dukaz") q._res.hidden = false;
+      q._fields.forEach(f => {
+        const g = fieldOk(f); f._el.classList.toggle("f-ok", g); f._el.classList.toggle("f-bad", !g);
+        if (f.options) f._el.querySelectorAll("button").forEach(b => b.disabled = true); else f._el.disabled = true;
+      });
+      if (q._sit && (q._typ === "rysuj" || q._typ === "retez")) { q._sit.pomocne = []; if (!q._st.spravne) checkDrawing(q); lockGrid(q, true); }
+    }
+  });
+}
+function zacitZnovu() {
+  if (!confirm("Začít test znovu? Všechny odpovědi a kresby se smažou.")) return;
+  casStop(); zapisSouhrn("souhrn"); smazUlozeny(); build(null);
+}
+function orient() { return innerWidth > innerHeight ? "na šířku" : "na výšku"; }
+
+function buildTimeline() {
+  const tl = $("tlItems"); tl.innerHTML = "";
+  SECTIONS.forEach(sec => {
+    const g = document.createElement("span"); g.className = "tl-sec";
+    if (SECTIONS.length > 1) { const l = document.createElement("span"); l.className = "tl-lbl"; l.innerHTML = rich(sec.name); g.appendChild(l); }
+    sec.qs.forEach(q => {
+      const b = document.createElement("button"); b.type = "button"; b.className = "tl-b"; b.textContent = q._n;
+      b.onclick = () => show(q._n - 1); q._tl = b; g.appendChild(b);
+    });
+    tl.appendChild(g);
+  });
+  const sb = document.createElement("button"); sb.type = "button"; sb.className = "tl-b sum-b"; sb.textContent = "Σ Souhrn";
+  sb.onclick = () => show(QS.length); tl.appendChild(sb); tl._sum = sb;
+  $("navPrev").onclick = () => show(cur - 1);
+  $("navNext").onclick = () => show(cur + 1);
+  updateTimeline();
+}
+function updateTimeline() {
+  QS.forEach((q, i) => {
+    const st = stav(q);
+    q._tl.className = "tl-b st-" + st + (i === cur ? " cur" : "");
+    q._tl.title = STAV_TEXT[st] + (q._st.pokusy ? ` · pokusy ${q._st.pokusy}` : "");
+    const el = q._page.querySelector(".q-state");
+    el.className = "q-state st-" + st;
+    el.textContent = (st === "nove" || st === "seda") ? (q._st.pokusy ? `pokus ${q._st.pokusy} z ${MAX_POKUSU}` : "") : STAV_TEXT[st];
+  });
+  $("tlItems")._sum.classList.toggle("cur", cur === QS.length);
+  $("navPrev").disabled = cur <= 0; $("navNext").disabled = cur >= QS.length;
+  uloz();
+  fitLayout();
+}
+
+/* ---------- měření času na příkladu ---------- */
+let aktivniOd = 0;
+function casStop() { if (aktivniOd && QS[cur]) QS[cur]._st.cas += Date.now() - aktivniOd; aktivniOd = 0; }
+function casStart() { aktivniOd = (document.visibilityState === "visible" && QS[cur]) ? Date.now() : 0; }
+function casQ(q) { return q._st.cas + (QS[cur] === q && aktivniOd ? Date.now() - aktivniOd : 0); }
+
+/* ---------- přechod mezi příklady ---------- */
+function show(i) {
+  i = Math.max(0, Math.min(QS.length, i));
+  const z = cur, zmena = i !== cur;
+  casStop();
+  if (QS[cur]) Paper.detach();
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  cur = i;
+  QS.forEach((q, k) => q._page.hidden = k !== i);
+  $("summary").hidden = i !== QS.length;
+  $("paperBox").hidden = i === QS.length;
+  if (i < QS.length) {
+    const q = QS[i];
+    q._st.navstiveno = true;
+    Paper.attach(q);
+    if (q._sit) requestAnimationFrame(() => q._sit.prekresli());
+  } else {
+    renderSummary();
+    zapisSouhrn("souhrn");
+  }
+  if (zmena) {                                   // v23: přechod na jiný příklad (pro přehled)
+    prichodCas = QS[i] ? casQ(QS[i]) : 0;
+    Zaznam.zapis({ udalost: "presun", priklad: QS[i] ? QS[i]._n : 0, sekce: QS[i] ? plain(QS[i]._sec.name) : "souhrn",
+      doba_s: QS[i] ? Math.round(prichodCas / 1000) : 0, detail: { z: QS[z] ? QS[z]._n : (z === QS.length ? "souhrn" : 0) } });
+  }
+  casStart();
+  if (zmena) posliPozici(true);
+  updateTimeline();
+  $("stage").scrollTop = 0;
+}
+// výška papíru = zbytek obrazovky (aspoň 260 px); když je zadání vysoké (síť), posouvá se celá plocha
+function fitLayout() {
+  const panel = $("panel"), tl = $("timeline"), stage = $("stage");
+  document.documentElement.style.setProperty("--panel-h", panel.offsetHeight + "px");
+  document.documentElement.style.setProperty("--tl-h", tl.offsetHeight + "px");
+  if (cur < 0 || cur >= QS.length) return;
+  const page = QS[cur]._page, cs = getComputedStyle(stage);
+  const free = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom) - page.offsetHeight - 10 - 26 - 2;
+  $("paperView").style.height = Math.max(260, Math.floor(free)) + "px";
+}
+
+/* ---------- vyhodnocení příkladu ---------- */
+function toggleHint(q) {
+  q._hint.hidden = !q._hint.hidden;
+  if (!q._hint.hidden && !q._st.napoveda) {
+    q._st.napoveda = true;
+    Zaznam.zapis({ udalost: "napoveda", priklad: q._n, sekce: plain(q._sec.name), typ: q._typ, zadani: zadaniText(q),
+      pokus: q._st.pokusy, doba_s: Math.round(casQ(q) / 1000) });
+  }
+  fitLayout(); uloz();
+}
+function zadaniText(q) {
+  const f = q._fields.map(f => [f.before, f.options ? "[" + f.options.join(" / ") + "]" : "[ ]", f.after].filter(Boolean).join(" ")).join(" · ");
+  return plain([q.text, f].filter(Boolean).join(" | "));
+}
+function spravnaText(q) { return [q._fields.map(fieldText).join(" · "), kresbaSpravne(q)].filter(Boolean).join(" | "); }
+function papirProZaznam(q) {
+  if ((q._paperVer || 0) === q._st.papirOdeslan) return "";
+  q._st.papirOdeslan = q._st.nahledOdeslan = q._paperVer || 0;     // tento stav papíru už náhled nepotřebuje
+  const s = Paper.snapshot(q, 0.6);
+  return s ? s.url : "";
+}
+/* ---------- náhled papíru pro přehled výsledků (v21) ----------
+   Každých NAHLED_S s se u příkladů, kde se papír od posledního odeslání změnil, pošle obrázek papíru
+   (událost „nahled“). Jen když je záznam zapnutý a ve frontě nic nečeká – offline se staré náhledy
+   nehromadí. Skript (v03) drží pro každý příklad jen poslední obrázek (list Nahledy). */
+const SABLONA = "v26", NAHLED_S = 20;
+function posliNahled(q) {
+  if (!q || !Zaznam.zapnuto || Zaznam.fronta) return false;
+  const v = q._paperVer || 0;
+  if (!v || v === q._st.nahledOdeslan) return false;               // nic nenapsáno / beze změny
+  q._st.nahledOdeslan = v;
+  const s = Paper.snapshot(q, 0.6);
+  Zaznam.zapis({ udalost: "nahled", priklad: q._n, sekce: plain(q._sec.name), papir: s ? s.url : "prazdne" });
+  uloz();
+  return true;
+}
+setInterval(() => {
+  if (document.visibilityState !== "visible" || !QS.length) return;
+  // nejdřív aktuální příklad, pak ostatní (po jednom za kolo – fronta musí být prázdná)
+  if (!posliNahled(QS[cur])) QS.some(q => posliNahled(q));
+}, NAHLED_S * 1000);
+/* ---------- poloha v testu pro přehled (v23) ----------
+   Každých POZICE_S s (jen když je test vidět), při přechodu na jiný příklad a při odchodu a návratu se pošle
+   událost „pozice“: příklad (0 = souhrn), doba_s = čas na příkladu v této návštěvě, detail.celkem_s = čas na příkladu
+   celkem, detail.aktivni. Skript (v04) drží jen poslední stav pro každé otevření testu (list Stav). */
+const POZICE_S = 20;
+let prichodCas = 0;                                  // casQ příkladu při příchodu na něj
+function posliPozici(aktivni) {
+  if (!Zaznam.zapnuto || !QS.length || cur < 0 || Zaznam.fronta > 5) return false;   // offline se nehromadí
+  const q = QS[cur];
+  Zaznam.zapis({ udalost: "pozice", priklad: q ? q._n : 0, sekce: q ? plain(q._sec.name) : "souhrn",
+    doba_s: q ? Math.max(0, Math.round((casQ(q) - prichodCas) / 1000)) : 0,
+    detail: { aktivni: !!aktivni, celkem_s: q ? Math.round(casQ(q) / 1000) : 0, pocet: QS.length } });
+  return true;
+}
+setInterval(() => { if (document.visibilityState === "visible") posliPozici(true); }, POZICE_S * 1000);
+function evaluateQ(q) {
+  if (q._st.hotovo) return;
+  if (q._typ === "dukaz") {
+    q._res.hidden = false; q._st.hotovo = true; q._st.pokusy = 1; q._evalBtn.disabled = true;
+    Zaznam.zapis({ udalost: "reseni", priklad: q._n, sekce: plain(q._sec.name), typ: q._typ, zadani: zadaniText(q),
+      pokus: 1, doba_s: Math.round(casQ(q) / 1000), napoveda: q._st.napoveda, odchody: q._st.odchody, papir: papirProZaznam(q) });
+    updateTimeline(); pdfReset(); return;
+  }
+  const grid = q._typ === "rysuj" || q._typ === "retez";
+  const prazdne = q._fields.every(fieldEmpty) && (!grid || !annIds(q).some(id => q._sit.vektor(id)));
+  if (prazdne) { q._fb.className = "fb bad"; q._fb.textContent = "Nejdřív doplň odpověď."; fitLayout(); return; }
+  q._st.pokusy++;
+  let good = true;
+  q._fields.forEach(f => { const g = fieldOk(f); f._el.classList.toggle("f-ok", g); f._el.classList.toggle("f-bad", !g); if (!g) good = false; });
+  let kresba = null;
+  if (grid) { q._sit.pomocne = []; kresba = checkDrawing(q); if (!kresba.ok) good = false; }
+  const konec = good || q._st.pokusy >= MAX_POKUSU;
+  const odpoved = [q._fields.map(fieldValue).join(" · "), kresbaText(q)].filter(Boolean).join(" | ");
+  const spravna = spravnaText(q);
+  if (konec) {
+    q._st.hotovo = true; q._st.spravne = good;
+    q._locked = true; q._evalBtn.disabled = true;
+    q._fields.forEach(f => { if (f.options) f._el.querySelectorAll("button").forEach(b => b.disabled = true); else f._el.disabled = true; });
+    if (grid) lockGrid(q, true);
+    if (good) {
+      q._fb.className = "fb ok";
+      q._fb.textContent = q._st.pokusy === 1 ? "Správně!" : `Správně (napo${q._st.pokusy === 2 ? "druhé" : "třetí"}).`;
+    } else {
+      const casti = [];
+      if (kresba && !kresba.ok) casti.push(kresba.msg);
+      if (q._fields.some(f => !fieldOk(f))) casti.push("Správně je " + rich(q._fields.map(fieldText).join(", ")) + ".");
+      q._fb.className = "fb bad";
+      q._fb.innerHTML = "Ani napotřetí to nevyšlo. " + casti.join(" ") + (q.hint ? " – " + rich(q.hint) : "");
+    }
+  } else {
+    if (grid) { q._sit.pomocne = []; q._sit.prekresli(); }   // správné řešení se zatím neukazuje
+    const zbyva = MAX_POKUSU - q._st.pokusy;
+    q._fb.className = "fb bad";
+    q._fb.textContent = `Špatně – zkus to znovu (${zbyva === 1 ? "zbývá poslední pokus" : "zbývají " + zbyva + " pokusy"}).`;
+  }
+  Zaznam.zapis({ udalost: "vyhodnoceni", priklad: q._n, sekce: plain(q._sec.name), typ: q._typ, zadani: zadaniText(q),
+    pokus: q._st.pokusy, vysledek: good ? "spravne" : "spatne", konecny: konec, odpoved: plain(odpoved), spravna: plain(spravna),
+    doba_s: Math.round(casQ(q) / 1000), napoveda: q._st.napoveda, odchody: q._st.odchody, odchody_s: Math.round(q._st.odchodCas / 1000),
+    papir: papirProZaznam(q) });
+  updateTimeline(); pdfReset();
+}
+
+/* ---------- souhrn ---------- */
+function renderSummary() {
+  const s = $("summary"), sk = skore();
+  const pocty = {}; QS.forEach(q => { const t = stav(q); pocty[t] = (pocty[t] || 0) + 1; });
+  const pct = sk.max ? Math.round(sk.b / sk.max * 100) : 0;
+  let h = `<h1>${rich(TEST.title)}</h1><div class="meta">Datum: ${new Date().toLocaleDateString("cs-CZ")}${TEST.version ? "  ·  verze " + TEST.version : ""}</div>`;
+  if (TEST.intro) h += `<p class="intro no-pdf">${rich(TEST.intro)}</p>`;
+  h += sk.max ? `<div class="big">${fmt(sk.b)} / ${sk.max} bodů (${pct} %)</div>` : "";
+  h += `<table><tr><th>Sekce</th><th>Body</th><th>Příklady</th></tr>`;
+  SECTIONS.forEach(sec => {
+    let b = 0, m = 0;
+    sec.qs.forEach(q => { if (q._typ !== "dukaz") { m++; b += BODY[stav(q)] || 0; } });
+    const kol = sec.qs.map(q => `<span title="${STAV_TEXT[stav(q)]}" style="display:inline-block;width:20px;height:20px;line-height:20px;border-radius:50%;text-align:center;font-size:11px;margin-right:3px;color:${["nove"].includes(stav(q)) ? "#1d1d1b" : "#fff"};background:${barva(stav(q))};border:1px solid #0002">${q._n}</span>`).join("");
+    h += `<tr><td>${rich(sec.name)}</td><td>${m ? fmt(b) + " / " + m : "–"}</td><td>${kol}</td></tr>`;
+  });
+  h += `</table><div class="legend">` + ["zelena", "oranzova", "cervena", "seda", "nove", "hotovo"].filter(t => pocty[t] || ["zelena", "oranzova", "cervena"].includes(t))
+    .map(t => `<span><i style="background:${barva(t)}"></i>${STAV_TEXT[t]}: ${pocty[t] || 0}</span>`).join("") + `</div>`;
+  h += `<div class="send no-pdf" id="sendState"></div>`;
+  h += `<div class="send no-pdf">Zařízení ${Zaznam.zarizeni}${Zaznam.prezdivka ? " · " + Zaznam.prezdivka : ""}</div>`;
+  h += `<p class="note no-pdf">Hotovo? Ulož si PDF tlačítkem nahoře. Na příklady se můžeš vrátit přes čísla dole.
+    Rozpracovaný test se ukládá – po zavření půjde pokračovat.</p><p class="no-pdf"><button class="btn" id="btnRestart" type="button">Začít test znovu</button></p>`;
+  s.innerHTML = h;
+  $("btnRestart").onclick = zacitZnovu;
+  zobrazStavOdeslani();
+}
+function barva(t) { return ({ zelena: "#1f8a3c", oranzova: "#e08a00", cervena: "#b3261e", seda: "#a9a9a2", hotovo: "#2b5cab", nove: "#ffffff" })[t]; }
+let stavOdeslani = ["", 0];
+function zobrazStavOdeslani() {
+  const el = $("sendState"); if (!el) return;
+  const [st, n] = stavOdeslani;
+  el.textContent = st === "vypnuto" ? "Výsledky se neodesílají (není nastavená adresa)." :
+    st === "odesláno" ? "Výsledky jsou odeslané." : `Výsledky se odesílají… (čeká ${n})` + (st.includes("offline") ? " – zkusím znovu, až bude internet." : "");
+}
+function zapisSouhrn(udalost) {
+  const sk = skore();
+  const podpis = JSON.stringify(QS.map(q => [stav(q), q._st.pokusy, Math.round(casQ(q) / 5000)]));
+  const posl = zapisSouhrn.posledni = zapisSouhrn.posledni || {};
+  if (podpis === posl[udalost]) return;                  // beze změny se znovu neposílá
+  posl[udalost] = podpis;
+  Zaznam.zapis({ udalost, detail: { body: sk.b, max: sk.max, celkem_s: Math.round(QS.reduce((a, q) => a + casQ(q), 0) / 1000),
+    priklady: QS.map(q => ({ n: q._n, sekce: plain(q._sec.name), typ: q._typ, zadani: zadaniText(q), stav: stav(q), pokusy: q._st.pokusy,
+      doba_s: Math.round(casQ(q) / 1000), napoveda: q._st.napoveda, odchody: q._st.odchody, odchody_s: Math.round(q._st.odchodCas / 1000),
+      navstiveno: !!q._st.navstiveno, zacala: !!q._st.zacala })) } });
+}
+
+/* ---------- odchody z testu (jiná aplikace, jiný panel, zamčení) ---------- */
+let odchodOd = 0, odchodQ = null;
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") {
+    casStop(); odchodOd = Date.now(); odchodQ = cur;
+    zapisSouhrn("stav"); posliPozici(false); Zaznam.beacon(); uloz(true);
+  } else if (odchodOd) {
+    const d = Date.now() - odchodOd, q = QS[odchodQ];
+    if (q) { q._st.odchody++; q._st.odchodCas += d; }
+    Zaznam.zapis({ udalost: "odchod", priklad: q ? q._n : 0, sekce: q ? plain(q._sec.name) : "souhrn", doba_s: Math.round(d / 1000) });
+    odchodOd = 0; casStart(); posliPozici(true);
+  }
+});
+
+/* ---------- časovač ---------- */
+function startTimer() {
+  if (!TEST.timeLimitMin) return;
+  const end = Date.now() + TEST.timeLimitMin * 60000, el = $("timer");
+  const tick = () => {
+    const s = Math.max(0, Math.round((end - Date.now()) / 1000));
+    el.textContent = s ? `⏱ ${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}` : "Čas vypršel";
+    el.classList.toggle("over", !s);
+    if (s) setTimeout(tick, 1000);
+  };
+  tick();
+}
+
+/* ---------- PDF: souhrn + každý příklad (zadání, odpověď, výsledek) + jeho papír ---------- */
+let pdfFile = null, version = 0;
+function changed() { version++; pdfReset(); uloz(); }
+function pdfReset() {
+  pdfFile = null; const b = $("btnPdf");
+  if (b.dataset.busy) return;
+  b.textContent = "PDF"; b.classList.remove("ready");
+}
+function pdfName() {
+  const d = new Date(), p = x => String(x).padStart(2, "0");
+  const date = `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  // typ testu ze jména souboru (test, test-1, test-opravny-2 …), aby se PDF různých testů k jednomu tématu nepletla
+  const typ = (decodeURIComponent(location.pathname).match(/_(test[a-z0-9-]*)_v\d\d\.html$/) || [])[1] || "test";
+  const base = ["Test", TEST.topic || "test", typ, TEST.version, date].filter(Boolean).join("_");
+  let n = 1;
+  try { n = (parseInt(localStorage.getItem("pdfcount:" + base), 10) || 0) + 1; localStorage.setItem("pdfcount:" + base, n); }
+  catch (e) { n = (pdfName.n = (pdfName.n || 0) + 1); }
+  return `${base}_${p(n)}.pdf`;
+}
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+async function makePdf() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const PW = 210, PH = 297, M = 12, W = PW - 2 * M;
+  const back = cur, stage = $("stage"), st = stage.scrollTop;
+  const shots = [];
+  document.body.classList.add("capturing");
+  try {
+    renderSummary();
+    for (let i = 0; i <= QS.length; i++) {
+      const el = i < QS.length ? QS[i]._page : $("summary");
+      QS.forEach((q, k) => q._page.hidden = k !== i); $("summary").hidden = i !== QS.length;
+      if (i < QS.length && QS[i]._sit) QS[i]._sit.prekresli();
+      await nextFrame();
+      const scale = Math.min(2, 3800 / el.offsetWidth);
+      const c = await html2canvas(el, { scale, backgroundColor: "#ffffff", logging: false });
+      const item = { c, w: W, h: c.height * W / c.width };
+      if (i < QS.length) {
+        const s = Paper.snapshot(QS[i], 1.2);
+        if (s) { let w = s.w / PAPER_W * W, h = s.h / PAPER_W * W; if (h > PH - 2 * M) { w *= (PH - 2 * M) / h; h = PH - 2 * M; } item.paper = { url: s.url, w, h }; }
+      }
+      shots.push(item);
+    }
+  } finally {
+    document.body.classList.remove("capturing");
+    QS.forEach((q, k) => q._page.hidden = k !== back); $("summary").hidden = back !== QS.length;
+    stage.scrollTop = st;
+  }
+  // souhrn (poslední snímek) na začátek
+  shots.unshift(shots.pop());
+  let y = M;
+  const put = (url, w, h, fmtImg) => {
+    if (y + h > PH - M && y > M) { doc.addPage(); y = M; }
+    doc.addImage(url, fmtImg, M, y, w, h); y += h + 3;
+  };
+  shots.forEach((s, i) => {
+    let h = s.h, w = s.w; if (h > PH - 2 * M) { w *= (PH - 2 * M) / h; h = PH - 2 * M; }
+    // zadání drž na stejné stránce s papírem, pokud se vejdou
+    if (s.paper && y + h + s.paper.h + 3 > PH - M && y > M && h + s.paper.h + 3 <= PH - 2 * M) { doc.addPage(); y = M; }
+    put(s.c.toDataURL("image/jpeg", 0.9), w, h, "JPEG");
+    if (s.paper) put(s.paper.url, s.paper.w, s.paper.h, "JPEG");
+    y += i === 0 ? 4 : 3;
+  });
+  const n = doc.getNumberOfPages();
+  for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(9); doc.setTextColor(140); doc.text(`${i} / ${n}`, PW - M, PH - 5, { align: "right" }); }
+  return new File([doc.output("blob")], pdfName(), { type: "application/pdf" });
+}
+function download(file) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(file); a.download = file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+async function share(f) {
+  try { await navigator.share({ files: [f], title: f.name }); return true; }
+  catch (e) {
+    if (e.name === "AbortError") return true;
+    if (e.name === "NotAllowedError") return false;
+    download(f); return true;
+  }
+}
+async function onPdf() {
+  const b = $("btnPdf");
+  if (b.dataset.busy) return;
+  if (pdfFile) { await share(pdfFile); return; }
+  b.dataset.busy = "1"; b.textContent = "PDF…";
+  const startVersion = version;
+  try {
+    const f = await makePdf();
+    delete b.dataset.busy;
+    if (version !== startVersion) { pdfReset(); return; }
+    Zaznam.zapis({ udalost: "pdf", detail: { soubor: f.name } });
+    const canShare = navigator.canShare && navigator.canShare({ files: [f] });
+    if (!canShare) { download(f); pdfReset(); return; }
+    if (await share(f)) { pdfReset(); }
+    else { pdfFile = f; b.textContent = "Uložit PDF"; b.classList.add("ready"); }
+  } catch (e) {
+    delete b.dataset.busy; pdfReset();
+    alert("PDF se nepodařilo vytvořit: " + e.message);
+  }
+}
+
+/* ---------- start ---------- */
+document.title = `${TEST.title} (${TEST.version})`;
+$("pTitle").textContent = TEST.title;
+$("pVer").textContent = TEST.version ? "· " + TEST.version : "";
+if (typeof TEST.generate === "function") {
+  $("btnNew").hidden = false;
+  $("btnNew").onclick = () => {
+    if (!confirm("Vytvořit novou sadu příkladů? Odpovědi i kresby se smažou.")) return;
+    casStop(); zapisSouhrn("souhrn"); smazUlozeny(); build(null);
+  };
+}
+$("btnPdf").onclick = onPdf;
+document.querySelectorAll(".panel-actions .swatch").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".panel-actions .swatch").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); draw.color = b.dataset.color; setEraser(false);
+});
+function setEraser(on) { draw.eraser = on; $("toolEraser").classList.toggle("on", on); $("toolPen").classList.toggle("on", !on); }
+$("toolPen").onclick = () => setEraser(false);
+document.querySelectorAll(".panel-actions .width").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".panel-actions .width").forEach(x => x.classList.remove("on"));
+  b.classList.add("on"); draw.width = parseFloat(b.dataset.w); setEraser(false);
+});
+$("toolEraser").onclick = () => setEraser(true);
+
+let rT;
+window.addEventListener("resize", () => { clearTimeout(rT); rT = setTimeout(fitLayout, 120); });
+if (window.ResizeObserver) { new ResizeObserver(() => fitLayout()).observe($("timeline")); new ResizeObserver(() => fitLayout()).observe($("panel"));
+  new ResizeObserver(() => fitLayout()).observe($("pages")); }
+Zaznam.naStav((st, n) => { stavOdeslani = [st, n]; zobrazStavOdeslani(); });
+window.addEventListener("pagehide", () => { casStop(); zapisSouhrn("stav"); posliPozici(false); Zaznam.beacon(); uloz(true); });
+Paper.init();
+{
+  const ul = nactiUlozeny();
+  let pokr = false;
+  if (ul) {
+    const kdy = new Date(ul.ulozeno).toLocaleString("cs-CZ", { day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit" });
+    pokr = confirm(`Tento test máš rozpracovaný (${kdy}). Pokračovat?\n\nOK = pokračovat, Zrušit = začít znovu.`);
+    if (!pokr) smazUlozeny();
+  }
+  build(pokr ? ul : null);
+}
+startTimer();
+</script>
+</body>
+</html>
