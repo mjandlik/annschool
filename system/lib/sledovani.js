@@ -21,6 +21,9 @@
                    je vidět), druhé klepnutí na stejné tlačítko volbu zruší. Událost: sekce = název části,
                    detail { cast, stav: "chapu" | "nechapu" | "zruseno", poradi }. Souhrn „stranka“ nese
                    v detail.porozumeni aktuální stav všech částí { "název": "chapu" | "nechapu" }.
+                   Od 03.11.2026: po každé změně volby vyšle na document událost „porozumeni“
+                   (detail { cast, stav }); aktuální stav vrací Sledovani.porozumeniStav() – používá je
+                   šablona stránky s teorií (system/Sablona_material_vXX.html) pro zamykání kapitol a časovou osu.
    Návod: system/Navod_material_vXX.md (sledování) a Navod_test_vXX.md, kap. 9.
    ===================================================================== */
 (function () {
@@ -124,6 +127,7 @@
     ulozPor(); vstup();
     Zaznam.zapis({ udalost: "porozumeni", typ: S.typ, sekce: cast, detail: { cast, stav, poradi } });
     souhrn(true);
+    try { document.dispatchEvent(new CustomEvent("porozumeni", { detail: { cast, stav } })); } catch (e) { /* starý prohlížeč */ }
   }
   function stylPor() {
     if (document.getElementById("porozumeni-styl")) return;
@@ -161,6 +165,7 @@
     klik(cil, text) { Zaznam.zapis({ udalost: "klik", typ: S.typ, detail: { cil, text } }); },
     souhrn: () => souhrn(true),
     porozumeni: (cast, stav) => porozumeni(cast, stav, 0),
+    porozumeniStav: () => Object.assign({}, POR),
     vlozTlacitka,
     get stav() { pricti(); return JSON.parse(JSON.stringify(S)); }
   };
