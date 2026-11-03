@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jak to funguje – technika za Ann School</title>
+<link rel="icon" type="image/svg+xml" href="system/img/cat.svg">
+<!--
+  JAK TO FUNGUJE – technický popis pro zájemce, kteří chtějí stejnou technologii použít jinde (jak-to-funguje_vXX.html).
+  Není to studijní materiál, proto bez sledování. Nová verze = _vXX+1, stará do archiv/.
+-->
+<style>
+  :root { --bg: #fafaf7; --paper: #fff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5; --accent: #2b5cab;
+    --gh: #24292f; --g: #1f8a3c; --c: #c2551b; --ipad: #7a3db8; --code: #f2f2ec; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line);
+    padding: 8px 16px; display: flex; gap: 10px; align-items: center; }
+  header .t { flex: 1; font-weight: 600; font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  header a { font-size: 14px; padding: 4px 10px; border-radius: 8px; border: 2px solid var(--accent); color: var(--accent); text-decoration: none; }
+  main { max-width: 880px; margin: 0 auto; padding: 18px 16px 70px; }
+  h1 { font-size: 27px; margin: 6px 0 4px; line-height: 1.2; }
+  h2 { font-size: 21px; margin: 34px 0 8px; padding-top: 14px; border-top: 1px solid var(--line); }
+  h3 { font-size: 17px; margin: 20px 0 6px; }
+  .lead { color: var(--muted); margin: 0 0 10px; }
+  code { font: 14px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--code); padding: 1px 5px; border-radius: 4px; }
+  pre { background: var(--code); padding: 10px 12px; border-radius: 8px; overflow-x: auto; font: 13.5px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  pre code { background: none; padding: 0; overflow-wrap: normal; }
+  p code, li code, td code { overflow-wrap: anywhere; }
+  .fig { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin: 12px 0; overflow-x: auto; }
+  .fig svg { display: block; width: 100%; min-width: 620px; height: auto; }
+  .cap { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; background: var(--paper); }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #ecece6; vertical-align: top; }
+  th { font-size: 13px; color: var(--muted); }
+  .tw { overflow-x: auto; }
+  .box { background: var(--paper); border-left: 4px solid var(--accent); padding: 8px 12px; margin: 10px 0; border-radius: 0 8px 8px 0; }
+  .box.warn { border-left-color: var(--c); }
+  ol li, ul li { margin: 3px 0; }
+  a { color: var(--accent); }
+  .toc { columns: 2; font-size: 15px; padding-left: 20px; }
+  @media (max-width: 600px) { .toc { columns: 1; } h1 { font-size: 23px; } }
+</style>
+</head>
+<body>
+<header><div class="t">Jak to funguje – technika</div><a href="./">Rozcestník</a></header>
+<main>
+<h1>Jak funguje Ann School (a jak si to postavit jinde)</h1>
+<p class="lead">Technický popis: kde co leží, co dělá Claude, proč je potřeba Google a jak stejnou věc rozjet na vlastní doméně. Bez serveru, bez placeného hostingu.</p>
+
+<ol class="toc">
+  <li><a href="#celek">Celkový obrázek</a></li>
+  <li><a href="#github">GitHub a GitHub Pages</a></li>
+  <li><a href="#claude">Co dělá Claude</a></li>
+  <li><a href="#google">Proč Google (Apps Script + tabulka)</a></li>
+  <li><a href="#stranka">Co se děje přímo v prohlížeči</a></li>
+  <li><a href="#data">Tok dat při jednom příkladu</a></li>
+  <li><a href="#jinde">Recept: totéž pro vlastní projekt</a></li>
+  <li><a href="#domena">Vlastní doména přes Cloudflare</a></li>
+  <li><a href="#alternativy">Alternativy a limity</a></li>
+  <li><a href="#slovnik">Slovníček</a></li>
+</ol>
+
+<h2 id="celek">1. Celkový obrázek</h2>
+<p>Celé řešení má tři části, které spolu mluví přes internet:</p>
+<ul>
+  <li><b>GitHub</b> – úložiště souborů (kód, testy, materiály) a zároveň web zdarma (GitHub Pages).</li>
+  <li><b>Prohlížeč na tabletu</b> – stránky se v něm spouštějí. Veškerá „logika“ (vyhodnocení, kreslení, ukládání rozpracovaného testu) běží tady v JavaScriptu.</li>
+  <li><b>Google</b> – malý skript (Apps Script), který přijímá výsledky a zapisuje je do tabulky. To je jediná část, která umí <i>ukládat</i>.</li>
+</ul>
+
+<div class="fig">
+<svg viewBox="0 0 860 430" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, sans-serif" font-size="14">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#444"/></marker>
+  </defs>
+  <!-- Claude -->
+  <rect x="20" y="30" width="190" height="96" rx="12" fill="#fff4ec" stroke="#c2551b" stroke-width="2"/>
+  <text x="115" y="58" text-anchor="middle" font-weight="700" fill="#c2551b">Claude</text>
+  <text x="115" y="80" text-anchor="middle">píše HTML / JS / CSS,</text>
+  <text x="115" y="98" text-anchor="middle">testuje v Playwrightu</text>
+  <text x="115" y="116" text-anchor="middle" fill="#6b6b66" font-size="12">(cloud, na požádání)</text>
+  <!-- GitHub -->
+  <rect x="300" y="20" width="250" height="150" rx="12" fill="#f3f4f6" stroke="#24292f" stroke-width="2"/>
+  <text x="425" y="46" text-anchor="middle" font-weight="700" fill="#24292f">GitHub</text>
+  <rect x="318" y="58" width="214" height="44" rx="8" fill="#fff" stroke="#999"/>
+  <text x="425" y="78" text-anchor="middle">repozitář (git)</text>
+  <text x="425" y="95" text-anchor="middle" fill="#6b6b66" font-size="12">soubory + historie verzí</text>
+  <rect x="318" y="112" width="214" height="44" rx="8" fill="#fff" stroke="#999"/>
+  <text x="425" y="132" text-anchor="middle">GitHub Pages</text>
+  <text x="425" y="149" text-anchor="middle" fill="#6b6b66" font-size="12">statický web zdarma</text>
+  <!-- iPad -->
+  <rect x="630" y="20" width="210" height="190" rx="18" fill="#f6f0fc" stroke="#7a3db8" stroke-width="2"/>
+  <text x="735" y="46" text-anchor="middle" font-weight="700" fill="#7a3db8">Tablet / prohlížeč</text>
+  <text x="735" y="72" text-anchor="middle">test, kreslení perem,</text>
+  <text x="735" y="90" text-anchor="middle">vyhodnocení (JavaScript)</text>
+  <rect x="650" y="104" width="170" height="46" rx="8" fill="#fff" stroke="#999"/>
+  <text x="735" y="124" text-anchor="middle">localStorage</text>
+  <text x="735" y="141" text-anchor="middle" fill="#6b6b66" font-size="12">ID zařízení, fronta, stav</text>
+  <text x="735" y="178" text-anchor="middle" font-size="12" fill="#6b6b66">rozpracovaný test</text>
+  <text x="735" y="194" text-anchor="middle" font-size="12" fill="#6b6b66">přežije zavření</text>
+  <!-- Google -->
+  <rect x="300" y="268" width="250" height="140" rx="12" fill="#eef8f1" stroke="#1f8a3c" stroke-width="2"/>
+  <text x="425" y="294" text-anchor="middle" font-weight="700" fill="#1f8a3c">Google</text>
+  <rect x="318" y="306" width="214" height="40" rx="8" fill="#fff" stroke="#999"/>
+  <text x="425" y="331" text-anchor="middle">Apps Script (…/exec)</text>
+  <rect x="318" y="354" width="104" height="40" rx="8" fill="#fff" stroke="#999"/>
+  <text x="370" y="379" text-anchor="middle">tabulka</text>
+  <rect x="428" y="354" width="104" height="40" rx="8" fill="#fff" stroke="#999"/>
+  <text x="480" y="379" text-anchor="middle">Disk (obrázky)</text>
+  <!-- přehled -->
+  <rect x="630" y="290" width="210" height="96" rx="12" fill="#fff" stroke="#2b5cab" stroke-width="2"/>
+  <text x="735" y="318" text-anchor="middle" font-weight="700" fill="#2b5cab">vysledky.html</text>
+  <text x="735" y="340" text-anchor="middle">přehled pro rodiče</text>
+  <text x="735" y="358" text-anchor="middle" fill="#6b6b66" font-size="12">(taky stránka z GitHub Pages)</text>
+  <!-- šipky -->
+  <line x1="210" y1="78" x2="296" y2="78" stroke="#444" stroke-width="2" marker-end="url(#ar)"/>
+  <text x="253" y="70" text-anchor="middle" font-size="12">git push</text>
+  <line x1="550" y1="134" x2="626" y2="134" stroke="#444" stroke-width="2" marker-end="url(#ar)"/>
+  <text x="588" y="126" text-anchor="middle" font-size="12">HTTPS</text>
+  <text x="588" y="152" text-anchor="middle" font-size="11" fill="#6b6b66">stránky</text>
+  <path d="M690 210 C 660 260, 600 300, 554 318" fill="none" stroke="#7a3db8" stroke-width="2" marker-end="url(#ar)"/>
+  <text x="655" y="252" font-size="12" fill="#7a3db8">POST výsledky</text>
+  <path d="M630 340 C 600 340, 580 330, 554 328" fill="none" stroke="#2b5cab" stroke-width="2" marker-end="url(#ar)" stroke-dasharray="5 4"/>
+  <text x="590" y="360" font-size="12" fill="#2b5cab">GET data</text>
+  <path d="M210 110 C 250 200, 270 300, 296 330" fill="none" stroke="#c2551b" stroke-width="2" marker-end="url(#ar)" stroke-dasharray="5 4"/>
+  <text x="205" y="250" font-size="12" fill="#c2551b">čte výsledky</text>
+  <text x="205" y="266" font-size="12" fill="#c2551b">(opravné testy)</text>
+</svg>
+<div class="cap">Plná čára = posílání dat, čárkovaně = čtení. GitHub nic neukládá za běhu, ukládá jen Google.</div>
+</div>
+
+<h2 id="github">2. GitHub a GitHub Pages</h2>
+<h3>Repozitář</h3>
+<p><b>Git</b> je systém na verze souborů: každá změna je „commit“ s popisem, kdo a co změnil, a jde se k ní kdykoli vrátit. <b>GitHub</b> je služba, kde repozitář (složka se soubory + celou historií) leží na internetu. Tenhle projekt je veřejný repozitář <a href="https://github.com/mjandlik/annschool">mjandlik/annschool</a>:</p>
+<div class="tw"><table>
+  <tr><th>Co</th><th>Kde</th><th>K čemu</th></tr>
+  <tr><td>rozcestník</td><td><code>index.html</code></td><td>seznam všeho; načítá si ho sám přes GitHub API (strom souborů), takže nový soubor se ukáže bez úprav</td></tr>
+  <tr><td>materiály, testy</td><td><code>matematika/</code>, <code>fyzika/</code></td><td>jeden HTML soubor = jedna stránka (styly i skripty uvnitř)</td></tr>
+  <tr><td>šablona, návody</td><td><code>system/</code></td><td>šablona testu, šablona stránky s teorií (kapitoly s tlačítky Chápu / Nechápu), návody pro Clauda, poučení z chyb (<code>Pouceni_vXX.md</code>), kontrolní skripty (jeden test, celý repozitář)</td></tr>
+  <tr><td>knihovny</td><td><code>system/lib/</code></td><td>sdílený kód: <code>zaznam.js</code> (odesílání), <code>sledovani.js</code> (čtení stránek, tlačítka Chápu / Nechápu), <code>vektory.js</code> (síť), html2canvas + jsPDF (PDF)</td></tr>
+  <tr><td>přehled</td><td><code>vysledky.html</code></td><td>čte data z Googlu a kreslí tabulky</td></tr>
+  <tr><td>skript pro Google</td><td><code>system/Skript_vysledky_v04.gs</code></td><td>kód, který se ručně vloží do Google tabulky</td></tr>
+  <tr><td>starší verze</td><td><code>archiv/</code></td><td>každá změna = nový soubor <code>_v02</code>, <code>_v03</code>…, starý se přesune sem</td></tr>
+</table></div>
+
+<h3>GitHub Pages = web zdarma</h3>
+<p>V nastavení repozitáře (Settings → Pages) se zapne, že GitHub soubory z větve <code>main</code> zveřejní jako web: <code>https://&lt;uživatel&gt;.github.io/&lt;repozitář&gt;/</code>. Po každém <code>git push</code> se web do minuty aktualizuje.</p>
+<div class="box warn"><b>Zásadní omezení:</b> GitHub Pages je <b>statický</b> hosting. Server jen posílá soubory tak, jak leží. Nemá databázi, nespustí žádný kód na serveru a stránka do repozitáře nemůže nic zapsat (na to by potřebovala tajný klíč a ten nesmí být ve veřejném kódu – kdokoli by ho zkopíroval a mohl repozitář smazat). Proto je potřeba Google (kap. 4).</div>
+
+<h2 id="claude">3. Co dělá Claude</h2>
+<p>Claude běží v cloudu Anthropicu a v tomhle projektu má „pracovní stůl“ s Linuxem, Pythonem, Node.js a připojeným repozitářem. Na požádání:</p>
+<ul>
+  <li><b>napíše kód</b> – HTML, CSS, JavaScript, Apps Script; i celé stránky s grafikou (SVG) a vzorci (KaTeX),</li>
+  <li><b>vyzkouší ho</b> – v Playwrightu (prohlížeč Chromium bez obrazovky ovládaný skriptem) otevře stránku jako iPad na výšku i na šířku, klikne na odpovědi, nakreslí myší čáru, udělá snímek obrazovky a zkontroluje, že nic nepadá; odesílání do Googlu při tom podvrhne, aby se do tabulky nezapisovaly testovací nesmysly,</li>
+  <li><b>zkontroluje se</b> – před každým nahráním projde „kontrolu po sobě“: výsledky přepočítá nezávisle (často druhý agent, který úlohy nepsal), spustí kontrolu testu a kontrolu celého repozitáře a projde registr dřívějších chyb (<code>system/Pouceni_vXX.md</code>); novou chybu do registru zapíše, aby se neopakovala,</li>
+  <li><b>nahraje to</b> – <code>git commit</code> + <code>git push</code> do repozitáře,</li>
+  <li><b>přečte výsledky</b> – z adresy skriptu (<code>?akce=data</code>) nebo z tabulky přes Google Drive, a podle chyb navrhne další úlohy.</li>
+</ul>
+<p>Co <b>neumí</b>: neběží pořád (jen když s ním někdo píše nebo má naplánovanou úlohu), nevidí tablet, nemůže za tebe kliknout v Google účtu (nasazení skriptu a povolení oprávnění dělá člověk) a nemá vlastní server.</p>
+
+<h2 id="google">4. Proč Google (Apps Script + tabulka)</h2>
+<p><b>Google Apps Script</b> je JavaScript, který běží na serverech Googlu a je připojený k tabulce. Když se „nasadí jako webová aplikace“, dostane adresu <code>https://script.google.com/macros/s/…/exec</code> a umí odpovídat na požadavky z internetu – je to malý server zdarma:</p>
+<pre><code>function doPost(e) {               // stránka posílá výsledky
+  const data = JSON.parse(e.postData.contents);
+  SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName("Udalosti").appendRow([new Date(), data.x, data.y]);
+  return ContentService.createTextOutput('{"ok":true}')
+    .setMimeType(ContentService.MimeType.JSON);
+}
+function doGet(e) {                // přehled si čte data
+  const rows = SpreadsheetApp.getActiveSpreadsheet()
+    .getSheetByName("Udalosti").getDataRange().getValues();
+  return ContentService.createTextOutput(JSON.stringify(rows))
+    .setMimeType(ContentService.MimeType.JSON);
+}</code></pre>
+<ul>
+  <li><b>Proč to funguje bez klíče:</b> skript běží „jako vlastník tabulky“ a přístup má „kdokoli“. Stránka zná jen adresu. Nejhorší, co může cizí člověk udělat, je poslat do tabulky nesmysl – nemůže nic smazat ani přečíst Google účet.</li>
+  <li><b>Tabulka jako databáze:</b> list <i>Udalosti</i> (jeden řádek = jedna událost: start testu, pokus, nápověda, odchod do jiné aplikace, reset testu…), list <i>Zarizeni</i> (náhodné ID tabletu → přezdívka, schválení), list <i>Nahledy</i> (poslední stav papíru u každého příkladu – test ho posílá každých 20 s, když se papír změnil, a přehled ho ukáže tlačítkem „papír teď“). list <i>Stav</i> (kde v testu dítě právě je a jak dlouho – test posílá polohu každých 20 s a při přechodu, odchodu a návratu; přehled se na ni ptá každých 20 s). Obrázky papíru jdou jako soubory na Disk; starší obrázek náhledu skript dá do koše.</li>
+  <li><b>CORS trik:</b> prohlížeč posílá data jako <code>Content-Type: text/plain</code>. Takový „jednoduchý“ požadavek nepotřebuje předběžný dotaz (preflight), který Apps Script neumí.</li>
+  <li><b>Duplicity:</b> každá událost má náhodné <code>id</code>; když stránka pošle něco dvakrát (výpadek sítě), skript to pozná a zahodí.</li>
+</ul>
+
+<h2 id="stranka">5. Co se děje přímo v prohlížeči</h2>
+<div class="tw"><table>
+  <tr><th>Funkce</th><th>Technologie</th><th>Jak</th></tr>
+  <tr><td>pero píše, prst posouvá</td><td>Pointer Events, <code>touch-action: none</code></td><td>každý dotyk má <code>pointerType</code>: <code>pen</code> / <code>touch</code> / <code>mouse</code>. Pero kreslí, u prstu se posun počítá ručně. (Android u stylusu jinak hlásí dotyk a prohlížeč by s plochou posouval.)</td></tr>
+  <tr><td>papír na psaní</td><td><code>&lt;canvas&gt;</code></td><td>tahy se ukládají jako seznam bodů (x, y, tlak) a kreslí se vyhlazeně; díky tomu přežijí otočení i zavření</td></tr>
+  <tr><td>ID zařízení, fronta, rozpracovaný test</td><td><code>localStorage</code></td><td>malé úložiště prohlížeče pro danou doménu (pár MB). Když není internet, události čekají ve frontě. Rozpracovaný test (odpovědi, papír, pozice, časy) po zavření nebo po „⌂ Rozcestník“ příště pokračuje sám; „Začít znovu“ nejdřív pošle stav do výsledků (událost <i>reset</i>, v přehledu „resetováno“) a pak test smaže.</td></tr>
+  <tr><td>odeslání při zavírání</td><td><code>navigator.sendBeacon</code></td><td>pošle data, i když se stránka právě zavírá</td></tr>
+  <tr><td>odchod do jiné aplikace</td><td><code>visibilitychange</code></td><td>prohlížeč hlásí, kdy stránka zmizela z obrazovky a kdy se vrátila</td></tr>
+  <tr><td>teorie po kapitolách</td><td>JavaScript v šabloně + <code>localStorage</code></td><td>na obrazovce je jedna kapitola; další se odemkne, až má každá sekce volbu Chápu / Nechápu; volby a poslední kapitola se pamatují v prohlížeči, do přehledu jdou přes záznam</td></tr>
+  <tr><td>čas a aktivita na stránce</td><td>časovač + scroll / pointer události</td><td>aktivní = stránka vidět a v posledních 30 s se s ní něco dělo</td></tr>
+  <tr><td>PDF s výsledky</td><td>html2canvas + jsPDF</td><td>„vyfotí“ části stránky a poskládá je do PDF přímo v prohlížeči</td></tr>
+</table></div>
+
+<h2 id="data">6. Tok dat při jednom příkladu</h2>
+<div class="fig">
+<svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, sans-serif" font-size="13">
+  <defs><marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#444"/></marker></defs>
+  <g font-weight="700">
+    <text x="90" y="24" text-anchor="middle" fill="#7a3db8">Stránka testu</text>
+    <text x="310" y="24" text-anchor="middle" fill="#7a3db8">localStorage</text>
+    <text x="540" y="24" text-anchor="middle" fill="#1f8a3c">Apps Script</text>
+    <text x="760" y="24" text-anchor="middle" fill="#1f8a3c">Tabulka / Disk</text>
+  </g>
+  <g stroke="#ccc" stroke-dasharray="4 4"><line x1="90" y1="34" x2="90" y2="290"/><line x1="310" y1="34" x2="310" y2="290"/><line x1="540" y1="34" x2="540" y2="290"/><line x1="760" y1="34" x2="760" y2="290"/></g>
+  <rect x="20" y="44" width="140" height="34" rx="6" fill="#fff" stroke="#7a3db8"/><text x="90" y="65" text-anchor="middle">klepne „Vyhodnotit“</text>
+  <line x1="90" y1="92" x2="306" y2="92" stroke="#444" marker-end="url(#ar2)"/><text x="200" y="86" text-anchor="middle">událost do fronty + uložit stav</text>
+  <line x1="310" y1="122" x2="536" y2="122" stroke="#444" marker-end="url(#ar2)"/><text x="425" y="116" text-anchor="middle">POST JSON (text/plain)</text>
+  <line x1="540" y1="152" x2="756" y2="152" stroke="#444" marker-end="url(#ar2)"/><text x="650" y="146" text-anchor="middle">řádek + obrázek papíru</text>
+  <line x1="540" y1="182" x2="314" y2="182" stroke="#1f8a3c" marker-end="url(#ar2)"/><text x="425" y="176" text-anchor="middle" fill="#1f8a3c">{"ok":true}</text>
+  <rect x="240" y="194" width="140" height="30" rx="6" fill="#fff" stroke="#7a3db8"/><text x="310" y="213" text-anchor="middle">smazat z fronty</text>
+  <text x="90" y="252" text-anchor="middle" fill="#c2551b">bez internetu:</text>
+  <text x="90" y="270" text-anchor="middle" fill="#c2551b" font-size="12">fronta čeká, zkusí za 20 s</text>
+  <text x="90" y="286" text-anchor="middle" fill="#c2551b" font-size="12">nebo při dalším otevření</text>
+</svg>
+</div>
+
+<h2 id="jinde">7. Recept: totéž pro vlastní projekt</h2>
+<ol>
+  <li><b>Účet a repozitář:</b> na github.com založ účet a nový repozitář (Public). Pro hlavní web domény se hodí název <code>&lt;uživatel&gt;.github.io</code>, ale jde to s jakýmkoli.</li>
+  <li><b>První stránka:</b> do repozitáře nahraj <code>index.html</code> (stačí přes web GitHubu: Add file → Create new file).</li>
+  <li><b>Zapni Pages:</b> Settings → Pages → Source: <i>Deploy from a branch</i>, větev <code>main</code>, složka <code>/ (root)</code>. Za chvíli běží na <code>https://&lt;uživatel&gt;.github.io/&lt;repozitář&gt;/</code>.</li>
+  <li><b>Potřebuješ ukládat data?</b> Založ Google tabulku → Rozšíření → Apps Script → vlož <code>doPost</code>/<code>doGet</code> (viz kap. 4) → Nasadit → Webová aplikace (spustit jako: já, přístup: kdokoli) → zkopíruj adresu <code>/exec</code>.</li>
+  <li><b>Ve stránce posílej data:</b>
+<pre><code>await fetch("https://script.google.com/macros/s/…/exec", {
+  method: "POST",
+  headers: { "Content-Type": "text/plain;charset=utf-8" },
+  body: JSON.stringify({ x: "ahoj", y: 42 })
+});</code></pre>
+    Hotový modul s frontou a ID zařízení je v <a href="https://github.com/mjandlik/annschool/blob/main/system/lib/zaznam.js">system/lib/zaznam.js</a>, skript pro Google v <a href="https://github.com/mjandlik/annschool/blob/main/system/Skript_vysledky_v04.gs">system/Skript_vysledky_v04.gs</a> – klidně je zkopíruj a uprav.</li>
+  <li><b>Claude ti s tím pomůže:</b> stačí popsat, co má stránka dělat. Když mu připojíš repozitář, kód rovnou napíše, otestuje a nahraje.</li>
+</ol>
+<div class="box"><b>Tajné věci nikdy do veřejného repozitáře:</b> hesla, API klíče, tokeny. Cokoli je v HTML/JS na webu, může si kdokoli přečíst (v prohlížeči „Zobrazit zdroj“).</div>
+
+<h2 id="domena">8. Vlastní doména přes Cloudflare (marianjandl.com)</h2>
+<p>Doména koupená přes Cloudflare znamená, že Cloudflare spravuje její <b>DNS</b> – „telefonní seznam“, který k názvu domény říká, na jakou IP adresu (server) se má prohlížeč připojit. GitHub Pages se k vlastní doméně připojí takhle:</p>
+<div class="fig">
+<svg viewBox="0 0 860 170" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system, Segoe UI, Roboto, sans-serif" font-size="14">
+  <defs><marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#444"/></marker></defs>
+  <rect x="20" y="50" width="170" height="70" rx="10" fill="#f6f0fc" stroke="#7a3db8" stroke-width="2"/>
+  <text x="105" y="80" text-anchor="middle" font-weight="700">prohlížeč</text>
+  <text x="105" y="100" text-anchor="middle" font-size="12">marianjandl.com ?</text>
+  <rect x="320" y="30" width="220" height="110" rx="10" fill="#fff4ec" stroke="#c2551b" stroke-width="2"/>
+  <text x="430" y="56" text-anchor="middle" font-weight="700" fill="#c2551b">Cloudflare DNS</text>
+  <text x="430" y="80" text-anchor="middle" font-size="12">A @ → 185.199.108–111.153</text>
+  <text x="430" y="100" text-anchor="middle" font-size="12">CNAME www → &lt;uživatel&gt;.github.io</text>
+  <text x="430" y="122" text-anchor="middle" font-size="12" fill="#6b6b66">proxy vypnutá (šedý mráček)</text>
+  <rect x="670" y="50" width="170" height="70" rx="10" fill="#f3f4f6" stroke="#24292f" stroke-width="2"/>
+  <text x="755" y="80" text-anchor="middle" font-weight="700">GitHub Pages</text>
+  <text x="755" y="100" text-anchor="middle" font-size="12">soubor CNAME v repu</text>
+  <line x1="190" y1="85" x2="316" y2="85" stroke="#444" stroke-width="2" marker-end="url(#ar3)"/>
+  <line x1="540" y1="85" x2="666" y2="85" stroke="#444" stroke-width="2" marker-end="url(#ar3)"/>
+  <text x="253" y="76" text-anchor="middle" font-size="12">1. kam?</text>
+  <text x="603" y="76" text-anchor="middle" font-size="12">2. sem</text>
+</svg>
+</div>
+<ol>
+  <li><b>Ověř doménu na GitHubu</b> (ochrana proti tomu, aby ti ji někdo „unesl“): GitHub → tvůj profil → Settings → Pages → Add a domain. GitHub ukáže TXT záznam, ten přidej v Cloudflare (DNS → Records → Add record) a potvrď.</li>
+  <li><b>V repozitáři:</b> Settings → Pages → Custom domain: <code>marianjandl.com</code> → Save (do repozitáře se přidá soubor <code>CNAME</code>).</li>
+  <li><b>V Cloudflare → DNS → Records</b> přidej:
+    <div class="tw"><table>
+      <tr><th>Typ</th><th>Name</th><th>Obsah</th><th>Proxy</th></tr>
+      <tr><td>A</td><td><code>@</code></td><td><code>185.199.108.153</code></td><td>DNS only</td></tr>
+      <tr><td>A</td><td><code>@</code></td><td><code>185.199.109.153</code></td><td>DNS only</td></tr>
+      <tr><td>A</td><td><code>@</code></td><td><code>185.199.110.153</code></td><td>DNS only</td></tr>
+      <tr><td>A</td><td><code>@</code></td><td><code>185.199.111.153</code></td><td>DNS only</td></tr>
+      <tr><td>CNAME</td><td><code>www</code></td><td><code>&lt;uživatel&gt;.github.io</code> (bez názvu repozitáře)</td><td>DNS only</td></tr>
+    </table></div>
+    Volitelně i IPv6 (AAAA): <code>2606:50c0:8000::153</code>, <code>…8001::153</code>, <code>…8002::153</code>, <code>…8003::153</code>.</li>
+  <li><b>„DNS only“ (šedý mráček)</b> nech aspoň do doby, než GitHub vystaví HTTPS certifikát – s oranžovým mráčkem (Cloudflare proxy) se to často zasekne. Případně pak proxy zapni a v Cloudflare nastav SSL/TLS na <i>Full</i>.</li>
+  <li><b>Počkej</b> (DNS se šíří až 24 hodin), pak v Settings → Pages zaškrtni <b>Enforce HTTPS</b>.</li>
+  <li>Nepoužívej „wildcard“ záznam <code>*.marianjandl.com</code> – otevírá cestu k převzetí subdomén.</li>
+</ol>
+<p class="cap">Adresy podle dokumentace GitHubu: <a href="https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site">Managing a custom domain for your GitHub Pages site</a>. Před nastavením si je tam radši zkontroluj, mohou se změnit.</p>
+
+<h2 id="alternativy">9. Alternativy a limity</h2>
+<div class="tw"><table>
+  <tr><th>Místo</th><th>Jde použít</th><th>Proč / proč ne</th></tr>
+  <tr><td>GitHub Pages</td><td>Cloudflare Pages</td><td>také zdarma, napojí se přímo na GitHub repozitář a doménu máš už u Cloudflare – nastavení domény je pak na pár kliknutí</td></tr>
+  <tr><td>Google Apps Script + tabulka</td><td>Cloudflare Workers + D1 (databáze) nebo KV</td><td>rychlejší a „opravdovější“ server, ale víc programování a správy; tabulku si nikdo nepřečte tak snadno jako Google Sheets</td></tr>
+  <tr><td>Google Apps Script</td><td>Firebase, Supabase</td><td>databáze s přihlašováním; má smysl, když má mít každý uživatel vlastní účet</td></tr>
+</table></div>
+<ul>
+  <li><b>Limity Apps Scriptu:</b> denní kvóty volání a doby běhu (pro rodinu bohatě stačí), odpověď trvá zlomky sekundy až sekundy, adresa je veřejná.</li>
+  <li><b>Žádné přihlašování:</b> „kdo“ se pozná jen podle náhodného ID tabletu a přezdívky. Pro rodinu stačí, pro školu by to nestačilo.</li>
+  <li><b>localStorage</b> patří jedné doméně v jednom prohlížeči; v anonymním okně nebo po smazání dat Safari zmizí.</li>
+</ul>
+
+<h2 id="slovnik">10. Slovníček</h2>
+<div class="tw"><table>
+  <tr><td><b>repozitář</b></td><td>složka projektu s historií všech změn (git)</td></tr>
+  <tr><td><b>commit / push</b></td><td>uložení změny s popisem / nahrání změn na GitHub</td></tr>
+  <tr><td><b>statický web</b></td><td>server jen posílá hotové soubory, nic nepočítá ani neukládá</td></tr>
+  <tr><td><b>endpoint</b></td><td>adresa, na kterou stránka posílá data (tady <code>…/exec</code>)</td></tr>
+  <tr><td><b>JSON</b></td><td>textový formát dat: <code>{"pokus": 2, "vysledek": "spatne"}</code></td></tr>
+  <tr><td><b>CORS</b></td><td>pravidla prohlížeče, na které cizí servery smí stránka posílat požadavky</td></tr>
+  <tr><td><b>DNS, A, CNAME</b></td><td>„telefonní seznam“ domén; A = IP adresa, CNAME = odkaz na jiné jméno</td></tr>
+  <tr><td><b>Playwright</b></td><td>nástroj, který ovládá prohlížeč skriptem – automatické testování stránek</td></tr>
+</table></div>
+</main>
+</body>
+</html>
