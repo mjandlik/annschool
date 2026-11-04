@@ -316,8 +316,13 @@ function zpracujStranky(d) {
     r.porPoradi = {};
     r.porKliky.forEach(k => { if (!k.cast) return; if (k.stav === "zruseno") delete r.por[k.cast]; else r.por[k.cast] = k.stav; if (k.poradi) r.porPoradi[k.cast] = k.poradi; });
     // Vyzkoušej se: poslední text každé části v tomto otevření; přeskočené kapitoly
-    const det = u => { let x = {}; try { x = JSON.parse(u.detail || "{}"); } catch (e) { /* nic */ } return Object.assign({ cas: u.cas }, x); };
-    r.vyz = {}; r.ev.filter(u => u.udalost === "vyzkousej").map(det).forEach(x => { if (x.cast) r.vyz[x.cast] = x; });
+    const det = u => { let x = {}; try { x = JSON.parse(u.detail || "{}"); } catch (e) { /* nic */ } return Object.assign({ cas: u.cas }, x, { papir_id: u.papir && String(u.papir).indexOf("chyba") !== 0 ? String(u.papir) : "" }); };
+    // papír (šablona v03): obrázek jde jen při změně papíru – poslední text nese i poslední známý obrázek
+    r.vyz = {}; r.ev.filter(u => u.udalost === "vyzkousej").map(det).forEach(x => {
+      if (!x.cast) return;
+      const pred = r.vyz[x.cast];
+      if (!x.papir_id && !x.papir_prazdny && pred && pred.papir_id) x.papir_id = pred.papir_id;
+      r.vyz[x.cast] = x; });
     r.presk = r.ev.filter(u => u.udalost === "preskoceni").map(det);
     r.kliky = r.ev.filter(u => u.udalost === "klik").map(u => { try { return JSON.parse(u.detail || "{}"); } catch (e) { return {}; } });
     return r;
@@ -370,12 +375,21 @@ function porozumeniAktualne(rs) {
 }
 // text z „Vyzkoušej se“: krátký celý, delší jako začátek + rozbalení; štítek odkrytí látky
 function vyzOdkryti(x) {
-  return N(x.odkryto) ? `<span class="flag">látku odkryla celkem ${N(x.odkryto)}× (${fmtS(N(x.odkryto_s))})${x.pred_odkrytim !== null && x.pred_odkrytim !== undefined ? ", předtím napsáno " + N(x.pred_odkrytim) + " znaků" : ""}</span>`
+  return N(x.odkryto) ? `<span class="flag">látku odkryla celkem ${N(x.odkryto)}× (${fmtS(N(x.odkryto_s))})${vyzPredOdkrytim(x) ? ", předtím napsáno " + vyzPredOdkrytim(x) : ""}</span>`
     : `<span class="flag live">bez odkrytí látky</span>`;
 }
-function vyzText(x) {
+function vyzPredOdkrytim(x) {
+  const z = x.pred_odkrytim !== null && x.pred_odkrytim !== undefined ? N(x.pred_odkrytim) : null;
+  const tah = x.pred_odkrytim_tahu !== null && x.pred_odkrytim_tahu !== undefined ? N(x.pred_odkrytim_tahu) : null;
+  return [tah !== null ? tah + " tahů perem" : "", z ? z + " znaků" : ""].filter(Boolean).join(" a ");
+}
+function vyzText(x, auto) {
+  const pap = x.papir_id ? `<div><button class="pap${auto ? " auto" : ""}" data-id="${esc(x.papir_id)}">papír</button><span></span></div>` : "";
+  return pap + vyzJenText(x, !!pap);
+}
+function vyzJenText(x, maPapir) {
   const t = String(x.text || "");
-  if (!t.trim()) return `<span class="small">(prázdné – text smazala)</span>`;
+  if (!t.trim()) return maPapir ? "" : `<span class="small">(prázdné – nic nenapsala)</span>`;
   if (t.length <= 240 && (t.match(/\n/g) || []).length < 3) return `<div class="vyz-t">${esc(t)}</div>`;
   const zac = t.split("\n").slice(0, 3).join("\n").slice(0, 240);
   return `<details class="cely"><summary class="vyz-t">${esc(zac)}… <span class="small">(celý text, ${t.length} znaků)</span></summary><div class="vyz-t">${esc(t)}</div></details>`;
@@ -383,7 +397,7 @@ function vyzText(x) {
 function vyzBlok(verze) {
   if (!verze || !verze.length) return "";
   const [v, ...star] = verze;
-  let h = `<div class="vyz"><div class="small">✎ Vyzkoušej se · ${fmtD(v.cas)} ${vyzOdkryti(v)}</div>${vyzText(v)}`;
+  let h = `<div class="vyz"><div class="small">✎ Vyzkoušej se · ${fmtD(v.cas)} ${vyzOdkryti(v)}</div>${vyzText(v, true)}`;
   if (star.length) h += `<details><summary>dřívější verze (${star.length})</summary>` +
     star.map(x => `<div style="margin:4px 0"><div class="small">${fmtD(x.cas)} ${vyzOdkryti(x)}</div>${vyzText(x)}</div>`).join("") + `</details>`;
   return h + `</div>`;
@@ -638,6 +652,8 @@ function render() {
     b.disabled = false; b.textContent = "papír";
   });
   out.querySelectorAll("button.pap-ted").forEach(b => b.onclick = () => papirTed(b));
+  out.querySelectorAll("button.pap.auto").forEach(b => b.click());          // papír z „Vyzkoušej se“ – poslední verze hned
+  out.querySelectorAll(".vyz details").forEach(d => d.addEventListener("toggle", () => { if (d.open) d.querySelectorAll("button.pap:not([data-nacteno])").forEach(b => { b.dataset.nacteno = "1"; b.click(); }); }));
 }
 function plnFiltry() {
   const who = [...new Set(RELACE.concat(STRANKY).map(r => kdo(r)).filter(k => k.znamy || $("fUnknown").checked).map(k => k.jm))].sort((a, b) => a.localeCompare(b, "cs"));
