@@ -18,6 +18,10 @@
   podle poslední události. U pokusů po otevření nápovědy: za jak dlouho (čas na příkladu) po nápovědě odpověděla.
   Reset (šablona v31, „Začít znovu“ / „Nová sada“): událost „reset“ uzavře relaci se stavem v okamžiku resetu –
   v seznamu i v detailu šedý štítek „resetováno“ (místo polohy), body a kolečka podle stavu při resetu.
+  „📋 Pro Clauda“ (04.11.2026) u každého pokusu a u „papír teď“: složí jeden obrázek PNG – nahoře zadání, správná
+  odpověď, pokusy (vybraný zvýrazněný), nápověda a pokyn pro Clauda, pod tím papír (u pokusu bez vlastního papíru
+  poslední známý stav před pokusem, jinak „bez papíru“). Obrázek jde rovnou do schránky; „Kopírovat“ a „Sdílet“
+  (iPad, Android – do aplikace Claude) jsou i pod náhledem. Návod: Navod_test kap. 9.
 -->
 <script src="system/lib/zaznam.js"></script>
 <style>
@@ -74,6 +78,13 @@
   .hinttxt { font-size: 12px; color: var(--warn); margin-top: 2px; }
   .ted .tedinfo { margin-left: 4px; }
   .paperimg { max-width: 100%; border: 1px solid var(--line); border-radius: 6px; margin-top: 4px; display: block; }
+  /* „📋 Pro Clauda“ – obrázek se zadáním a papírem pro rozbor chyby */
+  button.cl { font-size: 12px; padding: 1px 7px; border-width: 1px; margin-left: 4px; }
+  .clbox { margin: 4px 0 6px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: #f6f8fc; font-size: 13px; }
+  .clbox img { display: block; max-width: 220px; max-height: 220px; border: 1px solid var(--line); border-radius: 4px; margin: 4px 0; background: #fff; }
+  .clbox button { font-size: 13px; padding: 3px 9px; margin-right: 6px; }
+  .clbox .clstav { color: var(--muted); }
+  .clbox .clstav.ok { color: var(--zelena); font-weight: 600; }
   .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--muted); margin: 8px 0 12px; }
   .opts { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-bottom: 10px; }
   .opts input[type=number] { width: 4em; font: inherit; padding: 3px 6px; border: 2px solid var(--line); border-radius: 6px; }
@@ -292,6 +303,148 @@ async function papirTed(b) {
     if (q) q.ted = { html: box.innerHTML, info: info.textContent };
   } catch (e) { info.textContent = "nepodařilo se načíst: " + e.message; }
   b.disabled = false; b.textContent = "obnovit";
+}
+
+/* ---------- „📋 Pro Clauda“: jeden obrázek se zadáním, odpověďmi a papírem pro rozbor chyby ----------
+   k = pořadí pokusu v q.pokusy (0, 1, …) nebo -1 = „papír teď“ (všechny pokusy + poslední stav papíru).
+   Obrázek se hned zkopíruje do schránky (ClipboardItem s Promise – funguje v Safari i Chromu v rámci klepnutí),
+   pod tlačítkem zůstane náhled s „Kopírovat“ a „Sdílet“ (Web Share s obrázkem – iPad, Android). */
+const CL = {};                                   // klíč relace|příklad|pokus → { blob, url, info }
+const clKlic = (r, q, k) => r.id + "|" + q.n + "|" + k;
+const papirOk = id => id && id !== "prazdne" && String(id).indexOf("chyba") !== 0;
+const casText = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString("cs-CZ") + (d.toDateString() === new Date().toDateString() ? "" : " " + d.toLocaleDateString("cs-CZ")); };
+// který papír patří k pokusu k: vlastní obrázek pokusu; bez něj (papír se od posledního odeslání nezměnil)
+// poslední známý stav před pokusem – obrázek dřívějšího pokusu nebo průběžný náhled odeslaný před pokusem
+async function clPapir(r, q, k) {
+  let nah = null;
+  try {
+    const j = await Zaznam.nacti("nahled", { relace: r.id });
+    if (Array.isArray(j.nahledy)) nah = j.nahledy.filter(x => N(x.priklad) === q.n).sort((a, c) => new Date(a.cas) - new Date(c.cas)).pop() || null;
+  } catch (e) { nah = null; }
+  if (k < 0) {                                   // papír teď – stejně jako tlačítko „papír teď“
+    let pol = nah ? { id: nah.papir, cas: nah.cas, popis: "průběžný náhled" } : null;
+    const p = q.pokusy.filter(x => papirOk(x.papir)).pop();
+    if (p && (!pol || new Date(p.cas) > new Date(pol.cas))) pol = { id: p.papir, cas: p.cas, popis: "při " + p.pokus + ". pokusu" };
+    if (!pol) return { id: "", text: "Papír: na papíře nic není." };
+    if (pol.id === "prazdne") return { id: "", text: `Papír: prázdný (smazaný), stav z ${casText(pol.cas)}.` };
+    return { id: pol.id, text: `Papír níže: aktuální stav z ${casText(pol.cas)} (${pol.popis}).` };
+  }
+  const p = q.pokusy[k];
+  if (papirOk(p.papir)) return { id: p.papir, text: `Papír níže: stav při tomto pokusu (${casText(p.cas)}).` };
+  let pol = null;
+  q.pokusy.slice(0, k).forEach(x => { if (papirOk(x.papir)) pol = { id: x.papir, cas: x.cas, popis: "beze změny od " + x.pokus + ". pokusu" }; });
+  if (nah && new Date(nah.cas) <= new Date(p.cas) && (!pol || new Date(nah.cas) > new Date(pol.cas)))
+    pol = nah.papir === "prazdne" ? { id: "prazdne", cas: nah.cas } : { id: nah.papir, cas: nah.cas, popis: "průběžný náhled před pokusem" };
+  if (pol && pol.id === "prazdne") return { id: "", text: "Papír: při tomto pokusu byl prázdný (smazaný)." };
+  if (pol) return { id: pol.id, text: `Papír níže: stav z ${casText(pol.cas)} (${pol.popis}).` };
+  return { id: "", text: "Papír: u tohoto pokusu žádný papír není (nic nenapsala)." };
+}
+function clRadky(r, q, k, papirText) {
+  const R = [];                                  // { t: text, b: tučně, c: barva }
+  R.push({ t: "Rozbor chyby – podklad pro Clauda", b: true, vel: 1.25 });
+  R.push({ t: `Test: ${r.nazev} (${r.verze}) · příklad ${q.n} z ${r.pocet}${q.sekce ? " · " + q.sekce : ""}` });
+  R.push({ t: "Zadání: " + (q.zadani || "–"), b: true });
+  R.push({ t: q.typ === "dukaz" ? "Důkaz – boduje se jen podle papíru." : "Správná odpověď: " + (q.spravna || "–") });
+  const ps = k < 0 ? q.pokusy : q.pokusy.slice(0, k + 1);
+  if (!ps.length) R.push({ t: "Odpovědi žáka: zatím žádná (nevyhodnoceno)." });
+  else {
+    R.push({ t: "Odpovědi žáka:" });
+    ps.forEach((p, i) => {
+      const vybrany = k >= 0 && i === k;
+      const t = p.reseni ? "zobrazila vzorové řešení" : `${p.ok ? "✓ správně" : "✗ špatně"}: ${p.odpoved || "(prázdné)"}`;
+      R.push({ t: `${vybrany ? "► " : "   "}${p.pokus}. pokus – ${t} (čas na příkladu ${fmtS(p.doba)}${p.napoveda ? ", po otevření nápovědy" : ""})`,
+        b: vybrany, c: p.reseni ? "#2b5cab" : p.ok ? "#1f8a3c" : "#b3261e" });
+    });
+  }
+  if (q.napoveda) R.push({ t: "Otevřela nápovědu" + (q.napDoba !== undefined ? ` po ${fmtS(q.napDoba)}` : "") + (q.hintText ? ": " + q.hintText : ".") });
+  R.push({ t: papirText });
+  R.push({ t: k >= 0 ? `Úkol: rozebrat ${q.pokusy[k].pokus}. pokus – na papíře najdi první chybný krok, urči typ chyby a navrhni, jak to žákovi vysvětlit.`
+    : "Úkol: na papíře najdi první chybný krok, urči typ chyby a navrhni, jak to žákovi vysvětlit.", c: "#6b6b66" });
+  return R;
+}
+function clObrazek(R, img) {
+  const W = Math.max(900, img ? img.naturalWidth : 0), P = 24, F = 22, LH = Math.round(F * 1.4);
+  const c = document.createElement("canvas"), x = c.getContext("2d");
+  const font = (b, v) => `${b ? "600 " : ""}${Math.round(F * (v || 1))}px -apple-system, "Segoe UI", Roboto, sans-serif`;
+  const zalom = (t, b, v) => {                   // zalomení textu na šířku obrázku
+    x.font = font(b, v); const out = []; let radek = "";
+    String(t).split(/(\s+)/).forEach(sl => {
+      const zk = radek + sl;
+      if (x.measureText(zk).width > W - 2 * P && radek.trim()) { out.push(radek.trimEnd()); radek = sl.trimStart(); }
+      else radek = zk;
+    });
+    if (radek.trim()) out.push(radek);
+    return out.length ? out : [""];
+  };
+  const bloky = R.map(r => Object.assign({ lines: zalom(r.t, r.b, r.vel) }, r));
+  const hH = P + bloky.reduce((a, r) => a + r.lines.length * Math.round(LH * (r.vel || 1)) + 4, 0) + P;
+  c.width = W; c.height = hH + (img ? img.naturalHeight + P : 0);
+  x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
+  x.textBaseline = "top"; let y = P;
+  bloky.forEach(r => {
+    x.font = font(r.b, r.vel); x.fillStyle = r.c || "#1d1d1b";
+    r.lines.forEach(l => { x.fillText(l, P, y); y += Math.round(LH * (r.vel || 1)); });
+    y += 4;
+  });
+  if (img) {
+    x.fillStyle = "#dcdcd5"; x.fillRect(0, hH - 2, W, 2);
+    x.drawImage(img, Math.round((W - img.naturalWidth) / 2), hH);
+  }
+  return c;
+}
+const nactiImg = url => new Promise((ok, chyba) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => chyba(new Error("obrázek papíru nejde otevřít")); i.src = url; });
+async function clPriprav(r, q, k) {
+  const pap = await clPapir(r, q, k);
+  const img = pap.id ? await nactiImg(await obrazek(pap.id)) : null;
+  const c = clObrazek(clRadky(r, q, k, pap.text), img);
+  const blob = await new Promise((ok, chyba) => c.toBlob(b => b ? ok(b) : chyba(new Error("obrázek se nepodařilo vytvořit")), "image/png"));
+  return { blob, url: URL.createObjectURL(blob), info: pap.id ? "obrázek se zadáním a papírem" : "obrázek se zadáním (bez papíru)" };
+}
+async function clKopiruj(blobNeboPromise) {
+  if (!navigator.clipboard || !window.ClipboardItem) throw new Error("tento prohlížeč neumí kopírovat obrázek – použij Sdílet");
+  try { await navigator.clipboard.write([new ClipboardItem({ "image/png": blobNeboPromise })]); }
+  catch (e) {                                    // starší Chrome: ClipboardItem bez Promise
+    if (!(blobNeboPromise instanceof Promise)) throw e;
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": await blobNeboPromise })]);
+  }
+}
+const clSoubor = (r, q, k) => new File([CL[clKlic(r, q, k)].blob], `pro-clauda_${String(r.test).replace(/\//g, "_").replace(/\.html$/, "")}_p${q.n}${k >= 0 ? "_pokus" + q.pokusy[k].pokus : "_ted"}.png`, { type: "image/png" });
+const clMuzeSdilet = () => { try { return !!(navigator.canShare && navigator.canShare({ files: [new File([new Blob(["x"], { type: "image/png" })], "x.png", { type: "image/png" })] })); } catch (e) { return false; } };
+function clBoxHtml(r, q, k, stav, ok) {
+  const v = CL[clKlic(r, q, k)];
+  return `<div class="clbox" data-cl="${esc(clKlic(r, q, k))}">${v ? `<img src="${v.url}" alt="obrázek pro Clauda">` : ""}
+    <span class="clstav${ok ? " ok" : ""}">${esc(stav || (v ? v.info : ""))}</span>
+    ${v ? `<div><button class="cl-kop" type="button">📋 Kopírovat</button>${clMuzeSdilet() ? `<button class="cl-sdil" type="button">↗ Sdílet</button>` : ""}</div>` : ""}</div>`;
+}
+// klepnutí na „📋 Pro Clauda“: připraví obrázek, hned ho zkopíruje a ukáže náhled s Kopírovat / Sdílet
+function proClauda(b) {
+  const r = RELACE.find(x => x.id === detail); if (!r) return;
+  const q = r.qs.find(x => x.n === N(b.dataset.n)), k = N(b.dataset.k); if (!q) return;
+  const klic = clKlic(r, q, k), kam = b.closest(".att, .ted");
+  const ukaz = (stav, ok) => { const st = kam.querySelector(".clbox"); if (st) st.remove(); kam.insertAdjacentHTML("beforeend", clBoxHtml(r, q, k, stav, ok)); vazbyCl(kam); };
+  b.disabled = true;
+  ukaz("připravuji obrázek…");
+  const hotovo = (CL[klic] ? Promise.resolve(CL[klic]) : clPriprav(r, q, k).then(v => (CL[klic] = v)));
+  const blob = hotovo.then(v => v.blob);
+  clKopiruj(blob)
+    .then(() => ukaz("✓ zkopírováno – vlož do chatu s Claudem (Ctrl+V / podržet → Vložit)", true))
+    .catch(e => hotovo.then(() => ukaz("obrázek je připravený – kopírování nevyšlo (" + e.message + "), klepni na Kopírovat nebo Sdílet"),
+      e2 => ukaz("nepodařilo se připravit: " + e2.message)))
+    .finally(() => { b.disabled = false; });
+  hotovo.catch(() => { /* chybu ukáže řádek výše */ });
+}
+function vazbyCl(kde) {
+  kde.querySelectorAll(".clbox").forEach(box => {
+    const [rid, n, k] = box.dataset.cl.split("|"), r = RELACE.find(x => x.id === rid), q = r && r.qs.find(x => x.n === N(n));
+    if (!q) return;
+    const st = box.querySelector(".clstav"), kk = N(k);
+    const kop = box.querySelector(".cl-kop"), sd = box.querySelector(".cl-sdil");
+    if (kop) kop.onclick = () => clKopiruj(CL[clKlic(r, q, kk)].blob).then(() => { st.textContent = "✓ zkopírováno – vlož do chatu s Claudem"; st.className = "clstav ok"; },
+      e => { st.textContent = "kopírování nevyšlo: " + e.message; st.className = "clstav"; });
+    if (sd) sd.onclick = () => navigator.share({ files: [clSoubor(r, q, kk)], title: "Rozbor chyby – příklad " + q.n })
+      .then(() => { st.textContent = "✓ odesláno"; st.className = "clstav ok"; },
+        e => { if (e.name !== "AbortError") { st.textContent = "sdílení nevyšlo: " + e.message; st.className = "clstav"; } });
+  });
 }
 
 function zpracujStranky(d) {
@@ -592,8 +745,8 @@ function renderDetail(r) {
     <div style="margin-top:8px">${dots(r)}</div></div>`;
   h += `<table><tr><th>#</th><th>Příklad</th><th>Pokusy</th><th class="num">Čas</th><th class="hide-m">Poznámky</th></tr>`;
   r.qs.forEach(q => {
-    const att = q.pokusy.map(p => `<div class="att">${p.reseni ? "řešení zobrazeno" : `${p.pokus}. <span class="${p.ok ? "ok" : "bad"}">${p.ok ? "✓" : "✗"}</span> ${esc(p.odpoved)}`}
-      <span class="small">(${fmtS(p.doba)})</span>${p.poNap !== undefined ? ` <span class="${p.ok && p.poNap < lim ? "flag red" : "small"}">${fmtS(p.poNap)} po nápovědě</span>` : ""}${p.papir && !String(p.papir).startsWith("chyba") ? ` <button class="pap" data-id="${esc(p.papir)}">papír</button><span class="imgbox"></span>` : ""}</div>`).join("");
+    const att = q.pokusy.map((p, i) => `<div class="att">${p.reseni ? "řešení zobrazeno" : `${p.pokus}. <span class="${p.ok ? "ok" : "bad"}">${p.ok ? "✓" : "✗"}</span> ${esc(p.odpoved)}`}
+      <span class="small">(${fmtS(p.doba)})</span>${p.poNap !== undefined ? ` <span class="${p.ok && p.poNap < lim ? "flag red" : "small"}">${fmtS(p.poNap)} po nápovědě</span>` : ""}${p.papir && !String(p.papir).startsWith("chyba") ? ` <button class="pap" data-id="${esc(p.papir)}">papír</button><span class="imgbox"></span>` : ""}<button class="cl" type="button" data-n="${q.n}" data-k="${i}" title="Obrázek se zadáním, odpověďmi a papírem do schránky – pro rozbor chyby s Claudem">📋 Pro Clauda</button>${CL[clKlic(r, q, i)] ? clBoxHtml(r, q, i) : ""}</div>`).join("");
     const rp = q.pokusy.find(p => p.ok && p.poNap !== undefined && p.poNap < lim);
     const pozn = [q.napoveda ? `<span class="flag">nápověda${q.napDoba !== undefined ? " po " + fmtS(q.napDoba) : ""}</span>` : "",
       rp ? `<span class="flag red">správně ${fmtS(rp.poNap)} po nápovědě</span>` : "", f.has(q.n) ? `<span class="flag">rychlá odpověď</span>` : "",
@@ -602,7 +755,7 @@ function renderDetail(r) {
     h += `<tr${pol && pol.n === q.n ? ' class="here"' : ""}><td><span class="dot st-${q.stav}">${q.n}</span></td>
       <td>${esc(q.zadani || "–")}<div class="small">${esc(q.sekce)}${q.spravna ? " · správně: " + esc(q.spravna) : ""}</div>${q.napoveda && q.hintText ? `<div class="hinttxt">nápověda: ${esc(q.hintText)}</div>` : ""}</td>
       <td>${att || '<span class="small">bez odpovědi</span>'}
-        <div class="ted"><button class="pap-ted" data-n="${q.n}">${q.ted ? "obnovit" : "papír teď"}</button><span class="small tedinfo">${q.ted ? esc(q.ted.info) : ""}</span><div class="imgbox">${q.ted ? q.ted.html : ""}</div></div></td><td class="num">${fmtS(q.doba)}</td><td class="hide-m">${pozn}</td></tr>`;
+        <div class="ted"><button class="pap-ted" data-n="${q.n}">${q.ted ? "obnovit" : "papír teď"}</button><span class="small tedinfo">${q.ted ? esc(q.ted.info) : ""}</span><button class="cl" type="button" data-n="${q.n}" data-k="-1" title="Obrázek se zadáním, všemi pokusy a aktuálním papírem do schránky – pro rozbor chyby s Claudem">📋 Pro Clauda</button><div class="imgbox">${q.ted ? q.ted.html : ""}</div>${CL[clKlic(r, q, -1)] ? clBoxHtml(r, q, -1) : ""}</div></td><td class="num">${fmtS(q.doba)}</td><td class="hide-m">${pozn}</td></tr>`;
   });
   return h + `</table>`;
 }
@@ -652,6 +805,8 @@ function render() {
     b.disabled = false; b.textContent = "papír";
   });
   out.querySelectorAll("button.pap-ted").forEach(b => b.onclick = () => papirTed(b));
+  out.querySelectorAll("button.cl").forEach(b => b.onclick = () => proClauda(b));
+  vazbyCl(out);
   out.querySelectorAll("button.pap.auto").forEach(b => b.click());          // papír z „Vyzkoušej se“ – poslední verze hned
   out.querySelectorAll(".vyz details").forEach(d => d.addEventListener("toggle", () => { if (d.open) d.querySelectorAll("button.pap:not([data-nacteno])").forEach(b => { b.dataset.nacteno = "1"; b.click(); }); }));
 }
