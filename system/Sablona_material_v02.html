@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  ŠABLONA STRÁNKY S TEORIÍ – Ann School (system/Sablona_material_v02.html)
+  Pro studijní materiály (<tema>_material_vXX.html) a zápisky (<tema>_zapisky_vXX.html). Návod: system/Navod_material_vXX.md.
+  Měnit se smí JEN dva bloky: „HLAVIČKA STRÁNKY“ (title, data-typ) a „OBSAH STRÁNKY“. Zbytek kontroluje Kontrola_repo
+  proti šabloně (jako u testů).
+
+  Jak stránka funguje:
+  - Obsah je rozdělený na KAPITOLY (<section class="kapitola" data-kapitola="2. Název">). Na obrazovce je vždy jen
+    jedna kapitola, mezi kapitolami se přechází časovou osou dole (kolečko = kapitola, šipky ‹ ›, „Σ Souhrn“)
+    nebo tlačítkem „Další kapitola“ na konci kapitoly.
+  - Kapitola má SEKCE – každá část, kde je něco vysvětleno (definice, pravidlo, důkaz, postup). Konec každé sekce
+    označuje <div data-porozumeni="2. Název sekce"></div>; sledovani.js do něj vloží malá tlačítka Chápu / Nechápu.
+  - Do další kapitoly se smí, až když má každá sekce všech předchozích kapitol volbu Chápu, nebo Nechápu
+    (Nechápu také pustí dál). Zpět se smí vždy. Volbu jde změnit; druhé klepnutí ji zruší a pozdější kapitoly
+    se tím znovu zamknou. Kapitola bez tlačítek (class="kapitola priloha", např. opravy oproti sešitu) se nezamyká
+    a je v časové ose jako štítek vpravo.
+  - Barvy na časové ose: bílá = neotevřená, šedá = otevřená a nerozhodnutá, zelená = všechny sekce Chápu,
+    červená = všechny sekce rozhodnuté a aspoň jedna Nechápu, poloprůhledná = zamčená. Aktuální má silný okraj.
+  - PŘESKOČENÍ (v02, T02): dokud kapitola nemá u všech sekcí volbu, je na jejím konci „Přeskočit bez volby ›“
+    (s potvrzením na místě). Přeskočená kapitola pustí dál, i když v ní volby chybí; na časové ose má značku „›“,
+    pamatuje se v prohlížeči a do výsledků jde událost „preskoceni“ (kapitola, sekce bez volby).
+  - VYZKOUŠEJ SE (v02, T02): u každé sekce vedle Chápu / Nechápu tlačítko „Vyzkoušej se“. Pod ním se plynule
+    rozbalí pole, kam žák napíše, co si zapamatoval; látka sekce (vše kromě nadpisu h3) se přitom zakryje na místě
+    (výška stránky se nemění, nic neposkočí). „Ukázat látku / Skrýt látku“ ji odkryje a zakryje, „Hotovo“ pole
+    sbalí. Text se pamatuje v prohlížeči a do výsledků jde událost „vyzkousej“ (celý text, kolikrát a jak dlouho
+    byla látka odkrytá, kolik znaků bylo napsáno před prvním odkrytím) – při Hotovo, opuštění pole, po 20 s bez
+    psaní a při odchodu ze stránky, jen když se něco změnilo. Psaní neovlivní Chápu / Nechápu ani zamykání.
+    Látka sekce = vše mezi nadpisem a <div data-porozumeni>; za data-porozumeni v sekci nic nepatří.
+  - Nová verze stránky převezme z nejvyšší starší verze volby, přeskočení, texty a otevřené kapitoly.
+  - Souhrn ukazuje stav všech sekcí; klepnutí na sekci skočí na ni.
+  - Sledování: oblast = název kapitoly (čas po kapitolách v přehledu), porozumění posílá sledovani.js.
+    Poslední otevřená kapitola a otevřené kapitoly se pamatují v prohlížeči; adresa #k3 otevře kapitolu 3.
+  - Verze v hlavičce se bere z názvu souboru (nemůže se rozejít), název z <title> (část před „ – “).
+  - Tisk: všechny kapitoly pod sebou, bez ovládání.
+-->
+<link rel="apple-touch-icon" href="../system/img/apple-touch-icon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<style>
+  :root { --bg:#fafaf7; --paper:#fff; --text:#1d1d1b; --muted:#6b6b66; --line:#dcdcd5; --accent:#2b5cab; --mark:#fff4c2;
+    --prakticky:#eef4fb; --st-zelena:#1f8a3c; --st-cervena:#b3261e; --st-seda:#a9a9a2; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:17px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif; }
+  header#panel { position:sticky; top:0; z-index:10; background:rgba(255,255,255,.97); border-bottom:1px solid var(--line);
+    padding:8px 16px; padding-top:calc(8px + env(safe-area-inset-top)); display:flex; gap:12px; align-items:center; }
+  header#panel .t { flex:1; min-width:0; font-weight:600; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  header#panel .t .kap { font-weight:400; color:var(--muted); }
+  header#panel a { font-size:14px; padding:4px 10px; border-radius:8px; border:1px solid var(--accent); color:var(--accent); text-decoration:none; background:#fff; white-space:nowrap; }
+  main { max-width:860px; margin:0 auto; padding:16px 16px calc(var(--tl-h, 56px) + 40px); }
+  h1 { font-size:26px; margin:8px 0 4px; }
+  .meta { color:var(--muted); font-size:14px; }
+  section.kapitola { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:4px 18px 14px; margin:14px 0; }
+  .js section.kapitola { display:none; }
+  .js section.kapitola.vidim { display:block; }
+  .js .uvod { display:none; } .js .uvod.vidim { display:block; }
+  h2 { font-size:21px; margin:14px 0 8px; }
+  h3 { font-size:17px; margin:18px 0 6px; color:var(--accent); }
+  .sekce { padding:2px 0 4px; scroll-margin-top:70px; }
+  .sekce + .sekce { border-top:1px dashed var(--line); margin-top:6px; }
+  .sekce.blik { animation: blik 1.4s ease-out 1; }
+  @keyframes blik { 0% { background:#fff4c2; } 100% { background:transparent; } }
+  .rule { background:var(--mark); border-radius:8px; padding:6px 12px; margin:8px 0; }
+  .prakticky { background:var(--prakticky); border-radius:8px; padding:6px 12px; margin:8px 0; }
+  .prakticky::before { content:"Na konkrétních číslech: "; font-weight:600; color:var(--accent); }
+  .ex { border-left:3px solid var(--line); padding:2px 0 2px 12px; margin:10px 0; }
+  .ex .lab { font-weight:600; }
+  .note { font-size:14px; color:var(--muted); }
+  .katex-display { overflow-x:auto; overflow-y:hidden; padding:2px 0; margin:.5em 0; }
+  .katex { font-size:1.08em; }
+  .siroke { overflow-x:auto; }
+  table.two { border-collapse:collapse; } table.two td { padding:2px 18px 2px 0; vertical-align:top; }
+  table.tab { border-collapse:collapse; margin:8px 0; } table.tab td, table.tab th { border:1px solid var(--line); padding:3px 10px; text-align:left; }
+  details { margin-top:6px; } summary { cursor:pointer; color:var(--accent); }
+  ul.fix li { margin:4px 0; }
+  svg { max-width:100%; height:auto; }
+  /* konec kapitoly: stav a přechod dál (malá tlačítka – Pouceni bod 18) */
+  .konec { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; margin:14px 0 2px;
+    padding-top:10px; border-top:1px solid var(--line); font-size:14px; color:var(--muted); }
+  .konec button, .sum-tab button.odkaz { font:inherit; font-size:14px; padding:4px 10px; border-radius:8px; border:1px solid var(--accent);
+    background:#fff; color:var(--accent); cursor:pointer; }
+  .konec button.dal:not(.zamceno) { background:var(--accent); color:#fff; }
+  .konec button.zamceno { opacity:.45; }
+  /* souhrn */
+  #souhrn { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:4px 18px 14px; margin:14px 0; }
+  .js #souhrn { display:none; } .js #souhrn.vidim { display:block; }
+  .sum-kap { margin:12px 0 4px; font-weight:600; }
+  .sum-tab { width:100%; border-collapse:collapse; font-size:15px; }
+  .sum-tab td { padding:3px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .sum-tab td.st { width:7.5em; white-space:nowrap; }
+  .sum-tab button.odkaz { border:0; padding:0; text-align:left; background:none; color:var(--text); }
+  .ok { color:var(--st-zelena); font-weight:600; } .ne { color:var(--st-cervena); font-weight:600; } .nic { color:var(--muted); }
+  /* hláška */
+  #hlaska { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--tl-h, 56px) + 12px); z-index:30; max-width:92vw;
+    background:#1d1d1b; color:#fff; font-size:14px; padding:7px 14px; border-radius:10px; opacity:0; pointer-events:none; transition:opacity .25s; }
+  #hlaska.vidim { opacity:.94; }
+  /* časová osa (jako v testech) */
+  #timeline { position:fixed; left:0; right:0; bottom:0; z-index:20; background:rgba(255,255,255,.97);
+    border-top:1px solid var(--line); padding:6px 8px; padding-bottom:calc(6px + env(safe-area-inset-bottom));
+    display:flex; align-items:center; gap:8px; }
+  #tlItems { flex:1 1 auto; min-width:0; display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; }
+  .tl-b { width:28px; height:28px; border-radius:50%; border:1.5px solid var(--line); background:#fff; color:var(--text);
+    font:600 12px/1 -apple-system,"Segoe UI",Roboto,sans-serif; cursor:pointer; padding:0; flex:0 0 auto; }
+  .tl-b.st-seda { background:var(--st-seda); border-color:var(--st-seda); color:#fff; }
+  .tl-b.st-zelena { background:var(--st-zelena); border-color:var(--st-zelena); color:#fff; }
+  .tl-b.st-cervena { background:var(--st-cervena); border-color:var(--st-cervena); color:#fff; }
+  .tl-b.zamceno { opacity:.35; border-style:dashed; }
+  .tl-b.cur { border:2.5px solid var(--text); opacity:1; }
+  .tl-b.stitek { width:auto; border-radius:14px; padding:0 10px; border-color:var(--accent); color:var(--accent); font-weight:500; }
+  .tl-b.stitek.cur { background:var(--accent); color:#fff; border-color:var(--text); }
+  .tl-nav { flex:0 0 auto; display:flex; gap:6px; }
+  .tl-nav button { width:34px; height:30px; border-radius:7px; border:1px solid var(--accent); background:#fff; color:var(--accent);
+    font:700 18px/1 -apple-system,"Segoe UI",Roboto,sans-serif; cursor:pointer; padding:0; }
+  .tl-nav button:disabled, .tl-nav button.zamceno { opacity:.35; }
+  .tl-b.presk { position:relative; }
+  .tl-b.presk::after { content:"›"; position:absolute; right:-6px; top:-7px; width:15px; height:15px; border-radius:50%;
+    background:var(--accent); color:#fff; font:700 11px/14px -apple-system,"Segoe UI",Roboto,sans-serif; text-align:center; }
+  .konec .potvrd { color:var(--text); }
+  .konec button.presk { border-color:var(--line); color:var(--muted); }
+  /* Vyzkoušej se (v02): pole pod Chápu / Nechápu, látka sekce se zakryje na místě (výška se nemění) */
+  .sekce .porozumeni { flex-wrap:wrap; }
+  .porozumeni button.vyz { border-color:var(--accent); color:var(--accent); }
+  .porozumeni button.vyz.on { background:var(--accent); color:#fff; }
+  .latka { position:relative; }
+  .latka.skryta > * { visibility:hidden; }
+  .latka.skryta::after { content:"Látka je skrytá – zkus si ji vybavit. Když nevíš, klepni dole na „Ukázat látku“.";
+    position:absolute; inset:0; display:flex; align-items:flex-start; justify-content:center; text-align:center;
+    padding:14px 12px; border:1.5px dashed var(--line); border-radius:8px; background:var(--bg); color:var(--muted); font-size:14px; }
+  .vyz-box { overflow:hidden; height:0; transition:height .2s ease; }
+  .vyz-box[hidden] { display:none; }
+  .vyz-in { padding:2px 0 8px; }
+  .vyz-box textarea { display:block; width:100%; min-height:6.6em; max-height:60vh; resize:none; overflow-y:auto;
+    font:16px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif; color:var(--text); background:#fff;
+    border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .vyz-box textarea:focus { outline:none; border-color:var(--accent); }
+  .vyz-lista { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px 8px; margin-top:6px; font-size:13px; color:var(--muted); }
+  .vyz-lista .info { margin-right:auto; }
+  .vyz-lista button { font:inherit; font-size:13px; line-height:1.2; padding:3px 10px; border-radius:12px; border:1px solid var(--accent);
+    background:#fff; color:var(--accent); cursor:pointer; }
+  .vyz-lista button.hotovo { background:var(--accent); color:#fff; }
+  @media (prefers-reduced-motion: reduce) { .vyz-box { transition:none; } }
+  @media print {
+    .vyz-box, .porozumeni button.vyz { display:none !important; }
+    .latka.skryta > * { visibility:visible; } .latka.skryta::after { display:none; }
+    #timeline, #hlaska, .konec, #souhrn, header#panel a { display:none !important; }
+    .js section.kapitola, .js .uvod { display:block !important; }
+    section.kapitola { break-before:page; border:0; }
+    main { padding-bottom:0; }
+  }
+</style>
+<!-- ===== HLAVIČKA STRÁNKY (měň jen title a data-typ) ===== -->
+<title>Název tématu – zápisky</title>
+<script src="../system/lib/zaznam.js"></script>
+<script src="../system/lib/sledovani.js" data-typ="zapisky"></script>
+<!-- ===== KONEC HLAVIČKY ===== -->
+</head>
+<body>
+<script>document.documentElement.classList.add("js");</script>
+<header id="panel"><span class="t" id="nazev">…</span><a href="../">Rozcestník</a></header>
+<main id="obsah">
+<!-- ===== OBSAH STRÁNKY =====
+  Pravidla (Navod_material kap. 3):
+  - nahoře <div class="uvod"> s <h1> a krátkým popisem (ukáže se nad první kapitolou),
+  - každá kapitola: <section class="kapitola" data-kapitola="N. Název"> s <h2>N. Název</h2>,
+  - každá sekce: <div class="sekce"> … <div data-porozumeni="N. Název sekce"></div></div>; název začíná číslem kapitoly,
+    je jednoznačný a nemění se mezi verzemi (podle něj přehled spojuje volby),
+  - u každé definice nebo pravidla zapsaného značkami příklad na konkrétních číslech: <div class="prakticky">…</div>,
+  - řešené příklady patří do sekce, ke které se vztahují (bez vlastních tlačítek),
+  - opravy oproti sešitu do poslední kapitoly <section class="kapitola priloha" data-kapitola="Opravy oproti sešitu">,
+  - vzorce: LaTeX $…$ a $$…$$, pak node system/Vzorce_v01.js <soubor> (předem vyrenderuje KaTeX),
+  - vlastní styly stránky smí být v <style> uvnitř tohoto bloku.
+-->
+<div class="uvod">
+<h1>Název tématu</h1>
+<div class="meta">Krátký popis: odkud látka je (sešit, pracovní list ze školy) a co obsahuje.</div>
+</div>
+
+<section class="kapitola" data-kapitola="1. Ukázková kapitola">
+<h2>1. Ukázková kapitola</h2>
+<div class="sekce">
+<h3>Definice</h3>
+<div class="rule">Přirozená čísla: $\mathbb{N} = \{1, 2, 3, \dots\}$</div>
+<div class="prakticky">počet žáků ve třídě (28), počet stran sešitu (60). Nula ani $-3$ ani $2{,}5$ mezi ně nepatří.</div>
+<div data-porozumeni="1. Ukázková definice"></div>
+</div>
+<div class="sekce">
+<h3>Důkaz</h3>
+<p>Text důkazu…</p>
+<div class="ex"><span class="lab">Příklad:</span> řešený příklad k této sekci.</div>
+<div data-porozumeni="1. Ukázkový důkaz"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="2. Druhá kapitola">
+<h2>2. Druhá kapitola</h2>
+<div class="sekce">
+<p>Vysvětlení…</p>
+<div data-porozumeni="2. Ukázková sekce"></div>
+</div>
+</section>
+
+<section class="kapitola priloha" data-kapitola="Opravy oproti sešitu">
+<h2>Opravy oproti sešitu</h2>
+<ul class="fix"><li>Co bylo v sešitě špatně a jak je to správně.</li></ul>
+</section>
+<!-- ===== KONEC OBSAHU ===== -->
+<div id="souhrn"></div>
+</main>
+<div id="hlaska" role="status" aria-live="polite"></div>
+<nav id="timeline"><div id="tlItems"></div><div class="tl-nav"><button type="button" id="tlPrev" aria-label="Předchozí">‹</button><button type="button" id="tlNext" aria-label="Další">›</button></div></nav>
+<script>
+/* ---------- stránka s teorií: kapitoly, zamykání, přeskočení, Vyzkoušej se, časová osa (Sablona_material_v02) ---------- */
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const cesta = location.pathname.replace(/^.*\/annschool\//, "").replace(/^\//, "");
+  const verze = (location.pathname.match(/_(v\d\d)\.html$/) || [])[1] || "";
+  const typText = { zapisky: "zápisky", material: "materiál", tahak: "tahák", "pracovni-list": "pracovní list" };
+  const typ = (location.pathname.match(/_([a-z-]+)_v\d\d\.html$/) || [])[1] || "";
+  const KEY = "annschool:kapitoly:" + cesta;
+  const POR_KEY = "annschool:porozumeni:" + cesta;
+  const PRESK_KEY = "annschool:preskoceno:" + cesta;
+  const VYZ_KEY = "annschool:vyzkousej:" + cesta;
+  const nazevTema = (document.title.split(" – ")[0] || document.title).trim();
+
+  // načte uložená data; nová verze stránky bez dat je převezme z nejvyšší starší verze (sledovani.js)
+  function nacti(klic, prefix, vychozi) {
+    try {
+      let s = localStorage.getItem(klic);
+      if (s === null && window.Sledovani && Sledovani.zPredchoziVerze) {
+        const st = Sledovani.zPredchoziVerze(prefix);
+        if (st && st.data) { s = st.data; localStorage.setItem(klic, s); }
+      }
+      return s === null ? vychozi : (JSON.parse(s) || vychozi);
+    } catch (e) { return vychozi; }
+  }
+  function uloz(klic, v) { try { localStorage.setItem(klic, JSON.stringify(v)); } catch (e) { /* plné úložiště, soukromé okno */ } }
+  function zapis(udalost, sekce, detail) {
+    try { if (window.Sledovani && Sledovani.udalost) Sledovani.udalost(udalost, sekce, detail); } catch (e) { /* bez záznamu */ }
+  }
+
+  const kapitoly = [...document.querySelectorAll("section.kapitola")].map((el, i) => ({
+    el, i, nazev: el.dataset.kapitola || ("Kapitola " + (i + 1)), priloha: el.classList.contains("priloha"),
+    casti: [...el.querySelectorAll("[data-porozumeni]")].map(x => x.getAttribute("data-porozumeni"))
+  }));
+  const hlavni = kapitoly.filter(k => !k.priloha);
+  const SOUHRN = -1;
+  const ulozene = nacti(KEY, "annschool:kapitoly:", {});
+  // otevřené kapitoly podle názvu (v01 ukládala čísla – převezmou se podle pořadí)
+  const otevrene = new Set((ulozene.otevrene || []).map(x => typeof x === "number" ? (kapitoly[x] || {}).nazev : x).filter(Boolean));
+  const presk = new Set(nacti(PRESK_KEY, "annschool:preskoceno:", []));
+  let cur = 0, potvrzuji = -2;
+
+  function stav() {
+    if (window.Sledovani && Sledovani.porozumeniStav) return Sledovani.porozumeniStav();
+    try { return JSON.parse(localStorage.getItem(POR_KEY) || "{}") || {}; } catch (e) { return {}; }
+  }
+  function ulozit() {
+    const posl = cur === SOUHRN ? "souhrn" : (kapitoly[cur] || {}).nazev;
+    uloz(KEY, { otevrene: [...otevrene], posledni: posl });
+  }
+  function info(k, P) {
+    const zbyva = k.casti.filter(c => !P[c]);
+    return { hotovo: zbyva.length === 0, zbyva, ne: k.casti.filter(c => P[c] === "nechapu").length,
+      ano: k.casti.filter(c => P[c] === "chapu").length, presk: presk.has(k.nazev) && zbyva.length > 0 };
+  }
+  // kapitola pustí dál, když je celá rozhodnutá, nebo byla přeskočena
+  function prosla(k, P) { return info(k, P).hotovo || presk.has(k.nazev); }
+  function odemcena(i, P) {
+    if (i === SOUHRN || kapitoly[i].priloha) return true;
+    for (const k of hlavni) { if (k.i >= i) break; if (!prosla(k, P)) return false; }
+    return true;
+  }
+  function prvniNedokoncena(P) { const k = hlavni.find(k => !prosla(k, P)); return k ? k.i : (hlavni.length ? hlavni[hlavni.length - 1].i : 0); }
+  let hlaskaT = 0;
+  function hlaska(t) { const h = $("hlaska"); h.textContent = t; h.classList.add("vidim"); clearTimeout(hlaskaT); hlaskaT = setTimeout(() => h.classList.remove("vidim"), 3600); }
+  function ukazNedorozhodnutou(k, P) {
+    const c = info(k, P).zbyva[0];
+    const el = c && [...k.el.querySelectorAll("[data-porozumeni]")].find(x => x.getAttribute("data-porozumeni") === c);
+    const cil = el && (el.closest(".sekce") || el);
+    if (cil) { cil.scrollIntoView({ behavior: "smooth", block: "center" }); cil.classList.remove("blik"); void cil.offsetWidth; cil.classList.add("blik"); }
+  }
+
+  function jdi(i, opts) {
+    opts = opts || {};
+    const P = stav();
+    if (i !== SOUHRN && (i < 0 || i >= kapitoly.length)) return;
+    if (!odemcena(i, P)) {
+      const blok = hlavni.find(k => k.i < i && !prosla(k, P));
+      hlaska(`Nejdřív u každé části kapitoly ${blok ? blok.nazev.split(".")[0] : ""} vyber Chápu, nebo Nechápu (nebo ji na konci přeskoč).`);
+      if (blok && blok.i === cur) ukazNedorozhodnutou(blok, P);
+      return;
+    }
+    if (i !== cur) zavriVsechnaPole("kapitola");
+    $("obsah").style.minHeight = "";
+    cur = i; potvrzuji = -2;
+    if (i !== SOUHRN) otevrene.add(kapitoly[i].nazev);
+    kapitoly.forEach(k => k.el.classList.toggle("vidim", k.i === i));
+    document.querySelectorAll(".uvod").forEach(u => u.classList.toggle("vidim", i === (kapitoly[0] ? 0 : SOUHRN)));
+    $("souhrn").classList.toggle("vidim", i === SOUHRN);
+    if (i === SOUHRN) vykresliSouhrn();
+    const nazev = i === SOUHRN ? "Souhrn" : kapitoly[i].nazev;
+    $("nazev").innerHTML = `${esc(nazevTema)} · ${esc(typText[typ] || typ)} ${esc(verze)} <span class="kap">· ${esc(nazev)}</span>`;
+    try { history.replaceState(null, "", i === SOUHRN ? "#souhrn" : "#k" + (i + 1)); } catch (e) { /* file:// */ }
+    if (window.Sledovani) { Sledovani.oblast(i === SOUHRN ? "Σ Souhrn" : nazev); }
+    ulozit(); prekresli();
+    if (opts.cast) {
+      const el = [...document.querySelectorAll("[data-porozumeni]")].find(x => x.getAttribute("data-porozumeni") === opts.cast);
+      const cil = el && (el.closest(".sekce") || el);
+      if (cil) setTimeout(() => { cil.scrollIntoView({ block: "center" }); cil.classList.add("blik"); }, 30);
+    } else if (!opts.bezPosunu) window.scrollTo(0, 0);
+  }
+  function dalsi(i) { return i === SOUHRN ? SOUHRN : (i + 1 < kapitoly.length ? i + 1 : SOUHRN); }
+  function predchozi(i) { return i === SOUHRN ? kapitoly.length - 1 : Math.max(0, i - 1); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+  function barva(k, P) {
+    if (k.priloha) return "";
+    const n = info(k, P);
+    if (n.hotovo && k.casti.length) return n.ne ? "st-cervena" : "st-zelena";
+    if (n.hotovo) return "st-zelena";
+    return otevrene.has(k.nazev) || n.presk ? "st-seda" : "";
+  }
+  function preskoc(k) {
+    const P = stav(), bez = info(k, P).zbyva;
+    presk.add(k.nazev); uloz(PRESK_KEY, [...presk]);
+    zapis("preskoceni", k.nazev, { kapitola: k.nazev, bez_volby: bez, pocet: bez.length });
+    potvrzuji = -2;
+    jdi(dalsi(k.i));
+  }
+  function prekresli() {
+    const P = stav();
+    // časová osa
+    const box = $("tlItems"); box.innerHTML = "";
+    kapitoly.forEach(k => {
+      const b = document.createElement("button"); b.type = "button";
+      const zam = !odemcena(k.i, P), pr = !k.priloha && info(k, P).presk;
+      b.className = "tl-b " + (k.priloha ? "stitek " : barva(k, P)) + (pr ? " presk" : "") + (zam ? " zamceno" : "") + (k.i === cur ? " cur" : "");
+      b.textContent = k.priloha ? k.nazev.replace(/^\d+\.\s*/, "").split(" ")[0] : String(hlavni.indexOf(k) + 1);
+      b.title = k.nazev + (zam ? " (zamčeno)" : pr ? " (přeskočeno bez volby)" : "");
+      b.setAttribute("aria-label", b.title);
+      b.addEventListener("click", () => jdi(k.i));
+      box.appendChild(b);
+    });
+    const s = document.createElement("button"); s.type = "button"; s.className = "tl-b stitek" + (cur === SOUHRN ? " cur" : "");
+    s.textContent = "Σ Souhrn"; s.addEventListener("click", () => jdi(SOUHRN)); box.appendChild(s);
+    $("tlPrev").disabled = cur === 0;
+    $("tlNext").disabled = cur === SOUHRN;
+    $("tlNext").classList.toggle("zamceno", cur !== SOUHRN && !odemcena(dalsi(cur), P));
+    // konec každé kapitoly
+    kapitoly.forEach(k => {
+      let kon = k.el.querySelector(":scope > .konec");
+      if (!kon) { kon = document.createElement("div"); kon.className = "konec"; k.el.appendChild(kon); }
+      const n = info(k, P), d = dalsi(k.i), dNazev = d === SOUHRN ? "Souhrn" : "Další kapitola";
+      const lzePreskocit = !k.priloha && k.casti.length && !n.hotovo && !presk.has(k.nazev);
+      const txt = k.priloha || !k.casti.length ? "" :
+        n.hotovo ? `Rozhodnuto ${k.casti.length} z ${k.casti.length} · chápu ${n.ano}, nechápu ${n.ne}`
+          : n.presk ? `Rozhodnuto ${k.casti.length - n.zbyva.length} z ${k.casti.length} · přeskočeno bez volby`
+          : `Rozhodnuto ${k.casti.length - n.zbyva.length} z ${k.casti.length} – u každé části vyber Chápu, nebo Nechápu`;
+      let prava = (k.i > 0 ? '<button type="button" class="zpet">‹ Zpět</button> ' : "");
+      if (lzePreskocit && potvrzuji === k.i) {
+        prava += `<span class="potvrd">Opravdu? ${n.zbyva.length === 1 ? "1 část nemá" : n.zbyva.length + (n.zbyva.length < 5 ? " části nemají" : " částí nemá")} volbu. ` +
+          `<button type="button" class="ano">Ano, přeskočit</button> <button type="button" class="ne">Ne</button></span>`;
+      } else {
+        if (lzePreskocit) prava += '<button type="button" class="presk">Přeskočit bez volby ›</button> ';
+        prava += `<button type="button" class="dal${odemcena(d, P) ? "" : " zamceno"}">${dNazev} ›</button>`;
+      }
+      kon.innerHTML = `<span>${esc(txt)}</span><span>${prava}</span>`;
+      const z = kon.querySelector(".zpet"); if (z) z.onclick = () => jdi(predchozi(k.i));
+      const dl = kon.querySelector(".dal"); if (dl) dl.onclick = () => jdi(d);
+      const p = kon.querySelector(".presk"); if (p) p.onclick = () => { potvrzuji = k.i; prekresli(); };
+      const a = kon.querySelector(".ano"); if (a) a.onclick = () => preskoc(k);
+      const ne = kon.querySelector(".ne"); if (ne) ne.onclick = () => { potvrzuji = -2; prekresli(); };
+    });
+    document.documentElement.style.setProperty("--tl-h", $("timeline").offsetHeight + "px");
+  }
+  function vykresliSouhrn() {
+    const P = stav();
+    const vse = hlavni.reduce((a, k) => a + k.casti.length, 0);
+    const ano = hlavni.reduce((a, k) => a + info(k, P).ano, 0), ne = hlavni.reduce((a, k) => a + info(k, P).ne, 0);
+    const naps = Object.values(VYZ).filter(z => z && z.text && z.text.trim()).length;
+    let h = `<h2>Souhrn</h2><p class="meta">Chápu ${ano} · nechápu ${ne} · nerozhodnuto ${vse - ano - ne} (celkem ${vse} částí)` +
+      `${naps ? ` · ✎ Vyzkoušej se napsáno u ${naps}` : ""}. Klepnutím na část na ni skočíš.</p>`;
+    kapitoly.forEach(k => {
+      if (k.priloha) { h += `<div class="sum-kap"><button type="button" class="odkaz" data-k="${k.i}">${esc(k.nazev)}</button></div>`; return; }
+      const pr = info(k, P).presk;
+      h += `<div class="sum-kap">${esc(k.nazev)}${pr ? ' <span class="nic">(přeskočeno)</span>' : ""}</div><table class="sum-tab">`;
+      k.casti.forEach(c => {
+        const s = P[c] === "chapu" ? '<span class="ok">✓ chápu</span>' : P[c] === "nechapu" ? '<span class="ne">✗ nechápu</span>'
+          : pr ? '<span class="nic">– přeskočeno</span>' : '<span class="nic">– nerozhodnuto</span>';
+        const z = VYZ[c] && VYZ[c].text && VYZ[c].text.trim() ? ' <span class="nic" title="Vyzkoušej se – napsáno">✎</span>' : "";
+        h += `<tr><td><button type="button" class="odkaz" data-k="${k.i}" data-c="${esc(c)}">${esc(c)}</button>${z}</td><td class="st">${s}</td></tr>`;
+      });
+      h += "</table>";
+    });
+    $("souhrn").innerHTML = h;
+    $("souhrn").querySelectorAll("button.odkaz").forEach(b => b.addEventListener("click", () => jdi(+b.dataset.k, { cast: b.dataset.c })));
+  }
+
+  /* ---------- Vyzkoušej se: pole pod Chápu / Nechápu, látka sekce zakrytá na místě ---------- */
+  const VYZ = nacti(VYZ_KEY, "annschool:vyzkousej:", {});
+  const POLE = {};                 // cast → { box, ta, latka, tl, odkryt, info, otevreno, odkrytoOd, pauza }
+  const MAX = 4000, PAUZA_MS = 20000, ANIM_MS = 220;
+  function z(cast) { return VYZ[cast] || (VYZ[cast] = { text: "", odkryto: 0, odkryto_ms: 0, pred_odkrytim: null, cas: "", odeslano: "" }); }
+  function ulozVyz() { uloz(VYZ_KEY, VYZ); }
+  function pricistOdkryti(p, cast) {
+    if (p.odkrytoOd) { z(cast).odkryto_ms += Date.now() - p.odkrytoOd; p.odkrytoOd = 0; }
+  }
+  function posli(cast, duvod) {
+    const p = POLE[cast], st = z(cast);
+    if (p) { pricistOdkryti(p, cast); if (p.otevreno && !p.latka.classList.contains("skryta")) p.odkrytoOd = Date.now(); clearTimeout(p.pauza); }
+    const podpis = JSON.stringify([st.text, st.odkryto]);
+    if (podpis === st.odeslano || (!st.text && !st.odkryto && !st.odeslano)) { ulozVyz(); return; }
+    st.odeslano = podpis; ulozVyz();
+    zapis("vyzkousej", cast, { cast, text: st.text, znaku: st.text.length, odkryto: st.odkryto,
+      odkryto_s: Math.round(st.odkryto_ms / 1000), pred_odkrytim: st.pred_odkrytim, duvod,
+      poradi: kapitoly.reduce((a, k) => a.concat(k.casti), []).indexOf(cast) + 1 });
+  }
+  function popisPole(p, cast) {
+    const st = z(cast);
+    p.info.textContent = st.odkryto ? `látku jsi odkryla ${st.odkryto}×` : "";
+    p.odkryt.textContent = p.latka.classList.contains("skryta") ? "Ukázat látku" : "Skrýt látku";
+    p.tl.classList.toggle("on", p.otevreno);
+    p.tl.textContent = "Vyzkoušej se" + (st.text.trim() ? " ✓" : "");
+  }
+  function vyska(ta) { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight + 2, innerHeight * 0.6) + "px"; }
+  function otevri(cast) {
+    const p = POLE[cast]; if (!p || p.otevreno) return;
+    p.otevreno = true;
+    p.latka.classList.add("skryta");                      // zakrytí na místě – výška sekce se nemění
+    p.ta.value = z(cast).text;
+    const box = p.box; box.hidden = false; box.style.height = "0px";
+    vyska(p.ta);
+    const h = box.scrollHeight; void box.offsetHeight;
+    box.style.height = h + "px";                           // plynulé rozbalení, obsah pod polem se posune plynule
+    clearTimeout(p.anim); p.anim = setTimeout(() => { if (p.otevreno) box.style.height = "auto"; }, ANIM_MS);
+    try { p.ta.focus({ preventScroll: true }); } catch (e) { /* starý prohlížeč */ }
+    popisPole(p, cast);
+  }
+  function zavri(cast, duvod, hned) {
+    const p = POLE[cast]; if (!p || !p.otevreno) return;
+    posli(cast, duvod);
+    pricistOdkryti(p, cast); ulozVyz();
+    p.otevreno = false;
+    p.latka.classList.remove("skryta");
+    const box = p.box;
+    if (hned) { box.style.height = "0px"; box.hidden = true; }
+    else {
+      // stránka se nezkrátí – jinak by ji prohlížeč u konce stránky posunul skokem
+      const m = $("obsah"); m.style.minHeight = m.offsetHeight + "px";
+      box.style.height = box.scrollHeight + "px"; void box.offsetHeight; box.style.height = "0px";
+      clearTimeout(p.anim); p.anim = setTimeout(() => { if (!p.otevreno) box.hidden = true; }, ANIM_MS);
+    }
+    if (document.activeElement === p.ta) p.ta.blur();
+    popisPole(p, cast);
+  }
+  function zavriVsechnaPole(duvod) { Object.keys(POLE).forEach(c => zavri(c, duvod, true)); }
+  function vlozVyzkousej() {
+    document.querySelectorAll(".sekce [data-porozumeni]").forEach(el => {
+      const cast = el.getAttribute("data-porozumeni"), sekce = el.closest(".sekce");
+      if (!sekce || POLE[cast]) return;
+      // látka = vše v sekci před tlačítky kromě úvodního nadpisu
+      const latka = document.createElement("div"); latka.className = "latka";
+      const deti = [...sekce.childNodes];
+      const zac = deti.findIndex(n => n.nodeType === 1);
+      const prvni = zac >= 0 && deti[zac].tagName === "H3" ? zac + 1 : 0;
+      deti.slice(prvni, deti.indexOf(el)).forEach(n => latka.appendChild(n));
+      sekce.insertBefore(latka, el);
+      const tl = document.createElement("button"); tl.type = "button"; tl.className = "vyz";
+      el.appendChild(tl);
+      const box = document.createElement("div"); box.className = "vyz-box"; box.hidden = true;
+      box.innerHTML = `<div class="vyz-in">${prvni === 0 ? `<div class="meta">${esc(cast.replace(/^\d+\.\s*/, ""))}</div>` : ""}` +
+        `<textarea maxlength="${MAX}" rows="4" placeholder="Napiš vlastními slovy, co sis z této části zapamatovala." aria-label="Vyzkoušej se – ${esc(cast)}"></textarea>` +
+        `<div class="vyz-lista"><span class="info"></span><button type="button" class="odkryt">Ukázat látku</button><button type="button" class="hotovo">Hotovo</button></div></div>`;
+      el.after(box);
+      const p = POLE[cast] = { box, ta: box.querySelector("textarea"), latka, tl, odkryt: box.querySelector(".odkryt"),
+        info: box.querySelector(".info"), otevreno: false, odkrytoOd: 0, pauza: 0, anim: 0 };
+      tl.addEventListener("click", () => p.otevreno ? zavri(cast, "hotovo") : otevri(cast));
+      box.querySelector(".hotovo").addEventListener("click", () => zavri(cast, "hotovo"));
+      p.odkryt.addEventListener("click", () => {
+        const st = z(cast);
+        if (p.latka.classList.contains("skryta")) {
+          p.latka.classList.remove("skryta"); st.odkryto++; p.odkrytoOd = Date.now();
+          if (st.pred_odkrytim === null) st.pred_odkrytim = st.text.length;
+        } else { p.latka.classList.add("skryta"); pricistOdkryti(p, cast); }
+        ulozVyz(); popisPole(p, cast);
+      });
+      p.ta.addEventListener("input", () => {
+        const st = z(cast); st.text = p.ta.value.slice(0, MAX); st.cas = new Date().toISOString();
+        vyska(p.ta); ulozVyz(); popisPole(p, cast);
+        clearTimeout(p.pauza); p.pauza = setTimeout(() => posli(cast, "pauza"), PAUZA_MS);
+      });
+      p.ta.addEventListener("blur", () => { if (p.otevreno) posli(cast, "opusteni"); });
+      popisPole(p, cast);
+    });
+  }
+  function odchod() { Object.keys(POLE).forEach(c => posli(c, "odchod")); try { if (window.Zaznam) Zaznam.beacon(); } catch (e) { /* nic */ } }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") odchod(); });
+  window.addEventListener("pagehide", odchod);
+
+  function start() {
+    if (!kapitoly.length) return;
+    vlozVyzkousej();
+    if (window.Sledovani && Sledovani.pocetOblasti) Sledovani.pocetOblasti(kapitoly.length + 1);
+    const P = stav();
+    const m = location.hash.match(/^#k(\d+)$/);
+    const posl = ulozene.posledni;
+    const ix = typeof posl === "number" ? posl : posl === "souhrn" ? SOUHRN : Math.max(0, kapitoly.findIndex(k => k.nazev === posl));
+    let cil = location.hash === "#souhrn" ? SOUHRN : m ? +m[1] - 1 : ix;
+    if (cil !== SOUHRN && (cil < 0 || cil >= kapitoly.length)) cil = 0;
+    if (!odemcena(cil, P)) cil = prvniNedokoncena(P);
+    jdi(cil);
+    document.addEventListener("porozumeni", () => {
+      prekresli();
+      const k = kapitoly[cur], P2 = stav();
+      if (k && !k.priloha && k.casti.length && info(k, P2).hotovo) {
+        const d = dalsi(cur);
+        hlaska(d === SOUHRN ? "Kapitola je hotová – pokračuj na souhrn." : "Kapitola je hotová – můžeš pokračovat na další.");
+      }
+    });
+    $("tlPrev").addEventListener("click", () => jdi(predchozi(cur)));
+    $("tlNext").addEventListener("click", () => jdi(dalsi(cur)));
+    window.addEventListener("hashchange", () => {
+      const mm = location.hash.match(/^#k(\d+)$/);
+      if (mm && +mm[1] - 1 !== cur) jdi(+mm[1] - 1); else if (location.hash === "#souhrn" && cur !== SOUHRN) jdi(SOUHRN);
+    });
+    if (window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty("--tl-h", $("timeline").offsetHeight + "px")).observe($("timeline"));
+  }
+  // až za sledovani.js (ten vkládá tlačítka Chápu / Nechápu při DOMContentLoaded)
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
+  window.Kapitoly = { jdi, stav, get aktualni() { return cur; }, kapitoly: kapitoly.map(k => ({ nazev: k.nazev, priloha: k.priloha, casti: k.casti })),
+    preskoceno: () => [...presk], vyzkousej: () => JSON.parse(JSON.stringify(VYZ)), otevri, zavri };
+})();
+</script>
+</body>
+</html>

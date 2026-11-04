@@ -65,6 +65,11 @@
   .ted { margin-top: 4px; }
   .flag.live { background: #e6f4ea; color: var(--zelena); border-color: #b7dfc2; font-weight: 600; }
   .flag.gray { background: #f1f1ee; color: var(--muted); border-color: var(--line); }
+  /* Vyzkoušej se (stránky s teorií, šablona v02) */
+  .vyz { margin: 2px 0 8px 1.2em; padding: 4px 8px; border-left: 3px solid var(--line); font-size: 14px; }
+  .vyz-t { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .vyz details { margin-top: 2px; } .vyz summary { cursor: pointer; color: var(--accent); font-size: 13px; }
+  .vyz details.cely > summary { color: inherit; }
   tr.here td { background: #eef7f0; }
   .hinttxt { font-size: 12px; color: var(--warn); margin-top: 2px; }
   .ted .tedinfo { margin-left: 4px; }
@@ -292,7 +297,7 @@ async function papirTed(b) {
 function zpracujStranky(d) {
   const by = {};
   d.udalosti.forEach(u => {
-    if (!u.relace || !["otevreni", "stranka", "odchod", "klik", "porozumeni"].includes(u.udalost)) return;
+    if (!u.relace || !["otevreni", "stranka", "odchod", "klik", "porozumeni", "vyzkousej", "preskoceni"].includes(u.udalost)) return;
     const r = by[u.relace] || (by[u.relace] = { id: u.relace, ev: [], zarizeni: u.zarizeni, prezdivka: "", test: u.test, nazev: u.nazev, verze: u.verze });
     r.ev.push(u); if (u.prezdivka) r.prezdivka = u.prezdivka;
   });
@@ -310,6 +315,10 @@ function zpracujStranky(d) {
     r.por = Object.assign({}, r.s.porozumeni || {});
     r.porPoradi = {};
     r.porKliky.forEach(k => { if (!k.cast) return; if (k.stav === "zruseno") delete r.por[k.cast]; else r.por[k.cast] = k.stav; if (k.poradi) r.porPoradi[k.cast] = k.poradi; });
+    // Vyzkoušej se: poslední text každé části v tomto otevření; přeskočené kapitoly
+    const det = u => { let x = {}; try { x = JSON.parse(u.detail || "{}"); } catch (e) { /* nic */ } return Object.assign({ cas: u.cas }, x); };
+    r.vyz = {}; r.ev.filter(u => u.udalost === "vyzkousej").map(det).forEach(x => { if (x.cast) r.vyz[x.cast] = x; });
+    r.presk = r.ev.filter(u => u.udalost === "preskoceni").map(det);
     r.kliky = r.ev.filter(u => u.udalost === "klik").map(u => { try { return JSON.parse(u.detail || "{}"); } catch (e) { return {}; } });
     return r;
   }).sort((a, b) => new Date(b.start) - new Date(a.start));
@@ -333,36 +342,66 @@ function porSouhrn(r) {
 // pro každou stránku (bez verze v názvu) a část teorie poslední volba podle času + vývoj.
 function porozumeniAktualne(rs) {
   const by = {};
-  rs.forEach(r => (r.porKliky || []).forEach(k => {
-    if (!k.cast) return;
+  const skupina = r => {
     const jm = kdo(r).jm, str = String(r.test || "").replace(/_v\d\d\.html$/, "");
-    const key = jm + "|" + str;
-    const g = by[key] || (by[key] = { jm, r, casti: {} });
+    const g = by[jm + "|" + str] || (by[jm + "|" + str] = { jm, r, casti: {}, vyz: {}, presk: {} });
     if (new Date(r.start) > new Date(g.r.start)) g.r = r;
-    (g.casti[k.cast] = g.casti[k.cast] || []).push(Object.assign({}, k));
-  }));
+    return g;
+  };
+  rs.forEach(r => {
+    (r.porKliky || []).forEach(k => { if (!k.cast) return; const g = skupina(r); (g.casti[k.cast] = g.casti[k.cast] || []).push(Object.assign({}, k)); });
+    // Vyzkoušej se: jedna verze textu = poslední text části z jednoho otevření
+    Object.values(r.vyz || {}).forEach(x => { const g = skupina(r); (g.vyz[x.cast] = g.vyz[x.cast] || []).push(x); });
+    (r.presk || []).forEach(x => { if (!x.kapitola) return; const g = skupina(r); if (!g.presk[x.kapitola] || new Date(x.cas) > new Date(g.presk[x.kapitola].cas)) g.presk[x.kapitola] = x; });
+  });
   return Object.values(by).map(g => {
+    Object.keys(g.vyz).forEach(c => { if (!g.casti[c]) g.casti[c] = []; });
     const casti = Object.entries(g.casti).map(([c, l]) => {
       l.sort((x, y) => new Date(x.cas) - new Date(y.cas));
+      const verze = (g.vyz[c] || []).slice().sort((x, y) => new Date(y.cas) - new Date(x.cas));
+      if (!l.length) return { c, stav: "", cas: verze[0].cas, poradi: Number(verze[0].poradi) || 999, vyvoj: [], verze };
       const posl = l[l.length - 1];
       const vyvoj = l.filter(x => x.stav !== "zruseno").map(x => x.stav === "chapu" ? "chápu" : "nechápu")
         .filter((x, i, arr) => i === 0 || x !== arr[i - 1]);
-      return { c, stav: posl.stav, cas: posl.cas, poradi: Math.max(0, ...l.map(x => Number(x.poradi) || 0)) || 999, vyvoj };
+      return { c, stav: posl.stav, cas: posl.cas, poradi: Math.max(0, ...l.map(x => Number(x.poradi) || 0)) || 999, vyvoj, verze };
     }).sort((x, y) => x.poradi - y.poradi || x.c.localeCompare(y.c, "cs", { numeric: true }));
-    return { jm: g.jm, r: g.r, casti };
+    return { jm: g.jm, r: g.r, casti, presk: Object.values(g.presk) };
   });
+}
+// text z „Vyzkoušej se“: krátký celý, delší jako začátek + rozbalení; štítek odkrytí látky
+function vyzOdkryti(x) {
+  return N(x.odkryto) ? `<span class="flag">látku odkryla celkem ${N(x.odkryto)}× (${fmtS(N(x.odkryto_s))})${x.pred_odkrytim !== null && x.pred_odkrytim !== undefined ? ", předtím napsáno " + N(x.pred_odkrytim) + " znaků" : ""}</span>`
+    : `<span class="flag live">bez odkrytí látky</span>`;
+}
+function vyzText(x) {
+  const t = String(x.text || "");
+  if (!t.trim()) return `<span class="small">(prázdné – text smazala)</span>`;
+  if (t.length <= 240 && (t.match(/\n/g) || []).length < 3) return `<div class="vyz-t">${esc(t)}</div>`;
+  const zac = t.split("\n").slice(0, 3).join("\n").slice(0, 240);
+  return `<details class="cely"><summary class="vyz-t">${esc(zac)}… <span class="small">(celý text, ${t.length} znaků)</span></summary><div class="vyz-t">${esc(t)}</div></details>`;
+}
+function vyzBlok(verze) {
+  if (!verze || !verze.length) return "";
+  const [v, ...star] = verze;
+  let h = `<div class="vyz"><div class="small">✎ Vyzkoušej se · ${fmtD(v.cas)} ${vyzOdkryti(v)}</div>${vyzText(v)}`;
+  if (star.length) h += `<details><summary>dřívější verze (${star.length})</summary>` +
+    star.map(x => `<div style="margin:4px 0"><div class="small">${fmtD(x.cas)} ${vyzOdkryti(x)}</div>${vyzText(x)}</div>`).join("") + `</details>`;
+  return h + `</div>`;
+}
+function preskStitky(l) {
+  return (l || []).map(x => `<span class="flag">přeskočila kap. ${esc(x.kapitola)} (${N(x.pocet)} bez volby)</span>`).join("");
 }
 function renderPorozumeni(rs) {
   const sk = porozumeniAktualne(rs);
   if (!sk.length) return "";
-  let h = `<h3 style="margin:14px 0 4px">Aktuální stav porozumění</h3><p class="meta">Poslední volba Chápu / Nechápu u každé části teorie ze všech otevření stránky (i na jiném zařízení). Vývoj ukazuje, jak se volba měnila.</p>`;
+  let h = `<h3 style="margin:14px 0 4px">Aktuální stav porozumění</h3><p class="meta">Poslední volba Chápu / Nechápu u každé části teorie ze všech otevření stránky (i na jiném zařízení). Vývoj ukazuje, jak se volba měnila. ✎ = co napsala ve „Vyzkoušej se“ (poslední text, dřívější verze z jiných otevření rozbalením) a jestli si při tom odkryla látku.</p>`;
   sk.forEach(g => {
     const n = g.casti.filter(x => x.stav === "nechapu").length, a = g.casti.filter(x => x.stav === "chapu").length;
     h += `<div class="card"><div style="font-weight:600">${esc(nazevStranky(g.r))} <span class="who">${esc(g.jm)}</span>
-      <span class="small">✓ ${a} · ✗ ${n}</span></div>`;
+      <span class="small">✓ ${a} · ✗ ${n}${g.casti.some(x => x.verze.length) ? " · ✎ " + g.casti.filter(x => x.verze.length).length : ""}</span> ${preskStitky(g.presk)}</div>`;
     g.casti.forEach(x => {
       const zn = x.stav === "chapu" ? `<b style="color:var(--ok,#1f7a3a)">✓ chápe</b>` : x.stav === "nechapu" ? `<b style="color:var(--bad,#b3261e)">✗ nechápe</b>` : `<b style="color:var(--muted)">– bez volby</b>`;
-      h += `<div style="font-size:14px;margin:3px 0">${zn} – ${esc(x.c)} <span class="small">(${fmtD(x.cas)}${x.vyvoj.length > 1 ? " · vývoj: " + esc(x.vyvoj.join(" → ")) : ""})</span></div>`;
+      h += `<div style="font-size:14px;margin:3px 0">${zn} – ${esc(x.c)} <span class="small">(${fmtD(x.cas)}${x.vyvoj.length > 1 ? " · vývoj: " + esc(x.vyvoj.join(" → ")) : ""})</span></div>` + vyzBlok(x.verze);
     });
     h += `</div>`;
   });
@@ -379,7 +418,8 @@ function renderTeorie() {
     const k = kdo(r);
     const fl = [flagsKdo(k), r.odchody ? `<span class="flag">odchody: ${r.odchody} (${fmtS(r.odchody_s)})</span>` : "",
       r.s.otevreno_s && N(r.s.aktivni_s) < 0.3 * N(r.s.otevreno_s) && N(r.s.otevreno_s) > 60 ? `<span class="flag">většinou nečinná</span>` : "",
-      Object.values(r.por || {}).includes("nechapu") ? `<span class="flag">nechápe: ${Object.values(r.por).filter(x => x === "nechapu").length}</span>` : ""].join("");
+      Object.values(r.por || {}).includes("nechapu") ? `<span class="flag">nechápe: ${Object.values(r.por).filter(x => x === "nechapu").length}</span>` : "",
+      Object.keys(r.vyz || {}).length ? `<span class="flag gray">✎ napsala: ${Object.keys(r.vyz).length}</span>` : "", preskStitky(r.presk)].join("");
     h += `<tr class="click" data-s="${esc(r.id)}"><td>${fmtD(r.start)}</td><td class="who">${esc(k.jm)}</td>
       <td>${esc(nazevStranky(r))} <span class="small">${esc(typL(r))}</span></td>
       <td class="num">${r.s.otevreno_s !== undefined ? fmtS(r.s.otevreno_s) : "–"}</td><td class="num">${r.s.aktivni_s !== undefined ? fmtS(r.s.aktivni_s) : "–"}</td>
@@ -422,6 +462,12 @@ function renderStranka(r) {
     h += `<div class="card"><div class="meta" style="margin-bottom:6px">Porozumění v tomto otevření – tlačítka Chápu / Nechápu (aktuální stav ze všech otevření je v přehledu nahoře)</div>`;
     h += por.map(([c, st]) => `<div style="font-size:14px;margin:2px 0"><b style="color:${st === "chapu" ? "var(--ok,#1f7a3a)" : "var(--bad,#b3261e)"}">${st === "chapu" ? "✓ chápe" : "✗ nechápe"}</b> – ${esc(c)}</div>`).join("") || `<div class="small">Všechny volby zrušila.</div>`;
     if (r.porKliky.length) h += `<div class="meta" style="margin-top:8px">Klepnutí v tomto otevření:</div>` + r.porKliky.map(k => `<div style="font-size:13px">${fmtD(k.cas)} · ${esc({ chapu: "Chápu", nechapu: "Nechápu", zruseno: "zrušila volbu" }[k.stav] || k.stav)} – ${esc(k.cast || "")}</div>`).join("");
+    h += `</div>`;
+  }
+  const vz = Object.values(r.vyz || {}).sort((a, b) => (N(a.poradi) || 999) - (N(b.poradi) || 999));
+  if (vz.length || (r.presk || []).length) {
+    h += `<div class="card"><div class="meta" style="margin-bottom:6px">Vyzkoušej se v tomto otevření (poslední text u každé části) ${preskStitky(r.presk)}</div>`;
+    h += vz.map(x => `<div style="font-size:14px;margin:4px 0 0"><b>${esc(x.cast)}</b></div>` + vyzBlok([x])).join("");
     h += `</div>`;
   }
   if (r.kliky.length) h += `<div class="card"><div class="meta">Otevřela z rozcestníku:</div>` + r.kliky.map(x => `<div style="font-size:14px">${esc(x.text || "")} <span class="small">${esc(x.cil || "")}</span></div>`).join("") + `</div>`;

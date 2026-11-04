@@ -24,6 +24,11 @@
                    Od 03.11.2026: po každé změně volby vyšle na document událost „porozumeni“
                    (detail { cast, stav }); aktuální stav vrací Sledovani.porozumeniStav() – používá je
                    šablona stránky s teorií (system/Sablona_material_vXX.html) pro zamykání kapitol a časovou osu.
+   Nová verze stránky (od 04.11.2026, T02): volby se v prohlížeči ukládají podle adresy i s verzí. Když nová verze
+                   ještě nemá uložené volby, převezmou se z nejvyšší starší verze téže stránky (názvy částí se mezi
+                   verzemi nemění), aby se kapitoly znovu nezamkly. Událost „otevreni“ to uvede v detail.prevzato
+                   (např. "v05"). Totéž umí stránka pro své klíče: Sledovani.zPredchoziVerze("annschool:…:").
+   Sledovani.udalost(udalost, sekce, detail) … další události stránky (šablona: „vyzkousej“, „preskoceni“).
    Návod: system/Navod_material_vXX.md (sledování) a Navod_test_vXX.md, kap. 9.
    ===================================================================== */
 (function () {
@@ -45,8 +50,29 @@
     oblasti: {}, pocetOblasti: 0, vlastniOblast: null
   };
   const POR_KEY = "annschool:porozumeni:" + cesta;
-  let POR = {};
-  try { POR = JSON.parse(localStorage.getItem(POR_KEY) || "{}") || {}; } catch (e) { POR = {}; }
+  // uložená data starší verze téže stránky (klíč prefix + <cesta bez verze>_vNN.html, nejvyšší NN < aktuální)
+  function zPredchoziVerze(prefix) {
+    const m = cesta.match(/^(.*)_v(\d\d)\.html$/);
+    if (!m) return null;
+    let best = null, bv = -1;
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k || k.indexOf(prefix + m[1] + "_v") !== 0) continue;
+        const v = k.slice((prefix + m[1]).length).match(/^_v(\d\d)\.html$/);
+        if (v && +v[1] < +m[2] && +v[1] > bv) { bv = +v[1]; best = k; }
+      }
+      return best ? { data: localStorage.getItem(best), verze: "v" + String(bv).padStart(2, "0") } : null;
+    } catch (e) { return null; }
+  }
+  let POR = {}, prevzato = "";
+  try {
+    const ulozeno = localStorage.getItem(POR_KEY);
+    if (ulozeno === null) {
+      const st = zPredchoziVerze("annschool:porozumeni:");
+      if (st && st.data) { POR = JSON.parse(st.data) || {}; prevzato = st.verze; localStorage.setItem(POR_KEY, JSON.stringify(POR)); }
+    } else POR = JSON.parse(ulozeno || "{}") || {};
+  } catch (e) { POR = {}; }
   let posledniVstup = Date.now(), tik = Date.now(), skryto = 0, posledniY = window.scrollY, posledniPodpis = "";
 
   function oblastTed() {
@@ -96,7 +122,7 @@
   const odkud = new URLSearchParams(location.search).get("z") ||
     (document.referrer && document.referrer.indexOf(location.host) >= 0 ? "web" : (document.referrer ? "jinde" : "primo"));
   Zaznam.zapis({ udalost: "otevreni", typ: S.typ, detail: { typ: S.typ, odkud, sirka: innerWidth, vyska: innerHeight,
-    orientace: innerWidth > innerHeight ? "na šířku" : "na výšku" } });
+    orientace: innerWidth > innerHeight ? "na šířku" : "na výšku", prevzato: prevzato || undefined } });
 
   window.addEventListener("scroll", scroll, { passive: true });
   ["pointerdown", "touchstart"].forEach(t => window.addEventListener(t, e => {
@@ -166,6 +192,8 @@
     souhrn: () => souhrn(true),
     porozumeni: (cast, stav) => porozumeni(cast, stav, 0),
     porozumeniStav: () => Object.assign({}, POR),
+    zPredchoziVerze,
+    udalost(udalost, sekce, detail) { vstup(); return Zaznam.zapis({ udalost, typ: S.typ, sekce: String(sekce || "").slice(0, 120), detail }); },
     vlozTlacitka,
     get stav() { pricti(); return JSON.parse(JSON.stringify(S)); }
   };
