@@ -122,6 +122,9 @@ const N = v => { const n = Number(String(v).replace(",", ".")); return isFinite(
 const B = v => v === true || v === "ano" || v === "true" || v === "TRUE";
 const STAV = { zelena: "správně napoprvé", oranzova: "správně napodruhé", cervena: "napotřetí / špatně", seda: "nedokončeno", nove: "nezačato", hotovo: "řešení zobrazeno" };
 const BODY = { zelena: 1, oranzova: 0.5, cervena: 0 };
+// šablona v33: příklad typu prirad (slepý obrázek) má body a max po pojmech; ostatní příklady 1 / ½ / 0 podle barvy
+const bodyP = q => q.typ === "prirad" ? (["zelena", "oranzova", "cervena"].includes(q.stav) ? N(q.body) : 0) : (BODY[q.stav] || 0);
+const maxP = q => q.typ === "dukaz" ? 0 : q.typ === "prirad" && q.max ? q.max : 1;
 const fmtN = n => String(Math.round(n * 10) / 10).replace(".", ",");
 const fmtS = s => { s = Math.round(N(s)); return s < 60 ? s + " s" : Math.floor(s / 60) + " min " + String(s % 60).padStart(2, "0") + " s"; };
 const fmtD = iso => { const d = new Date(iso); return isNaN(d) ? "" : d.toLocaleDateString("cs-CZ") + " " + d.toLocaleTimeString("cs-CZ", { hour: "2-digit", minute: "2-digit" }); };
@@ -156,7 +159,8 @@ function zpracuj(d) {
     r.reset = rst ? rst.cas : null;
     let sd = null; try { sd = sum && sum.detail ? JSON.parse(sum.detail) : null; } catch (e) { sd = null; }
     const Q = n => r.q[n] || (r.q[n] = { n, pokusy: [], napoveda: false, odchody: 0, odchody_s: 0, doba: 0, stav: "nove", zadani: "", sekce: "", typ: "" });
-    if (sd && sd.priklady) sd.priklady.forEach(p => Object.assign(Q(p.n), { stav: p.stav, doba: N(p.doba_s), napoveda: !!p.napoveda, odchody: N(p.odchody), odchody_s: N(p.odchody_s), sekce: p.sekce, typ: p.typ, zadani: p.zadani || "", navstiveno: p.navstiveno, zacala: !!p.zacala }));
+    if (sd && sd.priklady) sd.priklady.forEach(p => Object.assign(Q(p.n), { stav: p.stav, doba: N(p.doba_s), napoveda: !!p.napoveda, odchody: N(p.odchody), odchody_s: N(p.odchody_s), sekce: p.sekce, typ: p.typ, zadani: p.zadani || "", navstiveno: p.navstiveno, zacala: !!p.zacala,
+      body: p.body !== undefined ? N(p.body) : undefined, max: p.max !== undefined ? N(p.max) : undefined }));
     r.odchody = 0; r.odchody_s = 0;
     r.ev.forEach(u => {
       const n = N(u.priklad);
@@ -165,6 +169,11 @@ function zpracuj(d) {
         q.pokusy.push({ pokus: N(u.pokus), ok: u.vysledek === "spravne", odpoved: u.odpoved, doba: N(u.doba_s), papir: u.papir, cas: u.cas, napoveda: B(u.napoveda), reseni: u.udalost === "reseni" });
         q.zadani = u.zadani || q.zadani; q.sekce = u.sekce; q.typ = u.typ; q.spravna = u.spravna;
         q.doba = Math.max(q.doba, N(u.doba_s));
+        if (u.typ === "prirad" && u.detail) {               // šablona v33: prirad – body po pojmech (detail { body, max, pojmy })
+          let dd = null; try { dd = typeof u.detail === "string" ? JSON.parse(u.detail) : u.detail; } catch (e) { dd = null; }
+          if (dd && dd.max) q.max = N(dd.max);
+          if (dd && B(u.konecny) && dd.body !== null && dd.body !== undefined) q.body = N(dd.body);
+        }
         if (B(u.napoveda)) q.napoveda = true;
         if (u.udalost === "reseni") q.stav = "hotovo";
         else if (B(u.konecny)) q.stav = u.vysledek === "spravne" ? (N(u.pokus) === 1 ? "zelena" : N(u.pokus) === 2 ? "oranzova" : "cervena") : "cervena";
@@ -187,8 +196,8 @@ function zpracuj(d) {
     if (r.konfig) doplnKonfig(r, r.konfig);
     const qs = Object.values(r.q).filter(q => q.n >= 1).sort((a, b) => a.n - b.n);
     r.qs = qs;
-    r.body = qs.reduce((a, q) => a + (BODY[q.stav] || 0), 0);
-    r.max = qs.filter(q => q.typ !== "dukaz").length;
+    r.body = qs.reduce((a, q) => a + bodyP(q), 0);
+    r.max = qs.reduce((a, q) => a + maxP(q), 0);
     r.doba = sd ? N(sd.celkem_s) : qs.reduce((a, q) => a + q.doba, 0);
     r.napovedy = qs.filter(q => q.napoveda).length;
     r.pokusu = qs.reduce((a, q) => a + q.pokusy.length, 0);
@@ -269,7 +278,7 @@ async function doplnZadani() {
     doplnKonfig(r, vysl[i]); zmena = true;
     for (let n = 1; n <= r.pocet; n++) r._Q(n);
     r.qs = Object.values(r.q).filter(q => q.n >= 1).sort((a, b) => a.n - b.n);
-    r.max = r.qs.filter(q => q.typ !== "dukaz").length;
+    r.max = r.qs.reduce((a, q) => a + maxP(q), 0);
   });
   if (zmena) render();
 }
