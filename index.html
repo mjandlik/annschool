@@ -95,11 +95,11 @@ const NAZVY = {
     "bunka": "Buňka"
   },
   // typ = část názvu souboru mezi tématem a verzí. Skupiny podle začátku typu:
-  // test… → Testy, zapisky… → Zápisky, skolni-material… → Školní materiály, ostatní → Výukové materiály
+  // test… → Testy, zapisky… → Zápisky, skolni-material… → Školní materiály, rychlouceni… → Rychloučení, ostatní → Výukové materiály
   typy: { zapisky: "Zápisky ze sešitu", "skolni-material": "Školní materiál", "zapisky-strana-7": "Zápisky – strana 7 (zvětšená)",
     "skolni-material-priklady": "Příklady", "skolni-material-cviceni": "Cvičení", "skolni-material-procvicovani": "Procvičování",
     "skolni-material-pracovni-list": "Pracovní list", "skolni-material-pracovni-list-doplneny": "Pracovní list (doplněný)",
-    "skolni-material-reseni": "Řešení (kartičky)", material: "Studijní materiál", tahak: "Tahák", "pracovni-list": "Pracovní list", test: "Test", "test-1": "Test 1", "test-2": "Test 2", "test-3": "Test 3", "test-4": "Test 4", "test-5": "Test 5", "test-sesit": "Test – příklady ze sešitu", "test-vzorce": "Test – vzorce a výrazy", "test-dukazy": "Test – důkazy", "test-dvojkova": "Test – dvojková soustava", "test-teorie": "Test – teorie", "test-opravny": "Opravný test", simulator: "Simulátor" }
+    "skolni-material-reseni": "Řešení (kartičky)", material: "Studijní materiál", tahak: "Tahák", "pracovni-list": "Pracovní list", test: "Test", "test-1": "Test 1", "test-2": "Test 2", "test-3": "Test 3", "test-4": "Test 4", "test-5": "Test 5", "test-sesit": "Test – příklady ze sešitu", "test-vzorce": "Test – vzorce a výrazy", "test-dukazy": "Test – důkazy", "test-dvojkova": "Test – dvojková soustava", "test-teorie": "Test – teorie", "test-opravny": "Opravný test", simulator: "Simulátor", rychlouceni: "Rychloučení" }
 };
 /* ========================================================================================= */
 
@@ -145,7 +145,7 @@ async function load() {
       const nm = document.createElement("span"); nm.className = "name"; nm.textContent = NAZVY.temata[topic] || nice(topic);
       row.appendChild(nm);
       const types = Object.keys(data[subj][topic]).sort();
-      const PREF = [["Zápisky", "zapisky"], ["Školní materiály", "skolni-material"], ["Testy", "test"]];
+      const PREF = [["Zápisky", "zapisky"], ["Školní materiály", "skolni-material"], ["Rychloučení", "rychlouceni"], ["Testy", "test"]];
       const isP = (t, p) => t === p || t.startsWith(p + "-");
       const groups = [
         ["Výukové materiály", types.filter(t => !PREF.some(([, p]) => isP(t, p)))],
