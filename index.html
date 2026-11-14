@@ -14,6 +14,8 @@
   Otevření rozcestníku a klepnutí na položky se zaznamenávají (system/lib/sledovani.js). PDF (jen vstupy: školní materiály, sešit) se nesledují.
   Seznam souborů se načítá automaticky z GitHubu (aktuální = nejvyšší _vXX v každé složce předmětu).
   Při novém tématu nebo předmětu doplň jen český název do NAZVY níže (nové téma na konec NAZVY.temata – určuje pořadí).
+  PŘÍPRAVA NA TEST (14.11.2026, Martin): blok nahoře se soubory k nejbližšímu testu (PRIPRAVA níže). Každá položka je
+  „předmět/téma_typ“ – odkaz vede na nejvyšší verzi; položka, která ještě neexistuje, se nezobrazí. Po testu blok smaž (PRIPRAVA = []).
 -->
 <style>
   :root {
@@ -53,6 +55,12 @@
   .empty, .err { color: var(--muted); font-size: 15px; padding: 6px 0; }
   .err { color: #b3261e; }
   .note { font-size: 13px; color: var(--muted); margin-top: 18px; }
+  .priprava { margin-top: 12px; padding: 10px 14px 12px; background: var(--paper); border: 2px solid var(--accent); border-radius: 10px; }
+  .priprava h2 { font-size: 18px; margin: 0 0 2px; color: var(--accent); }
+  .priprava .info { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+  .priprava .krok { display: flex; align-items: baseline; gap: 8px; padding: 4px 0; flex-wrap: wrap; }
+  .priprava .krok .c { flex: 0 0 auto; font-weight: 700; color: var(--accent); }
+  .priprava .krok .pop { font-size: 13px; color: var(--muted); flex: 1 1 14em; }
 </style>
 </head>
 <body>
@@ -69,6 +77,7 @@
 <main>
   <h1>Materiály a testy</h1>
   <div class="meta" id="meta">Načítám…</div>
+  <div id="priprava"></div>
   <div id="list"></div>
   <p class="note">„Stáhnout ZIP“ stáhne celý repozitář (všechny materiály, testy i archiv) do Souborů v iPadu.<br>
     Tip: v Safari Sdílet → Přidat na plochu – rozcestník pak bude jako ikona.</p>
@@ -104,6 +113,17 @@ const NAZVY = {
 };
 /* ========================================================================================= */
 
+/* ===================== PŘÍPRAVA NA TEST (blok nahoře; po testu PRIPRAVA = []) ===================== */
+const PRIPRAVA = [
+  { nadpis: "Příprava na test z chemie", info: "Test je v pondělí 16. 11. Stačí projít tyhle kroky po pořadě – starší materiály řešit nemusíš.",
+    polozky: [
+      { soubor: "chemie/latky-a-atom_zapisky", text: "Na test – z hodiny", popis: "látka ze zápisů, opravená a vysvětlená" },
+      { soubor: "chemie/souhrnny_material", text: "Souhrnné opakování", popis: "všechno důležité na jednom místě" },
+      { soubor: "chemie/souhrnny_test", text: "Test na zkoušku", popis: "vyzkoušej si, co už umíš" }
+    ] }
+];
+/* ========================================================================================= */
+
 const REPO = "mjandlik/annschool";
 const SKIP = new Set(["system", "archiv", "lib"]);
 const ORDER = ["matematika", "fyzika", "chemie"];
@@ -131,6 +151,31 @@ async function load() {
     const [, subj, topic, typ, ver] = m;
     const t = ((data[subj] ??= {})[topic] ??= {});
     if (!t[typ] || ver > t[typ].ver) t[typ] = { ver, path: f.path };
+  });
+  // Příprava na test: blok nahoře, odkazy na nejvyšší verze
+  $("priprava").innerHTML = "";
+  PRIPRAVA.forEach(p => {
+    const kroky = p.polozky.map(it => {
+      const m = it.soubor.match(/^([a-z0-9-]+)\/([a-z0-9-]+)_([a-z0-9-]+)$/);
+      const f = m && data[m[1]] && data[m[1]][m[2]] && data[m[1]][m[2]][m[3]];
+      return f ? { ...it, f, typ: m[3] } : null;
+    }).filter(Boolean);
+    if (!kroky.length) return;
+    const box = document.createElement("div"); box.className = "priprava";
+    box.innerHTML = '<h2></h2><div class="info"></div>';
+    box.querySelector("h2").textContent = p.nadpis; box.querySelector(".info").textContent = p.info;
+    kroky.forEach((k, i) => {
+      const r = document.createElement("div"); r.className = "krok";
+      r.innerHTML = '<span class="c"></span><a></a><span class="pop"></span>';
+      r.querySelector(".c").textContent = (i + 1) + ".";
+      const a = r.querySelector("a"); a.className = "item" + (k.typ.startsWith("test") ? " test" : ""); a.href = k.f.path;
+      a.textContent = k.text;
+      const v = document.createElement("span"); v.className = "v"; v.textContent = "v" + k.f.ver; a.appendChild(v);
+      a.onclick = () => { if (window.Sledovani) Sledovani.klik(k.f.path, "Příprava: " + k.text + " v" + k.f.ver); };
+      r.querySelector(".pop").textContent = k.popis || "";
+      box.appendChild(r);
+    });
+    $("priprava").appendChild(box);
   });
   const subjects = [...new Set([...ORDER, ...Object.keys(data).sort()])].filter(s => data[s]);
   let count = 0;

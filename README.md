@@ -2,7 +2,7 @@
 
 Rozcestník pro Ann: https://mjandlik.github.io/annschool/
 
-- `index.html` – rozcestník (seznam se načítá automaticky, tlačítka „Výsledky“ a „Stáhnout ZIP“).
+- `index.html` – rozcestník (seznam se načítá automaticky, tlačítka „Výsledky“ a „Stáhnout ZIP“, nahoře volitelný blok „Příprava na test“).
 - `vysledky.html` – přehled výsledků testů a čtení teorie (Chápu / Nechápu, papír a texty „Vyzkoušej se“, u testů „📋 Pro Clauda“ = obrázek zadání a papíru pro rozbor chyby; data z Google tabulky, viz `system/Navod_test_vXX.md`, kap. 9).
 - `zarizeni.html` – označení zařízení přezdívkou (`zarizeni.html?u=<přezdívka>`).
 - `matematika/`, `fyzika/`, `chemie/` – soubory pro Ann: `<tema>_<typ>_vXX.html` (vlastní materiály a testy jsou HTML; PDF jsou jen vstupy – sešit a školní materiály).
