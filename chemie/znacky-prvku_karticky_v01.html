@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Značky prvků – Kartičky</title>
+<!--
+  KARTIČKY – značky prvků (chemie/znacky-prvku_karticky_vXX.html), Ann School
+  v01 (14.11.2026): 30 základních prvků 1. ročníku, nic se nepíše – kartička se otočí, žák se sám ohodnotí
+  Umím / Neumím. Směry: značka → název, název → značka, náhodně (každý směr má vlastní postup).
+  - Kolo: všech 30 kartiček zamíchaných. Neumím → kartička se vrátí za 3 další kartičky; hotová je po „Umím“.
+    Konec kola: kolik napoprvé, které dělaly potíž, „Jen ty, co nešly“ / „Všechny znovu“.
+  - Stav v localStorage „annschool:karticky:<cesta>“ (try/catch); nová verze převezme stav ze starší (Sledovani.zPredchoziVerze).
+  - Záznam (sledovani.js, Sledovani.udalost): karty_start, karty_odpoved (sekce = značka, detail smer, umim, pokus),
+    karty_kolo (souhrn kola), karty_reset; oblast = směr.
+-->
+<link rel="icon" type="image/svg+xml" href="../system/img/cat.svg">
+<link rel="apple-touch-icon" href="../system/img/apple-touch-icon.png">
+<script src="../system/lib/zaznam.js"></script>
+<script src="../system/lib/sledovani.js" data-typ="karticky"></script>
+<style>
+  :root {
+    --bg: #fafaf7; --paper: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5;
+    --ok: #1f7a3a; --ok-bg: #e6f4ea; --bad: #b3261e; --bad-bg: #fbe9e7; --accent: #2b5cab; --warn: #c77700; --panel-h: 48px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent; }
+  button { touch-action: manipulation; font: inherit; cursor: pointer; }
+
+  #panel { position: fixed; top: 0; left: 0; right: 0; z-index: 20; min-height: var(--panel-h);
+    padding: 6px 12px; padding-top: calc(6px + env(safe-area-inset-top));
+    background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
+  .panel-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-title .ver { color: var(--muted); font-weight: 400; }
+  .panel-home, .panel-actions { flex: 0 0 auto; display: flex; gap: 6px; }
+  .btn { font-size: 14px; line-height: 1.25; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--accent);
+    background: var(--paper); color: var(--accent); white-space: nowrap; }
+  .btn.hl { background: var(--accent); color: #fff; }
+  .btn.tiche { border-color: var(--line); color: var(--muted); }
+  @media (max-width: 700px) { .panel-home .lbl { display: none; } }
+
+  main { max-width: 760px; margin: 0 auto; padding: calc(var(--panel-h) + env(safe-area-inset-top) + 14px) 16px 40px; }
+  [hidden] { display: none !important; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .povzbuzeni { margin: 0 0 10px; font-size: 15px; }
+
+  /* přepínač směru */
+  .smery { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
+  .smer { font-size: 14px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper); color: var(--text); }
+  .smer.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* postup */
+  .postup { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
+  .bar { flex: 1 1 auto; height: 8px; border-radius: 4px; background: #ecece6; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .3s; }
+  .tecky { display: flex; flex-wrap: wrap; gap: 4px; margin: 0 0 14px; }
+  .tecky span { width: 14px; height: 14px; border-radius: 50%; background: #d9d9d2; }
+  .tecky span.ok { background: var(--ok); }
+  .tecky span.znovu { background: var(--warn); }
+  .tecky span.ted { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* kartička */
+  .scena { perspective: 1200px; margin: 0 auto; max-width: 520px; }
+  .karta { position: relative; height: 300px; transform-style: preserve-3d; transition: transform .45s; cursor: pointer; }
+  .karta.otocena { transform: rotateY(180deg); }
+  .strana { position: absolute; inset: 0; backface-visibility: hidden; -webkit-backface-visibility: hidden;
+    border-radius: 16px; border: 1px solid var(--line); background: var(--paper); box-shadow: 0 3px 14px rgba(0,0,0,.07);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 18px; text-align: center; }
+  .strana.rub { transform: rotateY(180deg); background: #f5f8fd; }
+  .otazka { font-size: 15px; color: var(--muted); margin-bottom: 6px; }
+  .velke { font-size: 84px; line-height: 1.1; font-weight: 700; color: var(--accent); }
+  .velke.slovo { font-size: 52px; }
+  .ukazka { font-size: 13px; color: var(--muted); margin-top: 14px; }
+  .odp { font-size: 46px; font-weight: 700; line-height: 1.15; }
+  .odp .zn { color: var(--accent); }
+  .zivot { margin-top: 10px; font-size: 16px; }
+  .latin { margin-top: 6px; font-size: 15px; color: var(--muted); }
+  .pozor { margin-top: 8px; font-size: 15px; color: var(--bad); }
+
+  .ovladani { display: flex; justify-content: center; gap: 14px; margin: 18px 0 6px; min-height: 52px; }
+  .velkeBtn { font-size: 18px; padding: 10px 26px; border-radius: 12px; border: 2px solid var(--accent); background: var(--paper); color: var(--accent); min-width: 140px; }
+  .velkeBtn.umim { border-color: var(--ok); background: var(--ok-bg); color: var(--ok); }
+  .velkeBtn.neumim { border-color: var(--bad); background: var(--bad-bg); color: var(--bad); }
+  .hlaska { text-align: center; min-height: 24px; font-size: 15px; color: var(--muted); }
+
+  /* konec kola */
+  .konec { background: var(--paper); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+  .konec h2 { margin: 0 0 8px; font-size: 22px; }
+  .seznam { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .seznam span { padding: 3px 10px; border-radius: 8px; background: var(--bad-bg); color: var(--bad); font-size: 15px; }
+  .radek { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <div class="panel-home"><button type="button" class="btn" id="btnHome" aria-label="zpět na rozcestník">⌂ <span class="lbl">Rozcestník</span></button></div>
+  <div class="panel-title">Značky prvků – Kartičky <span class="ver">v01</span></div>
+  <div class="panel-actions"><button type="button" class="btn tiche" id="btnReset">Začít znovu</button></div>
+</div>
+
+<main>
+  <p class="povzbuzeni">Nic se nepíše. Podívej se na kartičku, řekni si odpověď nahlas nebo v duchu, klepni na ni a otoč ji. Pak buď upřímná: <b>Umím</b>, nebo <b>Neumím</b> – co neumíš, se ti za chvíli vrátí. Třicet značek je základ, bez kterého nejde ani názvosloví. Dáš to.</p>
+
+  <div class="smery" id="smery">
+    <button type="button" class="smer" data-smer="zn">Značka → název</button>
+    <button type="button" class="smer" data-smer="na">Název → značka</button>
+    <button type="button" class="smer" data-smer="mix">Náhodně</button>
+  </div>
+
+  <div class="postup"><span id="pocet">0 / 30</span><div class="bar"><i id="bar"></i></div></div>
+  <div class="tecky" id="tecky"></div>
+
+  <section id="uceni">
+    <div class="scena">
+      <div class="karta" id="karta" role="button" aria-label="otočit kartičku">
+        <div class="strana lic" id="lic"></div>
+        <div class="strana rub" id="rub"></div>
+      </div>
+    </div>
+    <div class="ovladani" id="ovladani"></div>
+    <div class="hlaska" id="hlaska"></div>
+  </section>
+
+  <section id="konec" class="konec" hidden></section>
+</main>
+
+<script>
+"use strict";
+/* ===== PRVKY (30 základních prvků 1. ročníku – stejné jako Souhrnné opakování, kap. 1) ===== */
+const PRVKY = [
+  { z: "H",  n: "vodík",    zivot: "ve vodě H₂O, nejlehčí plyn" },
+  { z: "He", n: "helium",   zivot: "balonky, které letí vzhůru" },
+  { z: "C",  n: "uhlík",    zivot: "tuha v tužce, diamant, uhlí", pozor: "C uhlík × Ca vápník × Cu měď" },
+  { z: "N",  n: "dusík",    zivot: "tvoří asi 78 % vzduchu", pozor: "N dusík × Na sodík" },
+  { z: "O",  n: "kyslík",   zivot: "dýcháme ho, asi 21 % vzduchu" },
+  { z: "F",  n: "fluor",    zivot: "zubní pasta (fluoridy chrání zuby)" },
+  { z: "Ne", n: "neon",     zivot: "svítící reklamy" },
+  { z: "Si", n: "křemík",   zivot: "písek, sklo, počítačové čipy", pozor: "S síra × Si křemík" },
+  { z: "P",  n: "fosfor",   zivot: "škrtátko na krabičce zápalek" },
+  { z: "S",  n: "síra",     zivot: "žlutá látka u sopek, zápach zkažených vajec", lat: "Sulfur – proto „sulfid“", pozor: "S síra × Si křemík" },
+  { z: "Cl", n: "chlor",    zivot: "bazén (dezinfekce), kuchyňská sůl NaCl", pozor: "Cl chlor × Cr chrom" },
+  { z: "Ar", n: "argon",    zivot: "třetí nejčastější plyn ve vzduchu" },
+  { z: "Br", n: "brom",     zivot: "jediný nekov, který je za normálních podmínek kapalný" },
+  { z: "I",  n: "jod",      zivot: "jodizovaná sůl, jodová tinktura na rány", pozor: "ve vzorci AlI₃ je I jod, ne římská jednička" },
+  { z: "Li", n: "lithium",  zivot: "baterie v mobilu" },
+  { z: "Na", n: "sodík",    zivot: "kuchyňská sůl NaCl", lat: "Natrium", pozor: "N dusík × Na sodík" },
+  { z: "Mg", n: "hořčík",   zivot: "hořčík v tabletách proti křečím", pozor: "Mg hořčík × Mn mangan" },
+  { z: "Al", n: "hliník",   zivot: "alobal, plechovky" },
+  { z: "K",  n: "draslík",  zivot: "banány, hnojiva", lat: "Kalium", pozor: "K není „kalcium“ – vápník je Ca" },
+  { z: "Ca", n: "vápník",   zivot: "kosti, zuby, mléko, vápenec", pozor: "C uhlík × Ca vápník × Cu měď" },
+  { z: "Cr", n: "chrom",    zivot: "lesklé pochromované kohoutky", pozor: "Cl chlor × Cr chrom" },
+  { z: "Mn", n: "mangan",   zivot: "ocel, „hypermangan“ (fialový roztok)", pozor: "Mg hořčík × Mn mangan" },
+  { z: "Fe", n: "železo",   zivot: "ocel, hřebíky, v krvi (hemoglobin)", lat: "Ferrum" },
+  { z: "Cu", n: "měď",      zivot: "elektrické kabely", lat: "Cuprum", pozor: "C uhlík × Ca vápník × Cu měď" },
+  { z: "Zn", n: "zinek",    zivot: "pozinkovaný plech, mast na opruzeniny" },
+  { z: "Ag", n: "stříbro",  zivot: "šperky, příbory", lat: "Argentum" },
+  { z: "Sn", n: "cín",      zivot: "pájka, cínoví vojáčci", lat: "Stannum" },
+  { z: "Au", n: "zlato",    zivot: "šperky, zlaté mince a cihly", lat: "Aurum" },
+  { z: "Hg", n: "rtuť",     zivot: "jediný kov kapalný za pokojové teploty, staré teploměry", lat: "Hydrargyrum" },
+  { z: "Pb", n: "olovo",    zivot: "závaží na rybaření, akumulátor v autě", lat: "Plumbum" }
+];
+const SMERY = { zn: "Značka → název", na: "Název → značka", mix: "Náhodně" };
+const POCHVALY = ["Skvělé!", "Přesně tak.", "Jde ti to.", "Tahle už sedí.", "Výborně, další.", "Super, pokračuj."];
+const POVZBUZENI = ["Nevadí – za chvíli se vrátí a dáš ji.", "V pohodě, tahle se vrátí.", "Každá chyba teď = jedna jistota v testu."];
+const VRATIT_ZA = 3;
+
+const $ = id => document.getElementById(id);
+const cesta = location.pathname.replace(/^.*\/annschool\//, "").replace(/^\//, "");
+const KEY = "annschool:karticky:" + cesta;
+const zamichej = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+const nahodny = a => a[Math.floor(Math.random() * a.length)];
+
+/* ===== stav ===== */
+function noveKolo(ids) {
+  return { fronta: zamichej(ids), hotove: [], chyby: {}, prvni: {}, kolo: 1, cele: ids.length === PRVKY.length, konec: false, strana: null };
+}
+let ST = null;
+function nacti() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(KEY) || "null"); } catch (e) { s = null; }
+  if (!s && window.Sledovani && Sledovani.zPredchoziVerze) { try { s = Sledovani.zPredchoziVerze("annschool:karticky:"); } catch (e) { s = null; } }
+  const ids = PRVKY.map(p => p.z);
+  if (!s || !s.smery) s = { smer: "zn", smery: {} };
+  for (const k of Object.keys(SMERY)) {
+    const x = s.smery[k];
+    const ok = x && Array.isArray(x.fronta) && Array.isArray(x.hotove) && x.fronta.concat(x.hotove).every(i => ids.includes(i));
+    if (!ok) s.smery[k] = noveKolo(ids);
+  }
+  if (!SMERY[s.smer]) s.smer = "zn";
+  ST = s;
+}
+function uloz() { try { localStorage.setItem(KEY, JSON.stringify(ST)); } catch (e) { /* plné úložiště / soukromé okno */ } }
+const S = () => ST.smery[ST.smer];
+const prvek = z => PRVKY.find(p => p.z === z);
+
+/* ===== zobrazení ===== */
+let otocena = false, zamek = 0;
+function vykresliSmery() {
+  document.querySelectorAll(".smer").forEach(b => b.classList.toggle("on", b.dataset.smer === ST.smer));
+}
+function vykresliPostup() {
+  const s = S(), celkem = s.fronta.length + s.hotove.length;
+  $("pocet").textContent = "Umím " + s.hotove.length + " / " + celkem;
+  $("bar").style.width = (celkem ? 100 * s.hotove.length / celkem : 0) + "%";
+  const poradi = PRVKY.map(p => p.z).filter(z => s.fronta.includes(z) || s.hotove.includes(z));
+  $("tecky").innerHTML = poradi.map(z => {
+    const c = s.hotove.includes(z) ? "ok" : (s.chyby[z] ? "znovu" : "");
+    const ted = !s.konec && s.fronta[0] === z ? " ted" : "";
+    return '<span class="' + c + ted + '" title="' + (s.hotove.includes(z) ? z : "") + '"></span>';
+  }).join("");
+}
+function stranaKarty(s) {
+  // u „Náhodně“ se strana losuje pro každé zobrazení kartičky a pamatuje se, dokud se neohodnotí
+  if (ST.smer !== "mix") return ST.smer;
+  if (!s.strana) s.strana = Math.random() < 0.5 ? "zn" : "na";
+  return s.strana;
+}
+function vykresliKartu() {
+  const s = S();
+  vykresliSmery(); vykresliPostup();
+  if (s.konec || !s.fronta.length) { s.konec = true; ukazKonec(); return; }
+  $("uceni").hidden = false; $("konec").hidden = true;
+  const p = prvek(s.fronta[0]), str = stranaKarty(s);
+  otocena = false; $("karta").classList.remove("otocena");
+  if (str === "zn") {
+    $("lic").innerHTML = '<div class="otazka">Který prvek má tuhle značku?</div><div class="velke">' + p.z + '</div><div class="ukazka">klepni a otoč</div>';
+  } else {
+    $("lic").innerHTML = '<div class="otazka">Jakou značku má tento prvek?</div><div class="velke slovo">' + p.n + '</div><div class="ukazka">klepni a otoč</div>';
+  }
+  // rub se naplní až při otočení – během otáčení by šel odpověď zahlédnout skrz animaci
+  $("rub").innerHTML = "";
+  $("ovladani").innerHTML = '<button type="button" class="velkeBtn" id="btnOtoc">Otočit</button>';
+  $("btnOtoc").onclick = otoc;
+  $("hlaska").textContent = s.chyby[p.z] ? "Tahle se vrátila – teď ji dáš." : "";
+}
+function otoc() {
+  if (otocena) return;
+  const s = S(), p = prvek(s.fronta[0]);
+  $("rub").innerHTML = '<div class="odp"><span class="zn">' + p.z + '</span> = ' + p.n + '</div>' +
+    '<div class="zivot">Kde ho znáš: ' + p.zivot + '</div>' +
+    (p.lat ? '<div class="latin">latinsky ' + p.lat + '</div>' : "") +
+    (p.pozor ? '<div class="pozor">Pozor: ' + p.pozor + '</div>' : "");
+  otocena = true; $("karta").classList.add("otocena");
+  zamek = Date.now() + 400; // dvojité klepnutí hned neohodnotí
+  $("ovladani").innerHTML = '<button type="button" class="velkeBtn neumim" id="btnNe">Neumím</button><button type="button" class="velkeBtn umim" id="btnAno">Umím</button>';
+  $("btnNe").onclick = () => hodnot(false);
+  $("btnAno").onclick = () => hodnot(true);
+  $("hlaska").textContent = "Řekla sis to správně?";
+}
+function hodnot(umim) {
+  if (!otocena || Date.now() < zamek) return;
+  const s = S(), z = s.fronta.shift();
+  const pokus = (s.chyby[z] || 0) + 1;
+  if (!(z in s.prvni)) s.prvni[z] = umim;
+  if (umim) s.hotove.push(z);
+  else { s.chyby[z] = (s.chyby[z] || 0) + 1; s.fronta.splice(Math.min(VRATIT_ZA, s.fronta.length), 0, z); }
+  if (window.Sledovani) Sledovani.udalost("karty_odpoved", z, { smer: ST.smer, strana: stranaKarty(s), umim, pokus, kolo: s.kolo });
+  s.strana = null;
+  if (!s.fronta.length) {
+    s.konec = true;
+    if (window.Sledovani) Sledovani.udalost("karty_kolo", SMERY[ST.smer], souhrn(s));
+  }
+  uloz();
+  vykresliKartu();
+  if (!s.konec) $("hlaska").textContent = umim ? nahodny(POCHVALY) : nahodny(POVZBUZENI);
+}
+function souhrn(s) {
+  const ids = Object.keys(s.prvni);
+  return { smer: ST.smer, kolo: s.kolo, karet: ids.length, napoprve: ids.filter(z => s.prvni[z]).length,
+    chyby: Object.keys(s.chyby).map(z => z + "×" + s.chyby[z]).join(", ") };
+}
+function ukazKonec() {
+  const s = S(), sm = souhrn(s), nesly = PRVKY.map(p => p.z).filter(z => s.chyby[z]);
+  $("uceni").hidden = true; $("konec").hidden = false;
+  let h = "<h2>Hotovo – kolo " + s.kolo + " (" + SMERY[ST.smer] + ")</h2>";
+  h += "<p>Napoprvé jsi uměla <b>" + sm.napoprve + " z " + sm.karet + "</b>.";
+  if (!nesly.length) h += " Všechny napoprvé – to je paráda! Zkus ještě jiný směr.</p>";
+  else h += " Ostatní jsi doučila během kola – i to se počítá.</p><p class=\"muted\">Tyhle dělaly potíž:</p><div class=\"seznam\">" +
+    nesly.map(z => "<span>" + z + " " + prvek(z).n + "</span>").join("") + "</div>";
+  h += '<div class="radek">' + (nesly.length ? '<button type="button" class="btn hl" id="btnNesly">Projet znovu jen ty, co nešly (' + nesly.length + ')</button>' : "") +
+    '<button type="button" class="btn" id="btnVse">Všech 30 znovu</button></div>';
+  $("konec").innerHTML = h;
+  if ($("btnNesly")) $("btnNesly").onclick = () => dalsiKolo(nesly);
+  $("btnVse").onclick = () => dalsiKolo(PRVKY.map(p => p.z));
+}
+function dalsiKolo(ids) {
+  const k = S().kolo + 1;
+  ST.smery[ST.smer] = noveKolo(ids); ST.smery[ST.smer].kolo = k;
+  uloz();
+  if (window.Sledovani) Sledovani.udalost("karty_start", SMERY[ST.smer], { smer: ST.smer, kolo: k, karet: ids.length });
+  vykresliKartu();
+}
+
+/* ===== ovládání ===== */
+$("karta").onclick = () => { if (!otocena) otoc(); };
+document.querySelectorAll(".smer").forEach(b => b.onclick = () => {
+  if (b.dataset.smer === ST.smer) return;
+  S().strana = null;
+  ST.smer = b.dataset.smer; uloz();
+  if (window.Sledovani) { Sledovani.oblast(SMERY[ST.smer]); Sledovani.udalost("karty_smer", SMERY[ST.smer], { smer: ST.smer }); }
+  vykresliKartu();
+});
+$("btnReset").onclick = () => {
+  if (!confirm("Začít tento směr (" + SMERY[ST.smer] + ") úplně od začátku? Ostatní směry zůstanou.")) return;
+  if (window.Sledovani) Sledovani.udalost("karty_reset", SMERY[ST.smer], souhrn(S()));
+  ST.smery[ST.smer] = noveKolo(PRVKY.map(p => p.z)); uloz();
+  vykresliKartu();
+};
+$("btnHome").onclick = () => { uloz(); if (window.Zaznam && Zaznam.beacon) Zaznam.beacon(); location.href = "../index.html"; };
+document.addEventListener("contextmenu", e => e.preventDefault());
+document.addEventListener("selectstart", e => e.preventDefault());
+
+nacti();
+if (window.Sledovani) { Sledovani.oblast(SMERY[ST.smer]); Sledovani.udalost("karty_start", SMERY[ST.smer], { smer: ST.smer, kolo: S().kolo, hotovo: S().hotove.length }); }
+vykresliKartu();
+window.Karticky = { stav: () => JSON.parse(JSON.stringify(ST)), prvky: PRVKY };
+</script>
+</body>
+</html>
