@@ -1,0 +1,820 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- ===== HLAVIČKA STRÁNKY (měň jen <title>: „<Téma> – Rychloučení“) ===== -->
+<title>Planetární geografie – Rychloučení</title>
+<!-- ===== KONEC HLAVIČKY ===== -->
+<!--
+  ŠABLONA RYCHLOUČENÍ – Ann School (system/Sablona_rychlouceni_vXX.html)
+  Nové Rychloučení = kopie této šablony do složky předmětu: <předmět>/<tema>_rychlouceni_vXX.html.
+  Měň JEN bloky HLAVIČKA (<title>), NÁZEV V PANELU (název a verze) a KONFIGURACE RYCHLOUČENÍ. Postup: system/Navod_rychlouceni_vXX.md.
+  v01 (09.11.2026): učení formou testu.
+  v02 (09.11.2026): časová osa dole – kolečko za každý fakt v pořadí kapitol (šedá = ještě nebylo, oranžová = učí se,
+       červená = poslední odpověď špatně, zelená = naučeno; aktuální otázka orámovaná).
+  - Fakt = jedna věc, kterou má žák umět (stálé id, kapitola, priorita jadro / doplnek, 2+ varianty otázky).
+    Otázka = výběr z 5 zamíchaných možností + „Nevím“ (počítá se jako špatně). Po odpovědi hned vyhodnocení,
+    vysvětlení, pomůcka a co znamená vybraná špatná možnost (ze slovníku POJMY). „Další“ je pod vyhodnocením,
+    400 ms po vyhodnocení se na klepnutí nereaguje (dvojité klepnutí nepřeskočí vysvětlení).
+  - Plánovač (čistá funkce bez DOM, Rychlouceni.planovac): fronta podle toho, kdy je fakt na řadě – špatně za 3 otázky,
+    správně za 6; vždy fakt, který je na řadě nejdřív; když nic není na řadě a v práci je < 8 faktů, přidá nový
+    (nejdřív jadro, kapitoly v pořadí); jinak nejbližší i dřív. Nikdy stejný fakt dvakrát po sobě (kromě posledního).
+    Naučený = 2 správné odpovědi za sebou s jinou otázkou mezi nimi (u posledního faktu je mezi nimi výplň = naučený
+    fakt s nejvíc chybami). Varianta = nejdéle nepoužitá, jiná než minule.
+  - Kapitola s kostra: true – možnosti až po „Ukázat možnosti“ (nejdřív si odpověď řekne v duchu).
+  - Závěrečné kolo: fakta s aspoň jednou chybou, promíchaná, každé jednou v jiné variantě.
+  - Ranní opakování: nejslabší fakta (nejvíc chyb, pak nejméně správných), stačí 1 správná odpověď; po 10 min
+    nebo 30 otázkách nabídne „Pokračovat“. Bez uloženého stavu: nejdřív kostra, pak náhodně.
+  - Pauza po 25 min učení, po 60 min „Zbytek nech na ráno“. Odhad zbývajícího času podle úspěšnosti a tempa.
+  - Stav po každé odpovědi v localStorage „annschool:rychlouceni:<cesta>“; nová verze stránky převezme stav
+    z nejvyšší starší verze (Sledovani.zPredchoziVerze), fakta podle id.
+  - Záznam (sledovani.js, Sledovani.udalost): rychlo_start, rychlo_odpoved, rychlo_naucen, rychlo_souhrn,
+    rychlo_reset, rychlo_rano; oblast = kapitola. Pro kontrolu jen pro čtení window.Rychlouceni { stav(), otazka() }.
+  - Na stránce se nic neoznačuje dlouhým stiskem (jako šablona testu v22), malá tlačítka, touch-action: manipulation.
+-->
+<link rel="icon" type="image/svg+xml" href="../system/img/cat.svg">
+<link rel="apple-touch-icon" href="../system/img/apple-touch-icon.png">
+<script src="../system/lib/zaznam.js"></script>
+<script src="../system/lib/sledovani.js" data-typ="rychlouceni"></script>
+<style>
+  :root {
+    --bg: #fafaf7; --paper: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5;
+    --ok: #1f7a3a; --ok-bg: #e6f4ea; --bad: #b3261e; --bad-bg: #fbe9e7; --accent: #2b5cab; --panel-h: 48px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  /* dlouhý stisk (dlaň, prst, pero) nic neoznačuje ani neotevře nabídku */
+  html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent; }
+  button { touch-action: manipulation; font: inherit; cursor: pointer; }
+
+  /* ---------- horní panel ---------- */
+  #panel { position: fixed; top: 0; left: 0; right: 0; z-index: 20; min-height: var(--panel-h);
+    padding: 6px 12px; padding-top: calc(6px + env(safe-area-inset-top));
+    background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
+  .panel-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-title .ver { color: var(--muted); font-weight: 400; }
+  .panel-actions, .panel-home { flex: 0 0 auto; display: flex; gap: 6px; }
+  .btn { font-size: 14px; line-height: 1.25; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--accent);
+    background: var(--paper); color: var(--accent); white-space: nowrap; }
+  .btn.hl { background: var(--accent); color: #fff; }
+  .btn.tiche { border-color: var(--line); color: var(--muted); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  @media (max-width: 700px) { .panel-home .lbl { display: none; } }
+
+  main { max-width: 820px; margin: 0 auto; padding: calc(var(--panel-h) + env(safe-area-inset-top) + 14px) 16px 110px; }
+  .obrazovka[hidden] { display: none; }
+  h1 { font-size: 22px; margin: 4px 0 8px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .radek { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0; }
+
+  /* ---------- úvod ---------- */
+  #uvodText p { margin: 6px 0; }
+  .stavUceni { margin: 12px 0; font-size: 15px; }
+
+  /* ---------- otázka ---------- */
+  .hlava { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 13px; color: var(--muted); }
+  .hlava .kap { flex: 1 1 auto; min-width: 0; }
+  .hlava .rez { font-weight: 600; color: var(--accent); }
+  .lista { height: 5px; background: var(--line); border-radius: 3px; margin: 6px 0 14px; overflow: hidden; }
+  .lista i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .3s; }
+  .zadani { font-size: 20px; font-weight: 600; margin: 0 0 12px; overflow-wrap: anywhere; }
+  .vduchu { font-size: 14px; color: var(--muted); margin: 0 0 10px; }
+  #moznosti { display: flex; flex-direction: column; gap: 8px; }
+  #moznosti[hidden] { display: none; }
+  .moznost { text-align: left; font-size: 16px; line-height: 1.35; padding: 8px 12px; border-radius: 8px;
+    border: 2px solid var(--line); background: var(--paper); color: var(--text); overflow-wrap: anywhere; }
+  .moznost:disabled { cursor: default; }
+  .moznost.spravna { border-color: var(--ok); background: var(--ok-bg); }
+  .moznost.vybrana-spatne { border-color: var(--bad); background: var(--bad-bg); }
+  .moznost.ztlumena { opacity: .55; }
+  .pod { display: flex; gap: 8px; align-items: center; margin-top: 10px; min-height: 30px; }
+  #vyhodnoceni { margin-top: 14px; padding: 10px 14px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); }
+  #vyhodnoceni[hidden] { display: none; }
+  #vyhodnoceni.ok { border-color: var(--ok); }
+  #vyhodnoceni.bad { border-color: var(--bad); }
+  #vyhodnoceni .verdikt { font-weight: 700; font-size: 17px; }
+  #vyhodnoceni.ok .verdikt { color: var(--ok); }
+  #vyhodnoceni.bad .verdikt { color: var(--bad); }
+  #vyhodnoceni p { margin: 6px 0; font-size: 16px; }
+  #vyhodnoceni .pomucka { font-size: 15px; color: #2f3d57; background: #eef4fb; border-radius: 6px; padding: 4px 8px; }
+  #vyhodnoceni .volba { font-size: 15px; color: #5c2a20; }
+  .dalsiRadek { display: flex; justify-content: flex-end; margin-top: 10px; }
+
+  /* ---------- souhrn, mezistránka ---------- */
+  table.slabe { border-collapse: collapse; font-size: 14px; margin-top: 8px; width: 100%; }
+  table.slabe td, table.slabe th { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+
+  /* ---------- dialog ---------- */
+  #dialog { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #dialog[hidden] { display: none; }
+  #dialog .box { background: var(--paper); border-radius: 12px; padding: 16px 18px; max-width: 460px; width: 100%; box-shadow: 0 6px 30px rgba(0,0,0,.25); }
+  #dialog .box p { margin: 0 0 12px; }
+  #dialog .tl { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  /* ---------- v02: časová osa dole ---------- */
+  #osa { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; background: rgba(255,255,255,.97); border-top: 1px solid var(--line);
+    padding: 6px 12px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+  #osa i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); display: block; }
+  #osa i.prace { background: #e08a00; }
+  #osa i.chyba { background: var(--bad); }
+  #osa i.nauceno { background: var(--ok); }
+  #osa i.ted { outline: 2px solid var(--text); outline-offset: 1px; }
+  #toast { position: fixed; left: 50%; top: calc(var(--panel-h) + 8px); transform: translateX(-50%); z-index: 30;
+    background: #1d1d1b; color: #fff; font-size: 14px; padding: 6px 14px; border-radius: 8px; opacity: .92;
+    transition: opacity .6s; pointer-events: none; max-width: 90vw; text-align: center; }
+  #toast.pryc { opacity: 0; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <div class="panel-home"><button type="button" class="btn" id="btnHome" aria-label="zpět na rozcestník">⌂ <span class="lbl">Rozcestník</span></button></div>
+<!-- ===== NÁZEV V PANELU (název a verze = verze v názvu souboru) ===== -->
+  <div class="panel-title">Planetární geografie – Rychloučení <span class="ver">v01</span></div>
+<!-- ===== KONEC NÁZVU ===== -->
+  <div class="panel-actions"><button type="button" class="btn" id="btnUvod">Úvod</button></div>
+</div>
+
+<main>
+  <section class="obrazovka" id="scUvod">
+    <h1 id="uvodNadpis"></h1>
+    <div id="uvodText"></div>
+    <div class="stavUceni" id="uvodStav"></div>
+    <div class="radek">
+      <button type="button" class="btn hl" id="btnZacit">Začít</button>
+      <button type="button" class="btn hl" id="btnPokracovat">Pokračovat</button>
+      <button type="button" class="btn" id="btnRano">Ranní opakování</button>
+      <button type="button" class="btn tiche" id="btnZnovu">Začít znovu</button>
+    </div>
+  </section>
+
+  <section class="obrazovka" id="scOtazka" hidden>
+    <div class="hlava"><span class="kap" id="oKap"></span><span class="rez" id="oRezim"></span><span id="oStav"></span></div>
+    <div class="lista"><i id="oLista"></i></div>
+    <p class="zadani" id="oZadani"></p>
+    <p class="vduchu" id="oVduchu" hidden>Nejdřív si odpověď řekni v duchu, pak si ukaž možnosti.</p>
+    <div id="moznosti"></div>
+    <div class="pod">
+      <button type="button" class="btn hl" id="btnUkazat" hidden>Ukázat možnosti</button>
+      <button type="button" class="btn tiche" id="btnNevim">Nevím</button>
+    </div>
+    <div id="vyhodnoceni" hidden>
+      <div class="verdikt" id="vVerdikt"></div>
+      <p id="vSpravna"></p>
+      <p id="vVysv"></p>
+      <p class="pomucka" id="vPomucka" hidden></p>
+      <p class="volba" id="vVolba" hidden></p>
+      <div class="dalsiRadek"><button type="button" class="btn hl" id="btnDalsi">Další ›</button></div>
+    </div>
+  </section>
+
+  <section class="obrazovka" id="scMezi" hidden>
+    <h1 id="mNadpis"></h1>
+    <p id="mText"></p>
+    <div class="radek" id="mTlacitka"></div>
+    <div id="mTabulka"></div>
+  </section>
+</main>
+
+<nav id="osa" aria-label="přehled faktů"></nav>
+
+<div id="dialog" hidden><div class="box"><p id="dText"></p><div class="tl" id="dTlacitka"></div></div></div>
+
+<script>
+/* =====================================================================
+   KONFIGURACE RYCHLOUČENÍ – měň jen tuto část (návod: system/Navod_rychlouceni_vXX.md)
+   kapitoly: [{ id, nazev, kostra?: true }] – pořadí = pořadí učení (kostra první)
+   pojmy:    { "pojem": "krátká definice ze slidů" } – vysvětlení špatných možností se skládá samo
+   fakta:    [{ id (stálé mezi verzemi), kap, pri: "jadro" | "doplnek", vysv (1–2 věty ke správné odpovědi),
+               pomucka?, var: [{ t: zadání, ok: správná možnost, s: [[špatná možnost, pojem nebo vlastní vysvětlení] ×4],
+               vyjimka5?: "důvod" (méně než 5 možností) }, …] }]
+   ===================================================================== */
+const RYCHLO = {
+  title: "Planetární geografie – Rychloučení",
+  version: "v01",
+  topic: "planetarni-geografie",
+  kapitoly: [{"id": "kostra", "nazev": "Kostra: to nejdůležitější na test", "kostra": true}, {"id": "k1", "nazev": "Vesmír a vzdálenosti"}, {"id": "k2", "nazev": "Galaxie a vesmírná tělesa"}, {"id": "k3", "nazev": "Sluneční soustava a Kepler"}, {"id": "k4", "nazev": "Měsíc a slapové jevy"}, {"id": "k5", "nazev": "Tvar a rotace Země"}, {"id": "k6", "nazev": "Oběh Země a roční období"}, {"id": "k7", "nazev": "Výška Slunce – tohle spočítáš"}, {"id": "k8", "nazev": "Časová pásma a místní čas – krok za krokem"}],
+  pojmy: {
+ "AU": "astronomická jednotka – průměrná vzdálenost Země od Slunce, 149,6 mil. km",
+ "světelný rok": "vzdálenost, kterou světlo uletí za rok, asi 9,46 bilionu km",
+ "parsek": "vzdálenost, ze které je 1 AU vidět pod úhlem 1″; 3,26 ly",
+ "kometa": "malé těleso z ledu a prachu",
+ "planetka": "malé kamenné těleso obíhající kolem hvězdy",
+ "meteoroid": "kamenné těleso menší než planetka, letí vesmírem",
+ "meteor": "světelný jev při průletu tělesa atmosférou",
+ "meteorit": "těleso, které dopadlo až na zemský povrch",
+ "rotace": "otáčení Země kolem vlastní osy (den)",
+ "revoluce": "oběh Země kolem Slunce (rok)",
+ "precese": "pomalé kroužení zemské osy jako u káči",
+ "nutace": "drobné kývání zemské osy",
+ "nov": "Měsíc je mezi Zemí a Sluncem, není vidět",
+ "úplněk": "Měsíc je za Zemí, na opačné straně než Slunce, vidíme celý kotouč",
+ "první čtvrť": "Měsíc je v pravém úhlu ke Slunci, tvar D, dorůstá",
+ "poslední čtvrť": "Měsíc je v pravém úhlu ke Slunci, tvar C, couvá",
+ "skočný příliv": "nejvyšší příliv – při novu a úplňku, tělesa v přímce",
+ "hluchý příliv": "nejnižší příliv – při první a poslední čtvrti, pravý úhel",
+ "přísluní": "Země je Slunci nejblíž – 3. 1., 147 mil. km",
+ "odsluní": "Země je od Slunce nejdál – 5. 7., 152 mil. km",
+ "obratník Raka": "23,5° s. š., Slunce je nad ním kolmo 21. 6.",
+ "obratník Kozoroha": "23,5° j. š., Slunce je nad ním kolmo 21. 12.",
+ "polární kruh": "66,5° – hranice polárního dne a noci",
+ "geoid": "skutečný, mírně nepravidelný tvar Země",
+ "hvězdný den": "otočení Země o 360°, trvá 23 h 56 min 4 s",
+ "sluneční den": "od poledne do poledne, trvá 24 h",
+ "místní čas": "skutečný sluneční čas daného poledníku; 1° = 4 min",
+ "letní slunovrat": "21. 6., nejdelší den na severní polokouli",
+ "zimní slunovrat": "21. 12., nejkratší den na severní polokouli",
+ "jarní rovnodennost": "21. 3., den i noc 12 h",
+ "podzimní rovnodennost": "23. 9., den i noc 12 h"
+},
+  fakta: [
+ {"id": "k-15", "kap": "kostra", "pri": "jadro", "vysv": "Země se otočí o 360° za 24 h, tedy o 15° za hodinu. Proto je 24 pásem po 15°.", "pomucka": "360° : 24 h = 15° za hodinu", "var": [{"t": "O kolik stupňů zeměpisné délky se Země otočí za 1 hodinu?", "ok": "15°", "s": [["24°", "24 je počet hodin a pásem; 360° : 24 = 15°"], ["1°", "o 1° se otočí za 4 minuty"], ["7,5°", "to je jen polovina pásma – půl hodiny"], ["30°", "to je za 2 hodiny"]]}, {"t": "Kolik časových pásem je na Zemi a jak je každé široké?", "ok": "24 pásem po 15°", "s": [["12 pásem po 30°", "den má 24 hodin, ne 12"], ["24 pásem po 7,5°", "7,5° je jen od středního poledníku k hranici pásma"], ["36 pásem po 10°", "pásem je tolik, kolik má den hodin"], ["15 pásem po 24°", "čísla jsou prohozená"]]}]},
+ {"id": "k-smer", "kap": "kostra", "pri": "jadro", "vysv": "Slunce vychází na východě, tam už mají víc hodin. Na východ přičítám, na západ odčítám.", "pomucka": "východ = víc hodin, západ = méně hodin", "var": [{"t": "Jdeš o 3 pásma na východ. Co uděláš s časem?", "ok": "přičtu 3 hodiny", "s": [["odečtu 3 hodiny", "odčítá se směrem na západ"], ["přičtu 3 minuty", "jedno pásmo je celá hodina"], ["přičtu 12 minut", "4 minuty na stupeň platí pro místní čas, ne pro pásma"], ["nic, čas je stejný", "stejný čas je jen uvnitř jednoho pásma"]]}, {"t": "V Greenwichi (0°) je 12:00. Kolik je v pásmu se středním poledníkem 30° z. d.?", "ok": "10:00", "s": [["14:00", "to by bylo 30° východní délky"], ["11:00", "to je pásmo 15° z. d."], ["12:00", "to je jen v nultém pásmu"], ["9:00", "to je pásmo 45° z. d."]]}]},
+ {"id": "k-1stupen", "kap": "kostra", "pri": "jadro", "vysv": "15° = 60 minut, takže 1° = 60 : 15 = 4 minuty.", "pomucka": "1° = 4 min", "var": [{"t": "Kolik minut místního času odpovídá 1° zeměpisné délky?", "ok": "4 minuty", "s": [["15 minut", "15 je počet stupňů na hodinu, ne minut na stupeň"], ["1 minuta", "60 min : 15° = 4 min"], ["60 minut", "60 minut odpovídá 15°"], ["6 minut", "60 : 15 = 4, ne 6"]]}, {"t": "Místo leží 5° východně od středního poledníku svého pásma. Jak se liší jeho místní čas od pásmového?", "ok": "je o 20 minut větší", "s": [["je o 20 minut menší", "menší by byl západně od středního poledníku"], ["je o 5 minut větší", "stupně se musí vynásobit 4"], ["je o 75 minut větší", "násobí se 4, ne 15"], ["je stejný", "stejný je jen přímo na středním poledníku"]]}]},
+ {"id": "k-vzorec", "kap": "kostra", "pri": "jadro", "vysv": "Od 90° odečtu zeměpisnou šířku a podle ročního období přičtu nebo odečtu 23,5°.", "var": [{"t": "Jak se počítá výška Slunce nad obzorem v pravé poledne?", "ok": "h = 90° − φ ± δ", "s": [["h = 90° + φ ± δ", "šířka se odčítá – čím dál od rovníku, tím je Slunce níž"], ["h = φ ± δ", "chybí 90°"], ["h = 180° − φ ± δ", "začíná se od 90°, ne od 180°"], ["h = 90° − δ ± φ", "φ a δ jsou prohozené"]]}, {"t": "Co znamená φ ve vzorci h = 90° − φ ± δ?", "ok": "zeměpisnou šířku místa", "s": [["zeměpisnou délku místa", "délka se používá u času, ne u výšky Slunce"], ["deklinaci Slunce", "deklinace je δ"], ["výšku Slunce nad obzorem", "to je h"], ["sklon zemské osy", "sklon osy je 23,5° a ve vzorci je schovaný v δ"]]}]},
+ {"id": "k-delta", "kap": "kostra", "pri": "jadro", "vysv": "Deklinace je +23,5° v létě dané polokoule, −23,5° v zimě a 0° o rovnodennostech.", "pomucka": "léto přičítám, zima odčítám, rovnodennost nic", "var": [{"t": "Jakou deklinaci δ dosadíš pro severní polokouli 21. 6.?", "ok": "+23,5°", "s": [["−23,5°", "to platí 21. 12. – v zimě"], ["0°", "to platí o rovnodennostech"], ["+66,5°", "66,5° je šířka polárního kruhu"], ["+90°", "90° je začátek vzorce, ne deklinace"]]}, {"t": "Kdy je deklinace Slunce 0°?", "ok": "21. 3. a 23. 9.", "s": [["21. 6. a 21. 12.", "o slunovratech je ±23,5°"], ["jen 21. 6.", "letní slunovrat"], ["3. 1. a 5. 7.", "to je přísluní a odsluní"], ["nikdy", "o rovnodennostech je Slunce nad rovníkem, δ = 0°"]]}]},
+ {"id": "k-rotrev", "kap": "kostra", "pri": "jadro", "vysv": "Rotace = otáčení kolem osy (den). Revoluce = oběh kolem Slunce (rok).", "pomucka": "ROTace = ROTuje na místě", "var": [{"t": "Co je rotace Země?", "ok": "otáčení Země kolem vlastní osy", "s": [["oběh Země kolem Slunce", "revoluce"], ["pomalé kroužení zemské osy", "precese"], ["drobné kývání zemské osy", "nutace"], ["oběh Měsíce kolem Země", "to není pohyb Země"]]}, {"t": "Jak se nazývá oběh Země kolem Slunce?", "ok": "revoluce", "s": [["rotace", "rotace"], ["precese", "precese"], ["nutace", "nutace"], ["deklinace", "deklinace je úhel ve vzorci pro výšku Slunce, ne pohyb"]]}]},
+ {"id": "k-sklon", "kap": "kostra", "pri": "jadro", "vysv": "Zemská osa je skloněná o 23,5°. Proto se střídají roční období a proto jsou obratníky na 23,5°.", "var": [{"t": "O kolik stupňů je skloněná zemská osa (od kolmice k rovině oběhu)?", "ok": "23,5°", "s": [["66,5°", "66,5° svírá osa s rovinou oběhu; je to i šířka polárního kruhu"], ["15°", "15° je šířka časového pásma"], ["90°", "to by osa ležela v rovině oběhu"], ["5°", "asi 5° je sklon dráhy Měsíce"]]}, {"t": "Co je hlavní příčinou střídání ročních období?", "ok": "sklon zemské osy při oběhu kolem Slunce", "s": [["měnící se vzdálenost Země od Slunce", "nejblíž Slunci jsme v lednu, kdy je u nás zima"], ["otáčení Země kolem osy", "to způsobuje den a noc"], ["fáze Měsíce", "ty s ročním obdobím nesouvisí"], ["Coriolisova síla", "ta jen stáčí pohyb"]]}]},
+ {"id": "k-data", "kap": "kostra", "pri": "jadro", "vysv": "21. 3. jarní rovnodennost, 21. 6. letní slunovrat, 23. 9. podzimní rovnodennost, 21. 12. zimní slunovrat.", "var": [{"t": "Kdy je na severní polokouli letní slunovrat?", "ok": "21. 6.", "s": [["21. 12.", "zimní slunovrat"], ["21. 3.", "jarní rovnodennost"], ["23. 9.", "podzimní rovnodennost"], ["5. 7.", "odsluní"]]}, {"t": "Co nastává na severní polokouli 21. 12.?", "ok": "zimní slunovrat", "s": [["letní slunovrat", "letní slunovrat"], ["jarní rovnodennost", "jarní rovnodennost"], ["podzimní rovnodennost", "podzimní rovnodennost"], ["přísluní", "přísluní"]]}]},
+ {"id": "k-ly", "kap": "kostra", "pri": "jadro", "vysv": "Světelný rok je délka: rychlost světla (asi 300 000 km/s) krát počet sekund v roce, to je asi 9,46 bilionu km.", "pomucka": "světelný rok měří dálku, ne čas", "var": [{"t": "Co je světelný rok?", "ok": "vzdálenost, kterou světlo uletí za rok", "s": [["doba, za kterou světlo doletí ze Slunce na Zemi", "světelný rok není čas; ze Slunce letí světlo asi 8 minut"], ["průměrná vzdálenost Země od Slunce", "AU"], ["vzdálenost, ze které je 1 AU vidět pod úhlem 1″", "parsek"], ["doba oběhu Země kolem Slunce", "to je obyčejný rok – čas, ne vzdálenost"]]}, {"t": "Kolik kilometrů je přibližně 1 světelný rok?", "ok": "9,46 bilionu km", "s": [["149,6 milionu km", "AU"], ["300 000 km", "tolik světlo uletí za 1 sekundu"], ["384 000 km", "vzdálenost Měsíce od Země"], ["9,46 milionu km", "je to milionkrát víc – biliony"]]}]},
+ {"id": "k-au", "kap": "kostra", "pri": "jadro", "vysv": "1 AU = průměrná vzdálenost Země od Slunce = 149,6 mil. km.", "var": [{"t": "Co je 1 AU (astronomická jednotka)?", "ok": "průměrná vzdálenost Země od Slunce", "s": [["vzdálenost, kterou světlo uletí za rok", "světelný rok"], ["vzdálenost Země od Měsíce", "ta je 384 000 km"], ["průměr Slunce", "ten je necelých 1,4 mil. km"], ["vzdálenost k nejbližší hvězdě po Slunci", "Proxima Centauri je 4,2 ly daleko"]]}, {"t": "Kolik kilometrů je 1 AU?", "ok": "149,6 milionu km", "s": [["9,46 bilionu km", "světelný rok"], ["384 000 km", "vzdálenost Měsíce"], ["1,4 milionu km", "průměr Slunce"], ["40 075 km", "obvod rovníku"]]}]},
+ {"id": "v-vesmir", "kap": "k1", "pri": "jadro", "vysv": "Vesmír vznikl velkým třeskem před 13,8 mld. let, Země před 4,6 mld. let srážením kamenů.", "var": [{"t": "Jak a kdy vznikl vesmír?", "ok": "velkým třeskem před 13,8 miliardy let", "s": [["velkým třeskem před 4,6 miliardy let", "4,6 mld. let je stáří Země"], ["srážením kamenů před 13,8 miliardy let", "srážením kamenů vznikla Země, ne vesmír"], ["velkým třeskem před 13,8 milionu let", "miliardy, ne miliony"], ["srážením kamenů před 4,6 miliardy let", "tak vznikla Země"]]}, {"t": "Kdy vznikla Země?", "ok": "před 4,6 miliardy let", "s": [["před 13,8 miliardy let", "to je stáří vesmíru"], ["před 4,6 milionu let", "miliardy, ne miliony"], ["před 2,5 milionu let", "2,5 mil. ly je vzdálenost galaxie v Andromedě"], ["před 100 000 lety", "100 000 ly je průměr Galaxie"]]}]},
+ {"id": "v-parsek", "kap": "k1", "pri": "doplnek", "vysv": "Parsek: z té dálky je 1 AU vidět pod úhlem 1″. 1 pc = 3,26 ly.", "var": [{"t": "Co je parsek?", "ok": "vzdálenost, ze které je 1 AU vidět pod úhlem 1″", "s": [["vzdálenost, kterou světlo uletí za rok", "světelný rok"], ["průměrná vzdálenost Země od Slunce", "AU"], ["úhel, pod kterým je vidět Slunce", "parsek je vzdálenost, ne úhel"], ["doba, za kterou světlo uletí 1 AU", "parsek není čas"]]}, {"t": "Kolik světelných let je 1 parsek?", "ok": "3,26 ly", "s": [["4,2 ly", "to je vzdálenost Proximy Centauri"], ["9,46 ly", "9,46 bilionu km je světelný rok v kilometrech"], ["1 ly", "parsek je větší než světelný rok"], ["149,6 ly", "149,6 mil. km je AU"]]}]},
+ {"id": "v-jednotky", "kap": "k1", "pri": "jadro", "vysv": "AU je pro sluneční soustavu, světelné roky a parseky pro hvězdy a galaxie.", "var": [{"t": "Která jednotka se nejlíp hodí pro vzdálenosti uvnitř sluneční soustavy?", "ok": "AU", "s": [["světelný rok", "ten je moc velký – hodí se pro hvězdy"], ["parsek", "ještě větší než světelný rok"], ["úhlová vteřina", "to je jednotka úhlu"], ["kilometr za sekundu", "to je jednotka rychlosti"]]}, {"t": "Uran je od Slunce 19 AU. Co to znamená?", "ok": "je 19krát dál od Slunce než Země", "s": [["světlo k němu letí 19 let", "AU není světelný rok"], ["oběhne Slunce za 19 let", "oběh mu trvá 84 let"], ["je 19krát větší než Země", "AU je vzdálenost, ne velikost"], ["je 19 milionů km od Slunce", "1 AU je 149,6 mil. km, 19 AU je mnohem víc"]]}]},
+ {"id": "g-galaxie", "kap": "k2", "pri": "jadro", "vysv": "Galaxie je systém hvězd, plynu, prachu a temné hmoty, který drží pohromadě gravitace.", "var": [{"t": "Co drží galaxii pohromadě?", "ok": "gravitace", "s": [["odstředivá síla", "ta by hvězdy naopak rozhazovala"], ["Coriolisova síla", "to je uchylující síla zemské rotace"], ["magnetismus Slunce", "Slunce je jen jedna z miliard hvězd"], ["tlak světla", "světlo galaxii nedrží"]]}, {"t": "Co je galaxie?", "ok": "gravitačně vázaný systém hvězd, plynu, prachu a temné hmoty", "s": [["soustava planet obíhajících kolem jedné hvězdy", "to je planetární soustava, např. sluneční"], ["malé těleso z ledu a prachu", "kometa"], ["světelný jev při průletu tělesa atmosférou", "meteor"], ["skupina planetek mezi Marsem a Jupiterem", "to je pás planetek uvnitř sluneční soustavy"]]}]},
+ {"id": "g-mlecna", "kap": "k2", "pri": "jadro", "vysv": "Naše Galaxie je Mléčná dráha, má 100–400 miliard hvězd a Slunce je jednou z nich.", "var": [{"t": "Jak se jmenuje naše galaxie?", "ok": "Mléčná dráha", "s": [["galaxie v Andromedě", "to je nejbližší velká sousední galaxie"], ["Proxima Centauri", "to je nejbližší hvězda"], ["sluneční soustava", "ta je jen malou částí Galaxie"], ["Velký vůz", "to je skupina hvězd na obloze"]]}, {"t": "Kolik hvězd tvoří Mléčnou dráhu?", "ok": "100–400 miliard", "s": [["100–400 milionů", "miliard, ne milionů"], ["asi 8", "8 je počet planet sluneční soustavy"], ["13,8 miliardy", "to je stáří vesmíru v letech"], ["asi 100 000", "100 000 ly je průměr Galaxie"]]}]},
+ {"id": "g-proxima", "kap": "k2", "pri": "jadro", "vysv": "Nejbližší hvězda je Proxima Centauri (4,2 ly), nejbližší velká galaxie je v Andromedě (2,5 mil. ly).", "var": [{"t": "Která hvězda je po Slunci Zemi nejblíž?", "ok": "Proxima Centauri", "s": [["Polárka", "Polárka ukazuje sever, ale nejbližší není"], ["Sirius", "nejjasnější hvězda noční oblohy, ale je dál"], ["galaxie v Andromedě", "to není hvězda, ale celá galaxie"], ["Měsíc", "Měsíc je družice, ne hvězda"]]}, {"t": "Jak daleko je galaxie v Andromedě?", "ok": "asi 2,5 milionu ly", "s": [["4,2 ly", "to je Proxima Centauri"], ["28 000 ly", "to je vzdálenost Slunce od středu Galaxie"], ["100 000 ly", "to je průměr naší Galaxie"], ["13,8 miliardy ly", "13,8 mld. let je stáří vesmíru"]]}]},
+ {"id": "g-kometa", "kap": "k2", "pri": "jadro", "vysv": "Kometa je z ledu a prachu, planetka je kamenná.", "var": [{"t": "Co je kometa?", "ok": "malé těleso z ledu a prachu", "s": [["malé kamenné těleso obíhající kolem hvězdy", "planetka"], ["světelný jev při průletu tělesa atmosférou", "meteor"], ["těleso, které dopadlo až na zemský povrch", "meteorit"], ["hvězda na okraji Galaxie", "kometa není hvězda, sama nesvítí"]]}, {"t": "Které těleso je z ledu a prachu a blízko Slunce má ohon?", "ok": "kometa", "s": [["planetka", "planetka"], ["meteoroid", "meteoroid"], ["meteorit", "meteorit"], ["meteor", "meteor"]]}]},
+ {"id": "g-meteor", "kap": "k2", "pri": "jadro", "vysv": "Meteoroid letí vesmírem, meteor svítí v atmosféře, meteorit leží na zemi.", "pomucka": "meteorOID letí, meteOR svítí, meteorIT leží", "var": [{"t": "Co je meteor?", "ok": "světelný jev při průletu tělesa atmosférou", "s": [["těleso, které dopadlo až na zemský povrch", "meteorit"], ["kamenné těleso menší než planetka, letící vesmírem", "meteoroid"], ["malé těleso z ledu a prachu", "kometa"], ["malé kamenné těleso obíhající kolem hvězdy", "planetka"]]}, {"t": "Jak se odborně říká „padající hvězdě“?", "ok": "meteor", "s": [["meteorit", "meteorit"], ["meteoroid", "meteoroid"], ["kometa", "kometa"], ["planetka", "planetka"]]}]},
+ {"id": "g-meteorit", "kap": "k2", "pri": "jadro", "vysv": "Meteorit je těleso, které dopadlo až na zemský povrch – dá se vzít do ruky.", "pomucka": "meteorOID letí, meteOR svítí, meteorIT leží", "var": [{"t": "Co je meteorit?", "ok": "těleso, které dopadlo až na zemský povrch", "s": [["světelný jev při průletu tělesa atmosférou", "meteor"], ["kamenné těleso menší než planetka, letící vesmírem", "meteoroid"], ["malé těleso z ledu a prachu", "kometa"], ["malé kamenné těleso obíhající kolem hvězdy", "planetka"]]}, {"t": "Kámen z vesmíru leží ve vitríně v muzeu. Jak se mu říká?", "ok": "meteorit", "s": [["meteor", "meteor"], ["meteoroid", "meteoroid"], ["kometa", "kometa"], ["planeta", "planeta je velké těleso obíhající kolem hvězdy"]]}]},
+ {"id": "s-slunce", "kap": "k3", "pri": "jadro", "vysv": "Slunce tvoří 99,8 % hmotnosti sluneční soustavy; podle počtu atomů je z 92,1 % vodíku a 7,8 % helia.", "var": [{"t": "Kolik procent hmotnosti sluneční soustavy tvoří Slunce?", "ok": "99,8 %", "s": [["92,1 %", "to je podíl vodíku ve Slunci"], ["7,8 %", "to je podíl helia ve Slunci"], ["50 %", "Slunce je skoro všechno"], ["0,2 %", "tolik zbývá na všechno ostatní"]]}, {"t": "Z čeho se hlavně skládá Slunce?", "ok": "92,1 % vodík, 7,8 % helium", "s": [["92,1 % helium, 7,8 % vodík", "prvky jsou prohozené – převažuje vodík"], ["hlavně kyslík a dusík", "z toho je vzduch na Zemi"], ["led a prach", "z toho jsou komety"], ["železo a kámen", "Slunce je plynná koule"]]}]},
+ {"id": "s-kamenne", "kap": "k3", "pri": "doplnek", "vysv": "První čtyři planety jsou kamenné: Merkur, Venuše, Země, Mars.", "var": [{"t": "Které planety jsou kamenné?", "ok": "Merkur, Venuše, Země, Mars", "s": [["Jupiter, Saturn, Uran, Neptun", "to jsou velké plynné planety"], ["Země, Mars, Jupiter, Saturn", "Jupiter a Saturn jsou plynné"], ["Merkur, Venuše, Země, Jupiter", "Jupiter je plynný"], ["všech osm planet", "kamenné jsou jen první čtyři"]]}, {"t": "Kolik planet sluneční soustavy je kamenných?", "ok": "4", "s": [["8", "8 je všech planet"], ["2", "jsou čtyři: Merkur, Venuše, Země, Mars"], ["6", "jsou čtyři"], ["1", "nejen Země – i Merkur, Venuše a Mars"]]}]},
+ {"id": "s-k1", "kap": "k3", "pri": "jadro", "vysv": "1. Keplerův zákon: planety obíhají po elipsách, Slunce je v ohnisku.", "var": [{"t": "Po jaké dráze obíhají planety kolem Slunce (1. Keplerův zákon)?", "ok": "po elipse, Slunce je v ohnisku", "s": [["po kružnici, Slunce je ve středu", "dráha je elipsa"], ["po elipse, Slunce je přesně uprostřed", "Slunce je v ohnisku, ne ve středu"], ["po spirále směrem ke Slunci", "to by planety do Slunce spadly"], ["po přímce", "pak by planeta odletěla pryč"]]}, {"t": "Kde je Slunce vzhledem k eliptické dráze planety?", "ok": "v jednom ohnisku elipsy", "s": [["přesně ve středu elipsy", "proto je planeta někdy blíž a někdy dál"], ["přímo na dráze planety", "na dráze je planeta"], ["v obou ohniscích", "Slunce je jen jedno, druhé ohnisko je prázdné"], ["mimo elipsu", "planeta obíhá kolem Slunce, to je uvnitř"]]}]},
+ {"id": "s-k2", "kap": "k3", "pri": "jadro", "vysv": "2. Keplerův zákon: stejné plochy za stejný čas, takže blíž Slunci letí planeta rychleji.", "pomucka": "blíž = rychleji", "var": [{"t": "Kdy se planeta pohybuje nejrychleji?", "ok": "když je Slunci nejblíž", "s": [["když je od Slunce nejdál", "tam letí nejpomaleji"], ["pořád stejně rychle", "rychlost se během oběhu mění"], ["při úplňku", "úplněk je fáze Měsíce"], ["o rovnodennosti", "rychlost závisí na vzdálenosti od Slunce"]]}, {"t": "Co říká 2. Keplerův zákon?", "ok": "spojnice planety a Slunce opíše za stejný čas stejnou plochu", "s": [["planety obíhají po elipsách se Sluncem v ohnisku", "to je 1. zákon"], ["čím je planeta dál, tím déle obíhá", "to je 3. zákon"], ["planety obíhají stálou rychlostí", "rychlost se mění"], ["všechny planety obíhají za stejnou dobu", "Země 1 rok, Uran 84 let"]]}]},
+ {"id": "s-k3", "kap": "k3", "pri": "doplnek", "vysv": "Čím dál je planeta od Slunce, tím déle obíhá: Země 1 AU a 1 rok, Uran 19 AU a 84 let.", "var": [{"t": "Uran je 19 AU od Slunce. Jak dlouho mu trvá jeden oběh?", "ok": "84 let", "s": [["19 let", "19 je vzdálenost v AU"], ["1 rok", "to je Země"], ["29,5 dne", "to je cyklus měsíčních fází"], ["365 let", "365 je počet dní v roce"]]}, {"t": "Jak souvisí vzdálenost planety od Slunce s dobou oběhu?", "ok": "čím dál, tím delší doba oběhu", "s": [["čím dál, tím kratší doba oběhu", "je to naopak"], ["nesouvisí – všechny obíhají 1 rok", "1 rok obíhá jen Země"], ["záleží jen na velikosti planety", "rozhoduje vzdálenost"], ["čím dál, tím rychleji planeta letí", "vzdálené planety letí pomaleji"]]}]},
+ {"id": "m-zaklad", "kap": "k4", "pri": "jadro", "vysv": "Měsíc je přirozená družice Země, průměrně 384 000 km daleko.", "var": [{"t": "Jak daleko je Měsíc od Země?", "ok": "384 000 km", "s": [["149,6 milionu km", "AU"], ["40 075 km", "obvod rovníku"], ["6 378 km", "poloměr Země na rovníku"], ["1,4 milionu km", "průměr Slunce"]]}, {"t": "Co je Měsíc?", "ok": "přirozená družice Země", "s": [["planetka", "planetka"], ["hvězda", "Měsíc sám nesvítí"], ["planeta", "planeta obíhá kolem hvězdy, Měsíc kolem Země"], ["kometa", "kometa"]]}]},
+ {"id": "m-vazana", "kap": "k4", "pri": "doplnek", "vysv": "Měsíc se otočí kolem osy za stejnou dobu, za jakou oběhne Zemi, proto vidíme stále stejnou stranu.", "var": [{"t": "Proč ze Země vidíme pořád stejnou stranu Měsíce?", "ok": "otočí se kolem osy za stejnou dobu, za jakou oběhne Zemi", "s": [["Měsíc se vůbec neotáčí", "otáčí se – jednou za oběh"], ["Měsíc kolem Země neobíhá", "obíhá po eliptické dráze"], ["druhá strana není nikdy osvětlená", "je osvětlená např. při novu"], ["Země se otáčí stejně rychle, jako Měsíc obíhá", "Země se otočí za den, Měsíc obíhá asi měsíc"]]}, {"t": "Jak dlouho trvá Měsíci jedno otočení kolem osy?", "ok": "stejně dlouho jako jeden oběh kolem Země", "s": [["24 hodin", "to je otočení Země"], ["12 h 25 min", "to je doba mezi dvěma přílivy"], ["1 rok", "to je oběh Země kolem Slunce"], ["vůbec se neotáčí", "otáčí se, jen pomalu"]]}]},
+ {"id": "m-faze", "kap": "k4", "pri": "jadro", "vysv": "Fáze závisí na tom, jakou část osvětlené poloviny Měsíce vidíme. Celý cyklus trvá 29,5 dne.", "var": [{"t": "Jak dlouhá je doba mezi dvěma úplňky?", "ok": "29,5 dne", "s": [["7 dní", "to je asi od jedné fáze k další"], ["12 h 25 min", "to je doba mezi dvěma přílivy"], ["365 dní", "to je rok"], ["24 hodin", "to je den"]]}, {"t": "Na čem závisí měsíční fáze?", "ok": "na tom, jakou část osvětlené poloviny Měsíce ze Země vidíme", "s": [["na stínu Země, který na Měsíc padá", "stín Země způsobuje zatmění Měsíce, ne fáze"], ["na vzdálenosti Měsíce od Země", "vzdálenost fázi neurčuje"], ["na otáčení Měsíce kolem osy", "to způsobuje jen, že vidíme stále stejnou stranu"], ["na ročním období", "fáze se střídají po 29,5 dne celý rok"]]}]},
+ {"id": "m-nov", "kap": "k4", "pri": "jadro", "vysv": "Nov: Měsíc je mezi Zemí a Sluncem. Úplněk: Měsíc je za Zemí.", "pomucka": "D = dorůstá, C = couvá", "var": [{"t": "Kde je Měsíc při novu?", "ok": "mezi Zemí a Sluncem", "s": [["za Zemí, na opačné straně než Slunce", "úplněk"], ["v pravém úhlu ke Slunci, dorůstá", "první čtvrť"], ["vždy ve stínu Země", "ve stínu Země je při zatmění Měsíce"], ["za Sluncem", "Měsíc obíhá kolem Země, za Slunce se nedostane"]]}, {"t": "Při které fázi není Měsíc na obloze vidět?", "ok": "nov", "s": [["úplněk", "úplněk"], ["první čtvrť", "první čtvrť"], ["poslední čtvrť", "poslední čtvrť"], ["skočný příliv", "skočný příliv"]]}]},
+ {"id": "m-zatm-m", "kap": "k4", "pri": "jadro", "vysv": "Zatmění Měsíce: Slunce – Země – Měsíc, jen při úplňku. Země vrhá stín na Měsíc.", "var": [{"t": "Jak jsou tělesa seřazena při zatmění Měsíce?", "ok": "Slunce – Země – Měsíc", "s": [["Slunce – Měsíc – Země", "tak je to při zatmění Slunce"], ["Země – Slunce – Měsíc", "Slunce nemůže být mezi Zemí a Měsícem"], ["tvoří pravý úhel", "to je první nebo poslední čtvrť"], ["na pořadí nezáleží", "stín musí padat na Měsíc – Země je uprostřed"]]}, {"t": "Při které fázi může nastat zatmění Měsíce?", "ok": "jen při úplňku", "s": [["jen při novu", "při novu může být zatmění Slunce"], ["při první čtvrti", "tělesa nejsou v přímce"], ["při poslední čtvrti", "tělesa nejsou v přímce"], ["při kterékoli fázi", "Měsíc musí být za Zemí"]]}]},
+ {"id": "m-zatm-s", "kap": "k4", "pri": "jadro", "vysv": "Zatmění Slunce: Slunce – Měsíc – Země, jen při novu. Měsíc zakryje Slunce.", "pomucka": "uprostřed je ten, kdo stíní", "var": [{"t": "Které těleso je uprostřed při zatmění Slunce?", "ok": "Měsíc", "s": [["Země", "Země je uprostřed při zatmění Měsíce"], ["Slunce", "Slunce je to, co je zakryté"], ["žádné – tělesa nejsou v přímce", "při zatmění jsou vždy v přímce"], ["jiná planeta", "Slunce je zakryté Měsícem"]]}, {"t": "Při které fázi může nastat zatmění Slunce?", "ok": "jen při novu", "s": [["jen při úplňku", "při úplňku může být zatmění Měsíce"], ["při první čtvrti", "tělesa nejsou v přímce"], ["při poslední čtvrti", "tělesa nejsou v přímce"], ["při kterékoli fázi", "Měsíc musí být mezi Zemí a Sluncem"]]}]},
+ {"id": "m-slapy", "kap": "k4", "pri": "jadro", "vysv": "Příliv a odliv způsobuje hlavně gravitace Měsíce. Mezi dvěma přílivy je 12 h 25 min.", "var": [{"t": "Co hlavně způsobuje příliv a odliv?", "ok": "gravitační působení Měsíce", "s": [["vítr", "vítr dělá vlny, ne slapy"], ["Coriolisova síla", "ta jen stáčí pohyb"], ["sklon zemské osy", "ten způsobuje roční období"], ["zemětřesení", "to může způsobit tsunami, ne pravidelný příliv"]]}, {"t": "Jaká je doba mezi dvěma přílivy po sobě?", "ok": "12 h 25 min", "s": [["24 h", "sluneční den"], ["6 h", "to je asi od přílivu k odlivu"], ["29,5 dne", "to je cyklus měsíčních fází"], ["23 h 56 min", "hvězdný den"]]}]},
+ {"id": "m-skocny", "kap": "k4", "pri": "jadro", "vysv": "Skočný příliv je při novu a úplňku (tělesa v přímce), hluchý při čtvrtích (pravý úhel).", "pomucka": "skočný = voda vyskočí nejvýš", "var": [{"t": "Kdy nastává skočný (nejvyšší) příliv?", "ok": "při novu a úplňku", "s": [["při první a poslední čtvrti", "hluchý příliv"], ["jen při úplňku", "i při novu – tělesa jsou také v přímce"], ["o slunovratech", "rozhoduje poloha Měsíce, ne datum"], ["každý den v poledne", "skočný příliv je jen dvakrát za 29,5 dne"]]}, {"t": "Jak stojí Měsíc při hluchém přílivu?", "ok": "v pravém úhlu ke Slunci (první nebo poslední čtvrť)", "s": [["v přímce se Zemí a Sluncem", "skočný příliv"], ["mezi Zemí a Sluncem", "to je nov – skočný příliv"], ["za Zemí, naproti Slunci", "to je úplněk – skočný příliv"], ["za Sluncem", "tam se Měsíc nedostane"]]}]},
+ {"id": "z-tvar", "kap": "k5", "pri": "jadro", "vysv": "Země má tvar geoidu, matematicky ji nahrazujeme rotačním elipsoidem.", "var": [{"t": "Jaký tvar má Země?", "ok": "geoid", "s": [["dokonalá koule", "Země je na pólech zploštělá"], ["elipsa", "elipsa je plochý obrazec, ne těleso"], ["plochý disk", "Země je kulaté těleso"], ["válec", "Země je přibližně koule"]]}, {"t": "Kterým tělesem Zemi matematicky nahrazujeme?", "ok": "rotačním elipsoidem", "s": [["geoidem", "geoid"], ["elipsou", "elipsa je plochá; těleso je elipsoid"], ["kuželem", "Země je zploštělá koule"], ["kružnicí", "kružnice je plochá čára"]]}]},
+ {"id": "z-rozmery", "kap": "k5", "pri": "jadro", "vysv": "Poloměr na rovníku 6 378 km, obvod rovníku 40 075 km.", "pomucka": "poloměr 6 378, obvod asi 40 000", "var": [{"t": "Jaký je poloměr Země na rovníku?", "ok": "6 378 km", "s": [["40 075 km", "to je obvod rovníku"], ["384 000 km", "to je vzdálenost Měsíce"], ["12 756 km", "to je průměr – dvojnásobek poloměru"], ["510 km", "510,1 mil. km² je povrch Země"]]}, {"t": "Jaký je obvod rovníku?", "ok": "40 075 km", "s": [["6 378 km", "to je poloměr"], ["40 008 km", "to je obvod přes póly – o něco kratší"], ["510,1 mil. km", "510,1 mil. km² je povrch"], ["384 000 km", "to je vzdálenost Měsíce"]]}]},
+ {"id": "z-den", "kap": "k5", "pri": "jadro", "vysv": "Hvězdný den (otočení o 360°) trvá 23 h 56 min 4 s, sluneční den 24 h.", "var": [{"t": "Jak dlouho trvá hvězdný den – otočení Země o 360°?", "ok": "23 h 56 min 4 s", "s": [["24 h", "sluneční den"], ["12 h 25 min", "doba mezi dvěma přílivy"], ["29,5 dne", "cyklus měsíčních fází"], ["365 d 5 h 48 min 46 s", "to je rok"]]}, {"t": "Co trvá přesně 24 hodin?", "ok": "sluneční den", "s": [["hvězdný den", "hvězdný den"], ["doba mezi dvěma přílivy", "ta je 12 h 25 min"], ["oběh Měsíce kolem Země", "ten trvá asi měsíc"], ["otočení Země přesně o 360°", "to je hvězdný den – o 4 minuty kratší"]]}]},
+ {"id": "z-dusl", "kap": "k5", "pri": "jadro", "vysv": "Důsledky rotace: den a noc, zdánlivý pohyb oblohy, Coriolisova síla, zploštění. Roční období jsou důsledek revoluce.", "var": [{"t": "Co je důsledkem rotace Země?", "ok": "střídání dne a noci", "s": [["střídání ročních období", "to je důsledek oběhu kolem Slunce a sklonu osy"], ["měsíční fáze", "ty závisí na poloze Měsíce"], ["přestupný rok", "ten souvisí s délkou oběhu kolem Slunce"], ["zatmění Slunce", "to způsobuje Měsíc"]]}, {"t": "Co NENÍ důsledkem rotace Země?", "ok": "střídání ročních období", "s": [["střídání dne a noci", "to důsledek rotace je"], ["Coriolisova síla", "to je uchylující síla zemské rotace"], ["zdánlivý pohyb hvězd po obloze", "ten vzniká otáčením Země"], ["zploštění Země na pólech", "to způsobila odstředivá síla při otáčení"]]}]},
+ {"id": "z-coriolis", "kap": "k5", "pri": "jadro", "vysv": "Coriolisova síla stáčí pohyb na severní polokouli doprava, na jižní doleva, na rovníku je nulová.", "pomucka": "Sever = doprava, jih = doleva", "var": [{"t": "Kam stáčí Coriolisova síla pohyb na severní polokouli?", "ok": "doprava", "s": [["doleva", "doleva je to na jižní polokouli"], ["nahoru", "stáčí do strany"], ["vůbec ho nestáčí", "nulová je jen na rovníku"], ["vždy k rovníku", "stáčí doprava od směru pohybu"]]}, {"t": "Kde je Coriolisova síla nulová?", "ok": "na rovníku", "s": [["na pólech", "tam je naopak největší"], ["na obratnících", "tam už působí"], ["na polárních kruzích", "tam působí silně"], ["na nultém poledníku", "na zeměpisné délce nezáleží"]]}]},
+ {"id": "o-rok", "kap": "k6", "pri": "jadro", "vysv": "Oběh trvá 365 d 5 h 48 min 46 s – skoro o čtvrt dne déle než 365 dní, proto jsou přestupné roky.", "var": [{"t": "Jak dlouho trvá jeden oběh Země kolem Slunce?", "ok": "365 dní 5 h 48 min 46 s", "s": [["přesně 365 dní", "pak by nebyly potřeba přestupné roky"], ["přesně 366 dní", "tolik má jen přestupný rok"], ["23 h 56 min 4 s", "hvězdný den"], ["29,5 dne", "cyklus měsíčních fází"]]}, {"t": "Proč máme přestupné roky?", "ok": "oběh Země trvá skoro o čtvrt dne déle než 365 dní", "s": [["Země se otáčí čím dál pomaleji", "jde o délku oběhu, ne otáčení"], ["kvůli fázím Měsíce", "kalendář se řídí Sluncem"], ["kvůli sklonu zemské osy", "sklon způsobuje roční období"], ["protože oběh trvá přesně 366 dní", "trvá 365 dní a necelých 6 hodin"]]}]},
+ {"id": "o-prestup", "kap": "k6", "pri": "jadro", "vysv": "Přestupný je každý 4. rok, ale stovky ne (2100), pokud nejsou násobkem 400 (2000, 2400).", "pomucka": "každý 4. ano, stovky ne, čtyřstovky ano", "var": [{"t": "Který z těchto roků NENÍ přestupný?", "ok": "2100", "s": [["2000", "násobek 400 – je přestupný"], ["2024", "dělitelný 4 – je přestupný"], ["2400", "násobek 400 – je přestupný"], ["2028", "dělitelný 4 – je přestupný"]]}, {"t": "Který z těchto roků JE přestupný?", "ok": "2000", "s": [["2100", "stovka, která není násobkem 400"], ["2200", "stovka, která není násobkem 400"], ["2300", "stovka, která není násobkem 400"], ["2026", "není dělitelný 4"]]}]},
+ {"id": "o-prisluni", "kap": "k6", "pri": "jadro", "vysv": "Přísluní 3. 1. (147 mil. km), odsluní 5. 7. (152 mil. km). Nejblíž Slunci jsme v zimě!", "pomucka": "PŘÍsluní = PŘI Slunci, ODsluní = OD Slunce", "var": [{"t": "Kdy je Země Slunci nejblíž (přísluní)?", "ok": "3. 1.", "s": [["5. 7.", "odsluní"], ["21. 6.", "letní slunovrat"], ["21. 12.", "zimní slunovrat"], ["21. 3.", "jarní rovnodennost"]]}, {"t": "Jak daleko je Země od Slunce v odsluní (5. 7.)?", "ok": "152 mil. km", "s": [["147 mil. km", "přísluní"], ["149,6 mil. km", "to je průměrná vzdálenost – 1 AU"], ["384 000 km", "to je vzdálenost Měsíce"], ["23,5 mil. km", "23,5° je sklon osy"]]}]},
+ {"id": "o-obratnik", "kap": "k6", "pri": "jadro", "vysv": "21. 6. je Slunce kolmo nad obratníkem Raka (23,5° s. š.), 21. 12. nad obratníkem Kozoroha (23,5° j. š.).", "pomucka": "Rak je nahoře (sever), Kozoroh dole (jih)", "var": [{"t": "Nad kterou rovnoběžkou je Slunce v poledne kolmo 21. 6.?", "ok": "nad obratníkem Raka", "s": [["nad obratníkem Kozoroha", "obratník Kozoroha"], ["nad rovníkem", "to je o rovnodennostech"], ["nad severním polárním kruhem", "polární kruh"], ["nad severním pólem", "nad pólem Slunce kolmo nikdy není"]]}, {"t": "Na jaké zeměpisné šířce leží obratníky?", "ok": "23,5°", "s": [["66,5°", "polární kruh"], ["0°", "to je rovník"], ["90°", "to je pól"], ["15°", "15° je šířka časového pásma"]]}]},
+ {"id": "o-rovnod", "kap": "k6", "pri": "jadro", "vysv": "O rovnodennosti (21. 3., 23. 9.) je Slunce kolmo nad rovníkem a den i noc trvají 12 hodin.", "var": [{"t": "Co platí o rovnodennosti?", "ok": "den i noc trvají 12 hodin", "s": [["den je nejdelší v roce", "to je o letním slunovratu"], ["den je nejkratší v roce", "to je o zimním slunovratu"], ["Slunce vůbec nezapadne", "to je polární den"], ["Země je Slunci nejblíž", "přísluní"]]}, {"t": "Nad kterou rovnoběžkou je Slunce kolmo 21. 3. a 23. 9.?", "ok": "nad rovníkem", "s": [["nad obratníkem Raka", "obratník Raka"], ["nad obratníkem Kozoroha", "obratník Kozoroha"], ["nad polárním kruhem", "polární kruh"], ["nad nultým poledníkem", "poledník není rovnoběžka"]]}]},
+ {"id": "o-polarni", "kap": "k6", "pri": "jadro", "vysv": "Polární kruhy leží na 66,5° = 90° − 23,5°.", "var": [{"t": "Na jaké zeměpisné šířce leží polární kruhy?", "ok": "66,5°", "s": [["23,5°", "tam jsou obratníky"], ["90°", "to je pól"], ["60°", "správně je 90° − 23,5°"], ["75°", "správně je 90° − 23,5°"]]}, {"t": "Jak spočítáš šířku polárního kruhu?", "ok": "90° − 23,5°", "s": [["90° + 23,5°", "šířka nemůže být víc než 90°"], ["2 · 23,5°", "47° je rozdíl výšky Slunce mezi létem a zimou"], ["360° : 24", "to je šířka časového pásma"], ["90° − 15°", "odečítá se sklon osy 23,5°"]]}]},
+ {"id": "o-draha", "kap": "k6", "pri": "doplnek", "vysv": "U nás: 21. 6. vychází Slunce na SV a den má asi 16 h; 21. 12. vychází na JV a den má asi 8 h.", "var": [{"t": "Kde u nás vychází Slunce 21. 6.?", "ok": "na severovýchodě", "s": [["přesně na východě", "to je o rovnodennostech"], ["na jihovýchodě", "to je v zimě"], ["na severozápadě", "tam v létě zapadá"], ["na jihu", "na jihu je v poledne nejvýš"]]}, {"t": "Jak dlouhý je u nás den 21. 12.?", "ok": "asi 8 hodin", "s": [["asi 16 hodin", "to je 21. 6."], ["12 hodin", "to je o rovnodennostech"], ["24 hodin", "to je polární den za polárním kruhem"], ["0 hodin", "to je polární noc za polárním kruhem"]]}]},
+ {"id": "o-obdobi", "kap": "k6", "pri": "jadro", "vysv": "Roční období jsou důsledkem oběhu se skloněnou osou – ne vzdálenosti. V lednu jsme Slunci nejblíž.", "var": [{"t": "Když je u nás zima, je Země od Slunce…", "ok": "nejblíž (přísluní je 3. 1.)", "s": [["nejdál (odsluní je 21. 12.)", "odsluní je 5. 7., v létě"], ["pořád stejně daleko", "dráha je elipsa, vzdálenost se mění"], ["dvakrát dál než v létě", "rozdíl je jen 147 a 152 mil. km"], ["přesně 384 000 km", "to je vzdálenost Měsíce"]]}, {"t": "Co je důsledkem oběhu Země kolem Slunce se skloněnou osou?", "ok": "střídání ročních období", "s": [["střídání dne a noci", "to je důsledek rotace"], ["Coriolisova síla", "to je důsledek rotace"], ["příliv a odliv", "ten způsobuje Měsíc"], ["zploštění Země", "to je důsledek rotace"]]}]},
+ {"id": "h-rovno", "kap": "k7", "pri": "jadro", "vysv": "O rovnodennosti je δ = 0°, takže h = 90° − φ.", "pomucka": "h = 90° − φ, pak v létě + 23,5°, v zimě − 23,5°, o rovnodennosti nic.", "var": [{"t": "Výška Slunce v poledne 21. 3. na 30° s. š.?", "ok": "60°", "s": [["30°", "to je šířka; má se odečíst od 90°"], ["83,5°", "to by bylo 21. 6."], ["36,5°", "to by bylo 21. 12."], ["120°", "šířka se odčítá, ne přičítá"]]}, {"t": "Výška Slunce v poledne 23. 9. na 50° s. š.?", "ok": "40°", "s": [["50°", "to je šířka; má se odečíst od 90°"], ["63,5°", "to by bylo 21. 6."], ["16,5°", "to by bylo 21. 12."], ["140°", "šířka se odčítá, ne přičítá"]]}]},
+ {"id": "h-leto", "kap": "k7", "pri": "jadro", "vysv": "21. 6. je na severní polokouli léto: h = 90° − φ + 23,5°.", "pomucka": "h = 90° − φ, pak v létě + 23,5°, v zimě − 23,5°, o rovnodennosti nic.", "var": [{"t": "Výška Slunce v poledne 21. 6. na 30° s. š.?", "ok": "83,5°", "s": [["60°", "chybí + 23,5° za léto"], ["36,5°", "v létě se 23,5° přičítá, ne odčítá"], ["53,5°", "30 + 23,5 – chybí začátek 90° − φ"], ["113,5°", "chybí odečtení šířky od 90°"]]}, {"t": "Výška Slunce v poledne 21. 6. na 50° s. š.?", "ok": "63,5°", "s": [["40°", "chybí + 23,5° za léto"], ["16,5°", "v létě se 23,5° přičítá"], ["73,5°", "50 + 23,5 – chybí začátek 90° − φ"], ["26,5°", "50 − 23,5 – chybí začátek 90° − φ"]]}]},
+ {"id": "h-zima", "kap": "k7", "pri": "jadro", "vysv": "21. 12. je na severní polokouli zima: h = 90° − φ − 23,5°.", "pomucka": "h = 90° − φ, pak v létě + 23,5°, v zimě − 23,5°, o rovnodennosti nic.", "var": [{"t": "Výška Slunce v poledne 21. 12. na 50° s. š.?", "ok": "16,5°", "s": [["63,5°", "v zimě se 23,5° odčítá, ne přičítá"], ["40°", "chybí − 23,5° za zimu"], ["26,5°", "50 − 23,5 – chybí začátek 90° − φ"], ["−16,5°", "40 − 23,5 je kladné číslo"]]}, {"t": "Výška Slunce v poledne 21. 12. na 40° s. š.?", "ok": "26,5°", "s": [["73,5°", "v zimě se 23,5° odčítá"], ["50°", "chybí − 23,5° za zimu"], ["16,5°", "to vyjde pro 50° s. š."], ["63,5°", "40 + 23,5 – chybí začátek 90° − φ"]]}]},
+ {"id": "h-polarni", "kap": "k7", "pri": "jadro", "vysv": "Záporná výška znamená, že Slunce je i v poledne pod obzorem – polární noc.", "var": [{"t": "Výška Slunce 21. 12. na 70° s. š. Co vyjde a co to znamená?", "ok": "−3,5° – polární noc", "s": [["43,5° – běžný den", "v zimě se 23,5° odčítá"], ["20° – běžný den", "chybí − 23,5° za zimu"], ["3,5° – Slunce nízko nad obzorem", "20 − 23,5 je záporné"], ["−3,5° – polární den", "záporná výška = Slunce pod obzorem = noc"]]}, {"t": "Výška Slunce v poledne vyšla záporná. Co to znamená?", "ok": "Slunce je i v poledne pod obzorem – polární noc", "s": [["Slunce je přesně nad hlavou", "to je h = 90°"], ["je polární den", "polární den je, když Slunce nezapadne"], ["výpočet je určitě špatně", "za polárním kruhem to v zimě opravdu vyjde"], ["Slunce je právě na obzoru", "to je h = 0°"]]}]},
+ {"id": "h-jih", "kap": "k7", "pri": "jadro", "vysv": "Na jižní polokouli je léto 21. 12. – tam se 23,5° přičítá v prosinci a odčítá v červnu.", "pomucka": "jižní polokoule má léto v prosinci", "var": [{"t": "Výška Slunce v poledne 21. 12. na 40° j. š.?", "ok": "73,5°", "s": [["26,5°", "na jižní polokouli je 21. 12. léto – přičítá se"], ["50°", "chybí + 23,5° za léto"], ["63,5°", "40 + 23,5 – chybí začátek 90° − φ"], ["113,5°", "chybí odečtení šířky od 90°"]]}, {"t": "Výška Slunce v poledne 21. 6. na 30° j. š.?", "ok": "36,5°", "s": [["83,5°", "na jižní polokouli je 21. 6. zima – odčítá se"], ["60°", "chybí − 23,5° za zimu"], ["53,5°", "30 + 23,5 – chybí začátek 90° − φ"], ["6,5°", "30 − 23,5 – chybí začátek 90° − φ"]]}]},
+ {"id": "h-kruh", "kap": "k7", "pri": "doplnek", "vysv": "Na polárním kruhu (66,5°) je 21. 12. Slunce v poledne přesně na obzoru: 90° − 66,5° − 23,5° = 0°.", "var": [{"t": "Výška Slunce v poledne 21. 12. na 66,5° s. š.?", "ok": "0°", "s": [["23,5°", "to je 90 − 66,5; ještě se odečte 23,5°"], ["47°", "to by bylo 21. 6."], ["−23,5°", "90 − 66,5 − 23,5 = 0"], ["66,5°", "to je šířka, ne výška Slunce"]]}, {"t": "Na které šířce je Slunce 21. 6. v poledne přesně nad hlavou (h = 90°)?", "ok": "23,5° s. š.", "s": [["0°", "nad rovníkem je kolmo o rovnodennostech"], ["23,5° j. š.", "tam je kolmo 21. 12."], ["66,5° s. š.", "polární kruh"], ["90° s. š.", "na pólu je 21. 6. Slunce jen 23,5° nad obzorem"]]}]},
+ {"id": "h-brno", "kap": "k7", "pri": "jadro", "vysv": "Brno, 49° s. š.: rovnodennost 41°, léto 64,5°, zima 17,5°.", "pomucka": "h = 90° − φ, pak v létě + 23,5°, v zimě − 23,5°, o rovnodennosti nic.", "var": [{"t": "Kdy se ve vzorci 23,5° přičítá?", "ok": "když je na dané polokouli léto", "s": [["když je na dané polokouli zima", "v zimě se odčítá"], ["o rovnodennosti", "tehdy je δ = 0°"], ["vždy na severní polokouli", "na severní polokouli jen 21. 6."], ["vždy na jižní polokouli", "na jižní polokouli jen 21. 12."]]}, {"t": "Brno leží na 49° s. š. Jak vysoko je tam Slunce v poledne 21. 6.?", "ok": "64,5°", "s": [["41°", "chybí + 23,5° za léto"], ["17,5°", "to je 21. 12."], ["72,5°", "49 + 23,5 – chybí začátek 90° − φ"], ["25,5°", "49 − 23,5 – chybí začátek 90° − φ"]]}]},
+ {"id": "c-delka", "kap": "k8", "pri": "jadro", "vysv": "Pro čas je důležitá jen zeměpisná délka (v. d. / z. d.). Šířka čas neovlivní.", "var": [{"t": "Který údaj potřebuješ k určení časového pásma?", "ok": "zeměpisnou délku", "s": [["zeměpisnou šířku", "šířka je pro výšku Slunce, ne pro čas"], ["deklinaci Slunce", "ta je ve vzorci pro výšku Slunce"], ["nadmořskou výšku", "ta s časem nesouvisí"], ["výšku Slunce nad obzorem", "ta s pásmem nesouvisí"]]}, {"t": "Místo má souřadnice 37° s. š., 21° v. d. Které číslo použiješ pro výpočet času?", "ok": "21° (délku)", "s": [["37° (šířku)", "šířka čas neovlivní"], ["součet 58°", "souřadnice se nesčítají"], ["rozdíl 16°", "souřadnice se neodčítají"], ["žádné z nich", "délka určuje pásmo"]]}]},
+ {"id": "c-pasmo", "kap": "k8", "pri": "jadro", "vysv": "Délku vydělím 15 a zaokrouhlím k nejbližšímu celému číslu. Východní délka +, západní −.", "pomucka": "délka : 15, zaokrouhlit → pásmo. Stejná strana: pásma odečti. Různé strany: sečti. Východ +, západ −.", "var": [{"t": "Ve kterém pásmu leží 113° v. d.?", "ok": "+8 h", "s": [["+7 h", "113 : 15 = 7,53 se zaokrouhlí nahoru; pásmo +7 končí na 112,5°"], ["−8 h", "minus je pro západní délku"], ["+9 h", "pásmo +9 začíná až na 127,5°"], ["+6 h", "pásmo +6 končí na 97,5°"]]}, {"t": "Ve kterém pásmu leží 74° z. d.?", "ok": "−5 h", "s": [["+5 h", "plus je pro východní délku"], ["−4 h", "74 : 15 = 4,9 se zaokrouhlí na 5; pásmo −4 končí na 67,5°"], ["−6 h", "pásmo −6 začíná až na 82,5°"], ["−7 h", "pásmo −7 je kolem 105° z. d."]]}]},
+ {"id": "c-hranice", "kap": "k8", "pri": "jadro", "vysv": "Pásmo sahá 7,5° na každou stranu od středního poledníku (0°, 15°, 30°…).", "pomucka": "střední poledník = číslo pásma · 15°", "var": [{"t": "Odkud kam sahá nulté pásmo?", "ok": "od 7,5° z. d. do 7,5° v. d.", "s": [["od 0° do 15° v. d.", "nultý poledník je uprostřed pásma, ne na kraji"], ["od 15° z. d. do 15° v. d.", "to by bylo široké 30°"], ["od 0° do 7,5° v. d.", "to je jen polovina pásma"], ["od 0° do 24° v. d.", "pásmo je široké 15°"]]}, {"t": "Který poledník je střední pro pásmo +4 h?", "ok": "60° v. d.", "s": [["45° v. d.", "to je pásmo +3"], ["4° v. d.", "číslo pásma se násobí 15"], ["75° v. d.", "to je pásmo +5"], ["60° z. d.", "to je pásmo −4"]]}]},
+ {"id": "c-rozdil", "kap": "k8", "pri": "jadro", "vysv": "Místa na stejné straně od 0°: pásma odečtu. Na různých stranách: sečtu.", "pomucka": "délka : 15, zaokrouhlit → pásmo. Stejná strana: pásma odečti. Různé strany: sečti. Východ +, západ −.", "var": [{"t": "Dvě místa leží na opačných stranách nultého poledníku. Jak zjistíš rozdíl hodin?", "ok": "čísla pásem sečtu", "s": [["čísla pásem odečtu", "odečítá se, když jsou obě na stejné straně"], ["čísla pásem vynásobím", "pásma se sčítají nebo odčítají"], ["součet pásem vydělím 15", "patnáctkou se dělí zeměpisná délka"], ["součet pásem vynásobím 4", "čtyřkou se násobí stupně u místního času"]]}, {"t": "Z pásma +2 do pásma +9. Jaký je rozdíl?", "ok": "7 hodin", "s": [["11 hodin", "obě jsou na východě – odčítá se"], ["9 hodin", "tolik je to od nultého poledníku"], ["2 hodiny", "tolik je od nultého poledníku první místo"], ["18 hodin", "pásma se nenásobí"]]}]},
+ {"id": "c-pr1", "kap": "k8", "pri": "jadro", "vysv": "Obě místa na východě: 9 − 1 = 8 h, B je východněji → přičítám.", "pomucka": "délka : 15, zaokrouhlit → pásmo. Stejná strana: pásma odečti. Různé strany: sečti. Východ +, západ −.", "var": [{"t": "V místě A (21° v. d.) je 13:30. Kolik hodin je v místě B (131° v. d.)?", "ok": "21:30", "s": [["5:30", "B je východněji – přičítá se"], ["20:30", "131 : 15 = 8,7 je pásmo +9, ne +8"], ["23:30", "obě jsou na východě: 9 − 1 = 8, ne 9 + 1"], ["22:30", "A je v pásmu +1, ne 0"]]}, {"t": "V místě A (21° v. d.) je 10:00. Kolik hodin je v místě B (93° v. d.)?", "ok": "15:00", "s": [["5:00", "B je východněji – přičítá se"], ["16:00", "A je v pásmu +1, ne 0"], ["17:00", "obě jsou na východě: 6 − 1 = 5, ne 6 + 1"], ["14:00", "93 : 15 = 6,2 je pásmo +6, ne +5"]]}]},
+ {"id": "c-pr2", "kap": "k8", "pri": "jadro", "vysv": "Různé strany: 1 + 5 = 6 h, jdu na západ → odčítám.", "pomucka": "délka : 15, zaokrouhlit → pásmo. Stejná strana: pásma odečti. Různé strany: sečti. Východ +, západ −.", "var": [{"t": "Na 18°25′ v. d. je 21:30. Kolik hodin je na 74°05′ z. d.?", "ok": "15:30", "s": [["17:30", "místa jsou na různých stranách: 1 + 5 = 6, ne 5 − 1"], ["3:30", "na západ se odčítá"], ["16:30", "první místo je v pásmu +1, ne 0"], ["14:30", "74 : 15 = 4,9 je pásmo −5, ne −6"]]}, {"t": "Na 15° v. d. je 12:00. Kolik hodin je na 75° z. d.?", "ok": "6:00", "s": [["8:00", "místa jsou na různých stranách: 1 + 5 = 6, ne 5 − 1"], ["18:00", "na západ se odčítá"], ["7:00", "15° v. d. je pásmo +1, ne 0"], ["17:00", "na západ se odčítá a rozdíl je 6 h"]]}]},
+ {"id": "c-pr3", "kap": "k8", "pri": "jadro", "vysv": "Různé strany: 9 + 8 = 17 h, jdu na západ → odčítám. 22 − 17 = 5.", "pomucka": "délka : 15, zaokrouhlit → pásmo. Stejná strana: pásma odečti. Různé strany: sečti. Východ +, západ −.", "var": [{"t": "Na 139°40′ v. d. je 22:20. Kolik hodin je na 118°15′ z. d.?", "ok": "5:20", "s": [["21:20", "místa jsou na různých stranách: 9 + 8 = 17, ne 9 − 8"], ["15:20", "na západ se odčítá (to by bylo + 17 h, další den)"], ["6:20", "118 : 15 = 7,9 je pásmo −8, ne −7"], ["4:20", "139,7 : 15 = 9,3 je pásmo +9, ne +10"]]}, {"t": "Jedno místo je v pásmu +9, druhé v pásmu −8. Jaký je mezi nimi rozdíl?", "ok": "17 hodin", "s": [["1 hodina", "na různých stranách se pásma sčítají"], ["72 hodin", "pásma se nenásobí"], ["9 hodin", "tolik je to jen k nultému poledníku"], ["8 hodin", "tolik je to jen od nultého poledníku na západ"]]}]},
+ {"id": "c-mistni", "kap": "k8", "pri": "jadro", "vysv": "Pásmový čas je místní čas středního poledníku. Místní čas má každý poledník svůj.", "var": [{"t": "Co je pásmový čas?", "ok": "místní čas středního poledníku pásma, platný v celém pásmu", "s": [["skutečný sluneční čas každého poledníku zvlášť", "místní čas"], ["čas v Greenwichi platný na celém světě", "každé pásmo má svůj čas"], ["čas určený podle fází Měsíce", "čas se řídí Sluncem"], ["doba otočení Země o 360°", "hvězdný den"]]}, {"t": "Kde se místní čas přesně rovná pásmovému?", "ok": "na středním poledníku pásma", "s": [["na hranici pásma", "tam se liší nejvíc – o 30 minut"], ["všude v pásmu", "místní čas se mění s každým stupněm"], ["jen na rovníku", "na šířce nezáleží"], ["nikde", "na středním poledníku jsou stejné"]]}]},
+ {"id": "c-m1", "kap": "k8", "pri": "jadro", "vysv": "Západně od středního poledníku je místní čas menší: stupně · 4 minuty odečtu.", "pomucka": "střední poledník = pásmo · 15°. Rozdíl ve stupních · 4 = minuty. Východně od něj +, západně −.", "var": [{"t": "Místo leží na 55° v. d. a má 13:00 pásmového času. Jaký je tam místní čas?", "ok": "12:40", "s": [["13:20", "55° je západně od středního poledníku 60° – odčítá se"], ["12:55", "5° · 4 = 20 minut, ne 5"], ["13:00", "to by platilo jen na 60° v. d."], ["11:45", "násobí se 4, ne 15"]]}, {"t": "Místo leží na 20° v. d. a má 10:00 pásmového času. Jaký je tam místní čas?", "ok": "10:20", "s": [["9:40", "20° je východně od středního poledníku 15° – přičítá se"], ["10:05", "5° · 4 = 20 minut, ne 5"], ["10:00", "to by platilo jen na 15° v. d."], ["11:20", "násobí se rozdíl 5°, ne celá délka 20°"]]}]},
+ {"id": "c-m2", "kap": "k8", "pri": "jadro", "vysv": "Na západní polokouli je menší číslo délky východněji. 41° z. d. je východně od 45° z. d. → přičítám.", "pomucka": "na západní délce: menší číslo = víc na východ", "var": [{"t": "Místo leží na 41° z. d. a má 6:00 pásmového času. Jaký je tam místní čas?", "ok": "6:16", "s": [["5:44", "41° z. d. je východně od 45° z. d. – přičítá se"], ["6:04", "4° · 4 = 16 minut"], ["8:44", "násobí se rozdíl 4°, ne celá délka 41°"], ["6:00", "to by platilo jen na 45° z. d."]]}, {"t": "Místo leží na 25° z. d. a má 9:11 pásmového času. Jaký je tam místní čas?", "ok": "9:31", "s": [["8:51", "25° z. d. je východně od 30° z. d. – přičítá se"], ["9:16", "5° · 4 = 20 minut, ne 5"], ["10:51", "násobí se rozdíl 5°, ne celá délka 25°"], ["9:11", "to by platilo jen na 30° z. d."]]}]},
+ {"id": "c-m3", "kap": "k8", "pri": "jadro", "vysv": "Místní čas se od pásmového liší nejvýš o 30 minut (7,5° · 4 min).", "pomucka": "střední poledník = pásmo · 15°. Rozdíl ve stupních · 4 = minuty. Východně od něj +, západně −.", "var": [{"t": "Místo leží na 111° v. d. a má 18:11 pásmového času. Jaký je tam místní čas?", "ok": "18:35", "s": [["17:47", "111° je východně od středního poledníku 105° – přičítá se"], ["18:17", "6° · 4 = 24 minut, ne 6"], ["18:15", "rozdíl je 6°, ne 1°"], ["18:11", "to by platilo jen na 105° v. d."]]}, {"t": "O kolik nejvíc se může místní čas lišit od pásmového?", "ok": "o 30 minut", "s": [["o 1 hodinu", "to je rozdíl mezi dvěma sousedními pásmy"], ["o 15 minut", "hranice pásma je 7,5° od středu: 7,5 · 4 = 30"], ["o 4 minuty", "to je rozdíl na 1°"], ["o 12 hodin", "to je rozdíl přes půl zeměkoule"]]}]}
+  ]
+};
+/* ===================== KONEC KONFIGURACE ===================== */
+
+"use strict";
+/* ---------- nastavení metody (stejné pro všechna Rychloučení) ---------- */
+const NAST = { maxPrace: 8, spatneZa: 3, spravneZa: 6, naucenoPo: 2, ranoMin: 10, ranoOtazek: 30,
+  pauzaMin: 25, naRanoMin: 60, odhadS: 14, zamekMs: 400, necinnostS: 120 };
+
+/* =====================================================================
+   PLÁNOVAČ – čisté funkce bez DOM (stav + odpověď → nový stav a další otázka)
+   F = [{ id, nVar, kap }] v pořadí, ve kterém se nová fakta přidávají
+   ===================================================================== */
+const Planovac = (function () {
+  const kopie = o => JSON.parse(JSON.stringify(o));
+  function rnd(stav) {                        // mulberry32 se stavem v objektu (deterministické)
+    let t = (stav.seed = (stav.seed + 0x6D2B79F5) >>> 0);
+    t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  function zamichej(stav, a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd(stav) * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function novaFronta(ids, potreba) { return { potreba, nove: ids.slice(), prace: {}, posledni: null }; }
+  function novy(F, seed) {
+    const stav = { seed: (seed >>> 0) || 1, n: 0, rezim: "uceni", fakta: {}, fronta: null, uceni: null, zaver: null };
+    F.forEach(f => { stav.fakta[f.id] = { spatne: 0, spravne: 0, napoprve: null, naucen: false, vybrala: [], varPosl: Array(f.nVar).fill(-1), varMinule: -1 }; });
+    stav.fronta = novaFronta(F.map(f => f.id), NAST.naucenoPo);
+    return stav;
+  }
+  function vyberVariantu(fs) {
+    let best = -1;
+    fs.varPosl.forEach((p, i) => { if (i === fs.varMinule && fs.varPosl.length > 1) return; if (best < 0 || p < fs.varPosl[best]) best = i; });
+    return best < 0 ? 0 : best;
+  }
+  // další fakt z fronty (null = fronta je hotová)
+  function zFronty(stav, vypln) {
+    const fr = stav.fronta, q = stav.n, ids = Object.keys(fr.prace);
+    const jine = ids.filter(id => id !== fr.posledni);
+    if (!fr.nove.length && ids.length === 1) {   // poslední zbývající fakt: mezi opakování výplň z naučených (po chybě 2, jinak 1)
+      const nauc = vypln ? Object.keys(stav.fakta).filter(id => stav.fakta[id].naucen && id !== fr.posledni) : [];
+      const w = fr.prace[ids[0]], odstup = w.posl < 0 ? 0 : w.streak === 0 ? 2 : 1;
+      if (q - w.posl - 1 < odstup && nauc.length) {
+        nauc.sort((a, b) => stav.fakta[b].spatne - stav.fakta[a].spatne || Math.max(...stav.fakta[a].varPosl) - Math.max(...stav.fakta[b].varPosl));
+        return { vypln: nauc[0] };
+      }
+      return ids[0];
+    }
+    const poradi = (a, b) => fr.prace[a].due - fr.prace[b].due || fr.prace[b].streak - fr.prace[a].streak || ids.indexOf(a) - ids.indexOf(b);
+    // závěr fronty (nic nového, v práci ≤ 3): přednost má fakt, kterému chybí jen jedna správná odpověď
+    if (!fr.nove.length && ids.length <= 3) {
+      const skoro = jine.filter(id => fr.prace[id].streak >= 1 && fr.prace[id].streak < fr.potreba);
+      if (skoro.length) return skoro.sort(poradi)[0];
+    }
+    const naRade = jine.filter(id => fr.prace[id].due <= q).sort(poradi);
+    if (naRade.length) return naRade[0];
+    if (ids.length < NAST.maxPrace && fr.nove.length) {
+      const id = fr.nove.shift(); fr.prace[id] = { due: q, streak: 0, posl: -1 }; return id;
+    }
+    // nic není na řadě a nový fakt přidat nejde: nejbližší fakt i dřív; právě zchybovaný fakt (méně než 2 otázky
+    // od chyby) jen tehdy, když jiný není
+    if (jine.length) {
+      const s = jine.sort(poradi), ok = s.filter(id => !(fr.prace[id].streak === 0 && fr.prace[id].posl >= 0 && q - fr.prace[id].posl - 1 < 2));
+      return (ok.length ? ok : s)[0];
+    }
+    if (ids.length) return ids[0];
+    return null;
+  }
+  function dalsi(stav0, F) {
+    const stav = kopie(stav0);
+    let id = null;
+    if (stav.rezim === "uceni" || stav.rezim === "rano") {
+      id = zFronty(stav, stav.rezim === "uceni");
+      if (id && id.vypln) {
+        const v = vyberVariantu(stav.fakta[id.vypln]);
+        return { stav, otazka: { id: id.vypln, v, poradi: stav.n + 1, rezim: stav.rezim, vypln: true } };
+      }
+      if (id === null && stav.rezim === "uceni") {
+        const chybna = F.filter(f => stav.fakta[f.id].spatne > 0).map(f => f.id);
+        stav.rezim = chybna.length ? "zaver" : "hotovo";
+        stav.zaver = { seznam: zamichej(stav, chybna), i: 0 };
+      }
+    }
+    if (stav.rezim === "zaver") {
+      if (stav.zaver.i < stav.zaver.seznam.length) id = stav.zaver.seznam[stav.zaver.i];
+      else stav.rezim = "hotovo";
+    }
+    if (id === null) return { stav, otazka: null };
+    const v = vyberVariantu(stav.fakta[id]);
+    return { stav, otazka: { id, v, poradi: stav.n + 1, rezim: stav.rezim } };
+  }
+  // odpověď na otázku { id, v } → nový stav; naucen = true, když se tím fakt naučil
+  function odpoved(stav0, F, ot, spravne) {
+    const stav = kopie(stav0), fs = stav.fakta[ot.id], q = stav.n;
+    let naucen = false;
+    fs.varPosl[ot.v] = q; fs.varMinule = ot.v;
+    if (fs.napoprve === null) fs.napoprve = !!spravne;
+    if (spravne) fs.spravne++; else fs.spatne++;
+    if (stav.rezim === "zaver") stav.zaver.i++;
+    else if (ot.vypln) stav.fronta.posledni = ot.id;    // výplň: jen statistika, naučený zůstává
+    else {
+      const fr = stav.fronta, w = fr.prace[ot.id];
+      if (w) {
+        const mezi = w.posl < 0 || q - w.posl >= 2 || (Object.keys(fr.prace).length === 1 && !fr.nove.length);
+        if (spravne) { w.streak = w.posl >= 0 && !mezi ? w.streak : w.streak + 1; w.due = q + NAST.spravneZa; }
+        else { w.streak = 0; w.due = q + NAST.spatneZa; }
+        w.posl = q;
+        if (w.streak >= fr.potreba) {
+          delete fr.prace[ot.id];
+          if (stav.rezim === "uceni") { fs.naucen = true; naucen = true; }
+        }
+      }
+      fr.posledni = ot.id;
+    }
+    stav.n = q + 1;
+    return { stav, naucen };
+  }
+  function krok(stav, F, ot, spravne) {
+    const o = odpoved(stav, F, ot, spravne), d = dalsi(o.stav, F);
+    return { stav: d.stav, otazka: d.otazka, naucen: o.naucen };
+  }
+  // ranní opakování: nejslabší fakta (nejvíc chyb, pak nejméně správných); bez historie kostra a pak náhodně
+  function rano(stav0, F, kostraIds) {
+    const stav = kopie(stav0);
+    if (stav.rezim !== "rano") stav.uceni = { rezim: stav.rezim, fronta: stav.fronta, zaver: stav.zaver };
+    const odp = F.some(f => stav.fakta[f.id].spatne + stav.fakta[f.id].spravne > 0);
+    let ids;
+    if (odp) ids = F.map((f, i) => [f.id, i]).sort((a, b) => {
+      const x = stav.fakta[a[0]], y = stav.fakta[b[0]];
+      return y.spatne - x.spatne || x.spravne - y.spravne || a[1] - b[1];
+    }).map(a => a[0]);
+    else ids = [...F.filter(f => kostraIds.includes(f.id)).map(f => f.id), ...zamichej(stav, F.filter(f => !kostraIds.includes(f.id)).map(f => f.id))];
+    stav.rezim = "rano"; stav.fronta = novaFronta(ids, 1); stav.zaver = null;
+    return stav;
+  }
+  function konecRano(stav0) {
+    const stav = kopie(stav0);
+    if (stav.rezim === "rano" && stav.uceni) { stav.rezim = stav.uceni.rezim; stav.fronta = stav.uceni.fronta; stav.zaver = stav.uceni.zaver; }
+    stav.uceni = null;
+    return stav;
+  }
+  return Object.freeze({ novy, dalsi, odpoved, krok, rano, konecRano, vyberVariantu });
+})();
+
+/* =====================================================================
+   STRÁNKA
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const CESTA = location.pathname.replace(/^.*\/annschool\//, "").replace(/^\//, "") || "rychlouceni.html";
+const KLIC = "annschool:rychlouceni:" + CESTA;
+const KAP = Object.fromEntries(RYCHLO.kapitoly.map((k, i) => [k.id, Object.assign({ i }, k)]));
+const KOSTRA = RYCHLO.fakta.filter(f => KAP[f.kap] && KAP[f.kap].kostra).map(f => f.id);
+const FAKT = Object.fromEntries(RYCHLO.fakta.map(f => [f.id, f]));
+// pořadí přidávání nových faktů: nejdřív jadro, pak doplnek; v každé skupině kapitoly v pořadí, pak pořadí v konfiguraci
+const F = RYCHLO.fakta.map((f, i) => ({ id: f.id, nVar: f.var.length, kap: f.kap, pri: f.pri, i }))
+  .sort((a, b) => (a.pri === "doplnek") - (b.pri === "doplnek") || KAP[a.kap].i - KAP[b.kap].i || a.i - b.i);
+
+/* v22 šablony testu: dlouhý stisk nic neoznačuje (na stránce nejsou pole) */
+document.addEventListener("selectstart", e => e.preventDefault());
+document.addEventListener("contextmenu", e => e.preventDefault());
+
+let S = null;            // uložený stav: { planovac, cas, ulozeno, prevzato }
+let OT = null;           // aktuální otázka { id, v, poradi, rezim, moznosti: [texty], odkryto, zobrazeno }
+let zodpovezeno = null;  // { spravne, vybrala, nevim, cas }
+let zamekDo = 0, prevzato = "";
+
+function seedNahodny() { return (Math.random() * 4294967296) >>> 0; }
+function novyStav() { return { planovac: Planovac.novy(F, seedNahodny()), cas: { uceni_s: 0, rano_s: 0, rano_otazek: 0, pauza: false, naRano: false }, ulozeno: 0, otazka: null }; }
+function nactiStav() {
+  let raw = null;
+  try { raw = localStorage.getItem(KLIC); } catch (e) { raw = null; }
+  if (raw) { try { const s = JSON.parse(raw); if (s && s.planovac) return doplnFakta(s); } catch (e) { /* poškozené → znovu */ } }
+  // nová verze stránky: převzít stav z nejvyšší starší verze (fakta podle id)
+  const st = window.Sledovani && Sledovani.zPredchoziVerze ? Sledovani.zPredchoziVerze("annschool:rychlouceni:") : null;
+  if (st && st.data) {
+    try {
+      const s = JSON.parse(st.data);
+      if (s && s.planovac) { prevzato = st.verze; return prevzit(s); }
+    } catch (e) { /* nic */ }
+  }
+  return null;
+}
+// starý stav → nová konfigurace: statistiky podle id, neznámá fakta pryč, nová fakta jako nová, fronta znovu
+function prevzit(s) {
+  const n = novyStav(), p = n.planovac, st = s.planovac;
+  p.n = st.n || 0;
+  F.forEach(f => {
+    const o = st.fakta && st.fakta[f.id];
+    if (!o) return;
+    const fs = p.fakta[f.id];
+    ["spatne", "spravne", "napoprve", "naucen"].forEach(k => { if (k in o) fs[k] = o[k]; });
+    fs.vybrala = Array.isArray(o.vybrala) ? o.vybrala.slice(-20) : [];
+    fs.varPosl = Array(f.nVar).fill(-1).map((x, i) => (o.varPosl && o.varPosl[i] !== undefined ? o.varPosl[i] : -1));
+    fs.varMinule = typeof o.varMinule === "number" && o.varMinule < f.nVar ? o.varMinule : -1;
+  });
+  const vPraci = st.fronta && st.rezim === "uceni" ? Object.keys(st.fronta.prace || {}).filter(id => FAKT[id]) : [];
+  p.fronta.nove = F.map(f => f.id).filter(id => !p.fakta[id].naucen && !vPraci.includes(id));
+  vPraci.forEach(id => { if (!p.fakta[id].naucen) p.fronta.prace[id] = Object.assign({ due: p.n, streak: 0, posl: -1 }, st.fronta.prace[id], { due: p.n }); });
+  p.rezim = "uceni";
+  n.cas = Object.assign(n.cas, s.cas || {});
+  return n;
+}
+function doplnFakta(s) {           // stav uložený touto verzí – jen pro jistotu doplnit chybějící fakta
+  const p = s.planovac;
+  F.forEach(f => { if (!p.fakta[f.id]) { p.fakta[f.id] = Planovac.novy([f], 1).fakta[f.id]; if (p.fronta && p.rezim === "uceni") p.fronta.nove.push(f.id); } });
+  s.cas = Object.assign({ uceni_s: 0, rano_s: 0, rano_otazek: 0, pauza: false, naRano: false }, s.cas || {});
+  return s;
+}
+function uloz() {
+  if (!S) return;
+  S.ulozeno = Date.now();
+  S.otazka = OT && !zodpovezeno ? { id: OT.id, v: OT.v, poradi: OT.poradi, rezim: OT.rezim, vypln: OT.vypln, moznosti: OT.moznosti, odkryto: OT.odkryto } : null;
+  try { localStorage.setItem(KLIC, JSON.stringify(S)); } catch (e) { /* plné úložiště / soukromé okno – stav zůstane v paměti */ }
+}
+function smazStav() { try { localStorage.removeItem(KLIC); } catch (e) { /* nic */ } }
+
+/* ---------- pomocné ---------- */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function zamichej(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function pocetNaucenych(p) { return F.filter(f => p.fakta[f.id].naucen).length; }
+function statistika(p) {
+  let odp = 0, nap = 0, napOk = 0;
+  F.forEach(f => { const x = p.fakta[f.id]; odp += x.spatne + x.spravne; if (x.napoprve !== null) { nap++; if (x.napoprve) napOk++; } });
+  return { odpovedi: odp, spravne_napoprve_pct: nap ? Math.round(napOk / nap * 100) : null };
+}
+// odhad zbývajícího času učení (min): potřebné správné odpovědi / úspěšnost + závěrečné kolo, × tempo
+function odhadMin(p) {
+  let ok = 0, vse = 0;
+  F.forEach(f => { const x = p.fakta[f.id]; ok += x.spravne; vse += x.spatne + x.spravne; });
+  const usp = Math.min(.95, Math.max(.3, vse >= 5 ? ok / vse : .7));
+  const tempo = vse >= 5 && S.cas.uceni_s > 0 ? Math.min(40, Math.max(6, S.cas.uceni_s / vse)) : NAST.odhadS;
+  let otazek = 0;
+  if (p.rezim === "uceni") {
+    const fr = p.fronta;
+    F.forEach(f => { if (p.fakta[f.id].naucen) return; const w = fr.prace[f.id]; otazek += (NAST.naucenoPo - (w ? w.streak : 0)) / usp; });
+    const chybne = F.filter(f => p.fakta[f.id].spatne > 0).length, zbyva = F.filter(f => !p.fakta[f.id].naucen && !p.fakta[f.id].spatne).length;
+    otazek += chybne + zbyva * (1 - usp);
+  } else if (p.rezim === "zaver") otazek = p.zaver.seznam.length - p.zaver.i;
+  return Math.max(0, Math.round(otazek * tempo / 60));
+}
+function souhrnDetail() {
+  const p = S.planovac, st = statistika(p);
+  return Object.assign({ rezim: p.rezim, nauceno: pocetNaucenych(p), faktu: F.length, uceni_s: Math.round(S.cas.uceni_s), rano_s: Math.round(S.cas.rano_s) }, st, {
+    fakta: F.filter(f => p.fakta[f.id].spatne + p.fakta[f.id].spravne > 0).map(f => {
+      const x = p.fakta[f.id];
+      return { id: f.id, kap: f.kap, spatne: x.spatne, spravne: x.spravne, napoprve: x.napoprve, naucen: x.naucen, vybrala: x.vybrala.slice(-6) };
+    })
+  });
+}
+let posledniSouhrn = "";
+function posliSouhrn(vynutit) {
+  if (!S || !window.Sledovani) return;
+  const d = souhrnDetail(), podpis = JSON.stringify([d.odpovedi, d.nauceno, d.rezim]);
+  if (!vynutit && podpis === posledniSouhrn) return;
+  posledniSouhrn = podpis;
+  Sledovani.udalost("rychlo_souhrn", "souhrn", d);
+}
+function udalost(u, sekce, detail) { if (window.Sledovani) Sledovani.udalost(u, sekce, detail); }
+function oblast(k) { if (window.Sledovani) Sledovani.oblast(k); }
+function toast(t) {
+  const el = document.createElement("div"); el.id = "toast"; el.textContent = t; document.body.appendChild(el);
+  setTimeout(() => el.classList.add("pryc"), 3500); setTimeout(() => el.remove(), 4300);
+}
+// dialog místo confirm() (blokující okna prohlížeče nepoužívat)
+function dialog(text, tlacitka) {
+  $("dText").textContent = text; const box = $("dTlacitka"); box.innerHTML = "";
+  tlacitka.forEach(([popis, fn, hl]) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (hl ? " hl" : ""); b.textContent = popis;
+    b.onclick = () => { $("dialog").hidden = true; if (fn) fn(); }; box.appendChild(b);
+  });
+  $("dialog").hidden = false;
+}
+// v02: časová osa – kolečko za každý fakt v pořadí konfigurace (kapitoly)
+function vykresliOsu() {
+  const osa = $("osa"), p = S && S.planovac;
+  if (osa.children.length !== RYCHLO.fakta.length) osa.innerHTML = RYCHLO.fakta.map(() => "<i></i>").join("");
+  RYCHLO.fakta.forEach((f, i) => {
+    const x = p && p.fakta[f.id], w = p && p.fronta && p.fronta.prace[f.id];
+    const cls = !x ? "" : x.naucen && !(p.rezim === "rano" && w && w.streak === 0 && w.posl >= 0) ? "nauceno"
+      : w && w.streak === 0 && w.posl >= 0 ? "chyba" : (w || x.spatne + x.spravne > 0) ? "prace" : "";
+    osa.children[i].className = cls + (OT && OT.id === f.id ? " ted" : "");
+  });
+}
+function ukaz(sc) { vykresliOsu(); ["scUvod", "scOtazka", "scMezi"].forEach(x => { $(x).hidden = x !== sc; }); window.scrollTo(0, 0); }
+
+/* ---------- úvod ---------- */
+function uvod() {
+  OT = null; zodpovezeno = null; oblast("Úvod"); ukaz("scUvod");
+  $("uvodNadpis").textContent = RYCHLO.title;
+  $("uvodText").innerHTML = "<p>Učíš se tím, že odpovídáš: u každé otázky vyber jednu možnost, a když nevíš, klepni na „Nevím“ – nehádej.</p>" +
+    "<p>Po každé odpovědi hned uvidíš správnou odpověď a krátké vysvětlení.</p>" +
+    "<p>Co ještě neumíš, se ti vrací, dokud to dvakrát po sobě neodpovíš správně; ráno si nejslabší věci zopakuješ tlačítkem „Ranní opakování“.</p>";
+  const p = S && S.planovac, rozprac = p && p.n > 0;
+  $("btnZacit").hidden = !!rozprac;
+  $("btnPokracovat").hidden = !rozprac || p.rezim === "hotovo";
+  $("btnZnovu").hidden = !rozprac;
+  $("uvodStav").textContent = rozprac ? `Naučeno ${pocetNaucenych(p)} z ${F.length}` + (p.rezim === "rano" ? " · rozpracované ranní opakování" : p.rezim === "hotovo" ? " · hotovo" : p.rezim === "zaver" ? " · závěrečné kolo" : ` · zbývá asi ${odhadMin(p)} min`) : `${F.length} věcí k naučení, asi 45–60 minut.`;
+}
+function zacit(pokracovani) {
+  if (!S) S = novyStav();
+  udalost("rychlo_start", "start", { rezim: S.planovac.rezim, pokracovani: !!pokracovani, faktu: F.length, nauceno: pocetNaucenych(S.planovac), odpovedi: statistika(S.planovac).odpovedi, prevzato: prevzato || undefined });
+  dalsiOtazka(true);
+}
+function ranniOpakovani() {
+  if (!S) S = novyStav();
+  const ulozeny = S.planovac.n > 0;
+  S.planovac = Planovac.rano(S.planovac, F, KOSTRA);
+  S.cas.rano_s = 0; S.cas.rano_otazek = 0;
+  uloz();
+  udalost("rychlo_rano", "ranní opakování", { ulozeny, poradi: S.planovac.fronta.nove.slice(0, 30), faktu: F.length });
+  dalsiOtazka(true);
+}
+function zacitZnovu() {
+  dialog("Začít znovu? Všechno, co máš naučené, se tu smaže (výsledky zůstanou v přehledu).", [
+    ["Zrušit", null], ["Začít znovu", () => {
+      if (S) udalost("rychlo_reset", "reset", souhrnDetail());
+      smazStav(); S = novyStav(); uloz(); OT = null; zodpovezeno = null; uvod();
+    }, true]]);
+}
+
+/* ---------- otázka ---------- */
+function dalsiOtazka(obnovit) {
+  zodpovezeno = null;
+  const p = S.planovac;
+  // obnovení po reloadu uprostřed otázky
+  if (obnovit && S.otazka && FAKT[S.otazka.id] && S.otazka.rezim === p.rezim) {
+    OT = Object.assign({}, S.otazka, { zobrazeno: Date.now() }); vykresli(); return;
+  }
+  if (nabidkaCasu()) return;
+  const d = Planovac.dalsi(p, F);
+  const predRezim = p.rezim;
+  S.planovac = d.stav;
+  if (!d.otazka) { uloz(); konecRezimu(predRezim); return; }
+  if (predRezim === "uceni" && d.stav.rezim === "zaver" && !obnovit) { OT = null; uloz(); mezistrankaZaver(d.otazka); return; }
+  pripravOtazku(d.otazka);
+}
+function pripravOtazku(o) {
+  const f = FAKT[o.id], v = f.var[o.v];
+  OT = Object.assign({}, o, { moznosti: zamichej([v.ok, ...v.s.map(x => x[0])]), odkryto: !KAP[f.kap].kostra, zobrazeno: Date.now() });
+  uloz(); vykresli();
+}
+function vykresli() {
+  const f = FAKT[OT.id], v = f.var[OT.v], p = S.planovac, k = KAP[f.kap];
+  ukaz("scOtazka"); oblast(k.nazev);
+  $("oKap").textContent = k.nazev;
+  $("oRezim").textContent = p.rezim === "rano" ? "Ranní opakování" : p.rezim === "zaver" ? "Závěrečné kolo" : "";
+  const nauc = pocetNaucenych(p);
+  $("oStav").textContent = p.rezim === "rano" ? `otázka ${S.cas.rano_otazek + 1}` :
+    p.rezim === "zaver" ? `${p.zaver.i + 1} z ${p.zaver.seznam.length}` : `Naučeno ${nauc} z ${F.length} · zbývá asi ${odhadMin(p)} min`;
+  $("oLista").style.width = (p.rezim === "zaver" ? p.zaver.i / Math.max(1, p.zaver.seznam.length) : nauc / F.length) * 100 + "%";
+  $("oZadani").textContent = v.t;
+  $("vyhodnoceni").hidden = true;
+  const box = $("moznosti"); box.innerHTML = "";
+  OT.moznosti.forEach((m, i) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "moznost"; b.textContent = m; b.dataset.i = i;
+    b.onclick = () => odpovez(m, false); box.appendChild(b);
+  });
+  box.hidden = !OT.odkryto;
+  $("oVduchu").hidden = OT.odkryto;
+  $("btnUkazat").hidden = OT.odkryto;
+  $("btnNevim").hidden = false; $("btnNevim").disabled = false;
+}
+function odkryj() {
+  if (!OT || OT.odkryto) return;
+  OT.odkryto = true; OT.odkryto_s = Math.round((Date.now() - OT.zobrazeno) / 1000); uloz(); vykresli();
+}
+function vysvetliSpatnou(f, v, text) {
+  const x = v.s.find(s => s[0] === text); if (!x) return "";
+  const e = x[1], P = RYCHLO.pojmy;
+  if (P[e] !== undefined) return text === e ? `<b>${esc(e)}</b> = ${esc(P[e])}` : `„${esc(text)}“ – to je <b>${esc(e)}</b> = ${esc(P[e])}`;
+  return `„${esc(text)}“ – ${esc(e)}`;
+}
+function odpovez(text, nevim) {
+  if (!OT || zodpovezeno) return;
+  if (!OT.odkryto && !nevim) return;
+  const f = FAKT[OT.id], v = f.var[OT.v], spravne = !nevim && text === v.ok;
+  const doba = Math.round((Date.now() - OT.zobrazeno) / 1000);
+  zodpovezeno = { spravne, vybrala: nevim ? "nevím" : text, nevim, cas: Date.now() };
+  const p0 = S.planovac, rezim = p0.rezim;
+  const o = Planovac.odpoved(p0, F, OT, spravne);
+  S.planovac = o.stav;
+  const fs = S.planovac.fakta[OT.id];
+  if (!spravne) fs.vybrala = fs.vybrala.concat(nevim ? "nevím" : text).slice(-20);
+  if (rezim === "rano") S.cas.rano_otazek++;
+  uloz();
+  udalost("rychlo_odpoved", KAP[f.kap].nazev, { id: f.id, varianta: OT.v + 1, kapitola: f.kap, vybrala: zodpovezeno.vybrala, spravne, nevim,
+    doba_s: doba, poradi: OT.poradi, rezim, otazka: v.t, spravna: v.ok, odkryto_s: OT.odkryto_s });
+  if (o.naucen) udalost("rychlo_naucen", KAP[f.kap].nazev, { id: f.id, poradi: OT.poradi, spatne: fs.spatne, spravne: fs.spravne });
+  if (S.planovac.n % 10 === 0) posliSouhrn(false);
+  // vyhodnocení
+  document.querySelectorAll("#moznosti .moznost").forEach(b => {
+    b.disabled = true;
+    if (b.textContent === v.ok) b.classList.add("spravna");
+    else if (!nevim && b.textContent === text) b.classList.add("vybrana-spatne");
+    else b.classList.add("ztlumena");
+  });
+  $("moznosti").hidden = false; $("oVduchu").hidden = true; $("btnUkazat").hidden = true;
+  $("btnNevim").disabled = true;
+  const vy = $("vyhodnoceni");
+  vy.className = spravne ? "ok" : "bad";
+  $("vVerdikt").textContent = spravne ? (o.naucen ? "✓ Správně – naučeno!" : "✓ Správně") : nevim ? "✗ Nevím – teď se to nauč:" : "✗ Špatně";
+  $("vSpravna").innerHTML = "Správně: <b>" + esc(v.ok) + "</b>";
+  $("vVysv").textContent = f.vysv;
+  $("vPomucka").hidden = !f.pomucka; $("vPomucka").textContent = f.pomucka ? "Pomůcka: " + f.pomucka : "";
+  const volba = !spravne && !nevim ? vysvetliSpatnou(f, v, text) : "";
+  $("vVolba").hidden = !volba; $("vVolba").innerHTML = volba ? "Tvoje volba: " + volba : "";
+  vy.hidden = false;
+  vykresliOsu();
+  zamekDo = Date.now() + NAST.zamekMs;
+  // vyhodnocení i „Další“ musí být vidět
+  requestAnimationFrame(() => { const r = $("btnDalsi").getBoundingClientRect(), dole = $("osa").getBoundingClientRect().top; if (r.bottom > dole - 10) window.scrollBy(0, r.bottom - dole + 20); });
+}
+function dalsiKlik() {
+  if (!zodpovezeno || Date.now() < zamekDo) return;
+  const p = S.planovac;
+  if (p.rezim === "rano" && (S.cas.rano_otazek >= NAST.ranoOtazek || S.cas.rano_s >= NAST.ranoMin * 60) && !S.cas.ranoNabidnuto) {
+    S.cas.ranoNabidnuto = true; uloz();
+    dialog(`Ranní opakování: ${S.cas.rano_otazek} otázek za ${Math.round(S.cas.rano_s / 60)} min. Chceš pokračovat?`, [
+      ["Konec", () => { posliSouhrn(true); S.planovac = Planovac.konecRano(S.planovac); uloz(); uvod(); }],
+      ["Pokračovat", () => { S.cas.rano_otazek = 0; S.cas.rano_s = 0; S.cas.ranoNabidnuto = false; uloz(); dalsiOtazka(false); }, true]]);
+    return;
+  }
+  dalsiOtazka(false);
+}
+// pauza po 25 min, po 60 min „zbytek na ráno“ (jen při učení, mezi otázkami)
+function nabidkaCasu() {
+  const p = S.planovac;
+  if (p.rezim !== "uceni") return false;
+  if (!S.cas.naRano && S.cas.uceni_s >= NAST.naRanoMin * 60) {
+    S.cas.naRano = true; S.cas.pauza = true; uloz();
+    udalost("rychlo_souhrn", "nabídka na ráno", Object.assign(souhrnDetail(), { nabidka: "na_rano" }));
+    dialog(`Učíš se už hodinu (naučeno ${pocetNaucenych(p)} z ${F.length}). Zbytek nech na ráno – ráno klepni na „Ranní opakování“, nebo „Pokračovat“.`, [
+      ["Konec na dnes", () => uvod()], ["Ještě pokračovat", () => dalsiOtazka(false), true]]);
+    return true;
+  }
+  if (!S.cas.pauza && S.cas.uceni_s >= NAST.pauzaMin * 60) {
+    S.cas.pauza = true; uloz();
+    dialog(`Učíš se už ${NAST.pauzaMin} minut. Dej si krátkou pauzu (5 minut) – protáhni se, napij se. Pak pokračuj.`, [["Pokračovat", () => dalsiOtazka(false), true]]);
+    return true;
+  }
+  return false;
+}
+function mezistrankaZaver(prvni) {
+  ukaz("scMezi"); oblast("Závěrečné kolo");
+  const n = S.planovac.zaver.seznam.length;
+  $("mNadpis").textContent = "Všechno naučeno!";
+  $("mText").textContent = `Teď závěrečné kolo: ${n} ${n === 1 ? "otázka" : n < 5 ? "otázky" : "otázek"} z toho, co ti dělalo potíže – každá jednou, jinak položená.`;
+  $("mTabulka").innerHTML = "";
+  const t = $("mTlacitka"); t.innerHTML = "";
+  const b = document.createElement("button"); b.type = "button"; b.className = "btn hl"; b.id = "btnZaver"; b.textContent = "Spustit závěrečné kolo";
+  b.onclick = () => pripravOtazku(prvni); t.appendChild(b);
+  posliSouhrn(true);
+}
+function konecRezimu(rezim) {
+  if (rezim === "rano") {
+    posliSouhrn(true);
+    S.planovac = Planovac.konecRano(S.planovac); uloz();
+    ukaz("scMezi"); oblast("Souhrn");
+    $("mNadpis").textContent = "Ranní opakování hotové";
+    $("mText").textContent = "Všechno z ranního opakování jsi odpověděla správně. Hodně štěstí v testu!";
+    $("mTabulka").innerHTML = "";
+    tlacitkaSouhrnu();
+    return;
+  }
+  souhrn();
+}
+function souhrn() {
+  const p = S.planovac, st = statistika(p);
+  ukaz("scMezi"); oblast("Souhrn");
+  posliSouhrn(true);
+  $("mNadpis").textContent = "Hotovo!";
+  $("mText").textContent = `Naučeno ${pocetNaucenych(p)} z ${F.length}. Odpovědí ${st.odpovedi}, správně napoprvé ${st.spravne_napoprve_pct ?? 0} %, ` +
+    `čas asi ${Math.round(S.cas.uceni_s / 60)} min. Ráno si dej „Ranní opakování“.`;
+  const slabe = F.filter(f => p.fakta[f.id].spatne > 0).sort((a, b) => p.fakta[b.id].spatne - p.fakta[a.id].spatne).slice(0, 12);
+  $("mTabulka").innerHTML = slabe.length ? "<table class='slabe'><tr><th>Co ti dělalo potíže</th><th>chyb</th></tr>" +
+    slabe.map(f => `<tr><td>${esc(FAKT[f.id].var[0].t)}<br><span class="muted">${esc(FAKT[f.id].var[0].ok)}</span></td><td>${p.fakta[f.id].spatne}</td></tr>`).join("") + "</table>" : "";
+  tlacitkaSouhrnu();
+}
+function tlacitkaSouhrnu() {
+  const t = $("mTlacitka"); t.innerHTML = "";
+  [["Ranní opakování", ranniOpakovani, true], ["Úvod", uvod], ["Začít znovu", zacitZnovu]].forEach(([l, fn, hl]) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (hl ? " hl" : ""); b.textContent = l; b.onclick = fn; t.appendChild(b);
+  });
+}
+
+/* ---------- čas učení (jen viditelná stránka s otázkou, bez dlouhé nečinnosti) ---------- */
+let tik = Date.now(), posledniVstup = Date.now();
+["pointerdown", "keydown", "touchstart"].forEach(t => window.addEventListener(t, () => { posledniVstup = Date.now(); }, { passive: true, capture: true }));
+setInterval(() => {
+  const now = Date.now(), d = Math.min(now - tik, 5000) / 1000; tik = now;
+  if (!S || document.visibilityState !== "visible" || $("scOtazka").hidden || now - posledniVstup > NAST.necinnostS * 1000) return;
+  if (S.planovac.rezim === "rano") S.cas.rano_s += d; else S.cas.uceni_s += d;
+}, 1000);
+setInterval(() => { if (S && document.visibilityState === "visible") uloz(); }, 15000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { uloz(); posliSouhrn(false); } else tik = Date.now(); });
+window.addEventListener("pagehide", () => { uloz(); posliSouhrn(false); });
+
+/* ---------- ovládání ---------- */
+$("btnZacit").onclick = () => zacit(false);
+$("btnPokracovat").onclick = () => zacit(true);
+$("btnRano").onclick = ranniOpakovani;
+$("btnZnovu").onclick = zacitZnovu;
+$("btnUkazat").onclick = odkryj;
+$("btnNevim").onclick = () => { if (!OT || zodpovezeno) return; if (!OT.odkryto) { OT.odkryto = true; } odpovez("", true); };
+$("btnDalsi").onclick = dalsiKlik;
+$("btnUvod").onclick = () => { uloz(); uvod(); };
+$("btnHome").onclick = () => { uloz(); posliSouhrn(false); if (window.Zaznam) Zaznam.beacon(); location.href = "../index.html"; };
+
+/* ---------- jen pro čtení (kontrola) ---------- */
+window.Rychlouceni = Object.freeze({
+  stav: () => (S ? JSON.parse(JSON.stringify(S)) : null),
+  otazka: () => {
+    if (!OT) return null;
+    const f = FAKT[OT.id], v = f.var[OT.v];
+    return { id: OT.id, varianta: OT.v, rezim: OT.rezim, poradi: OT.poradi, text: v.t, moznosti: OT.moznosti.slice(), spravna: OT.moznosti.indexOf(v.ok),
+      spravnaText: v.ok, kostra: !!KAP[f.kap].kostra, odkryto: !!OT.odkryto, zodpovezeno: !!zodpovezeno };
+  },
+  planovac: Planovac,
+  poradiFaktu: () => F.map(f => Object.assign({}, f)),
+  nastaveni: Object.freeze(Object.assign({}, NAST))
+});
+
+S = nactiStav();
+if (S && prevzato) { uloz(); toast("Pokračuješ, kde jsi skončila ve starší verzi."); }
+uvod();
+</script>
+</body>
+</html>

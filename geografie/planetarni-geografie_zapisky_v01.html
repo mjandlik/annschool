@@ -1,0 +1,1515 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  ŠABLONA STRÁNKY S TEORIÍ – Ann School (system/Sablona_material_v04.html)
+  Pro studijní materiály (<tema>_material_vXX.html) a zápisky (<tema>_zapisky_vXX.html). Návod: system/Navod_material_vXX.md.
+  Měnit se smí JEN dva bloky: „HLAVIČKA STRÁNKY“ (title, data-typ) a „OBSAH STRÁNKY“. Zbytek kontroluje Kontrola_repo
+  proti šabloně (jako u testů).
+
+  Jak stránka funguje:
+  - Obsah je rozdělený na KAPITOLY (<section class="kapitola" data-kapitola="2. Název">). Na obrazovce je vždy jen
+    jedna kapitola, mezi kapitolami se přechází časovou osou dole (kolečko = kapitola, šipky ‹ ›, „Σ Souhrn“)
+    nebo tlačítkem „Další kapitola“ na konci kapitoly.
+  - Kapitola má SEKCE – každá část, kde je něco vysvětleno (definice, pravidlo, důkaz, postup). Konec každé sekce
+    označuje <div data-porozumeni="2. Název sekce"></div>; sledovani.js do něj vloží malá tlačítka Chápu / Nechápu.
+  - Do další kapitoly se smí, až když má každá sekce všech předchozích kapitol volbu Chápu, nebo Nechápu
+    (Nechápu také pustí dál). Zpět se smí vždy. Volbu jde změnit; druhé klepnutí ji zruší a pozdější kapitoly
+    se tím znovu zamknou. Kapitola bez tlačítek (class="kapitola priloha", např. opravy oproti sešitu) se nezamyká
+    a je v časové ose jako štítek vpravo.
+  - Barvy na časové ose: bílá = neotevřená, šedá = otevřená a nerozhodnutá, zelená = všechny sekce Chápu,
+    červená = všechny sekce rozhodnuté a aspoň jedna Nechápu, poloprůhledná = zamčená. Aktuální má silný okraj.
+  - PŘESKOČENÍ (v02, T02): dokud kapitola nemá u všech sekcí volbu, je na jejím konci „Přeskočit bez volby ›“
+    (s potvrzením na místě). Přeskočená kapitola pustí dál, i když v ní volby chybí; na časové ose má značku „›“,
+    pamatuje se v prohlížeči a do výsledků jde událost „preskoceni“ (kapitola, sekce bez volby).
+  - VYZKOUŠEJ SE (v02, T02): u každé sekce vedle Chápu / Nechápu tlačítko „Vyzkoušej se“. Pod ním se plynule
+    rozbalí pole, kam žák napíše, co si zapamatoval; látka sekce (vše kromě nadpisu h3) se přitom zakryje na místě
+    (výška stránky se nemění, nic neposkočí). „Ukázat látku / Skrýt látku“ ji odkryje a zakryje, „Hotovo“ pole
+    sbalí. Text se pamatuje v prohlížeči a do výsledků jde událost „vyzkousej“ (celý text, kolikrát a jak dlouho
+    byla látka odkrytá, kolik znaků bylo napsáno před prvním odkrytím) – při Hotovo, opuštění pole, po 20 s bez
+    psaní a při odchodu ze stránky, jen když se něco změnilo. Psaní neovlivní Chápu / Nechápu ani zamykání.
+    Látka sekce = vše mezi nadpisem a <div data-porozumeni>; za data-porozumeni v sekci nic nepatří.
+    v03 (04.11.2026): místo textového pole PAPÍR jako v testu (okno 320 px, papír 820 × 1200 px se v něm posouvá
+    prstem, na okraji papíru prst posouvá stránku; pero a myš píšou; Zpět, Smazat s potvrzením na místě, 3 barvy,
+    3 tloušťky, Guma). Text z klávesnice jen po „⌨ Psát textem“. Tahy se pamatují v prohlížeči (klíč
+    annschool:papir:<sekce>|<adresa>, při plném úložišti se mažou nejstarší papíry). Do výsledků jde v události
+    „vyzkousej“ i obrázek papíru (JPEG oříznutý na tahy, jen když se papír změnil), počet tahů a tahy před prvním odkrytím.
+  - VOLNÝ PŘECHOD (v04, 09.11.2026): když má stránka v bloku OBSAH <div class="uvod" data-prechod="volny">, Chápu / Nechápu
+    je jen označení – žádná kapitola se nezamyká, „Další kapitola“ jde vždy a „Přeskočit bez volby“ se neukazuje.
+    Bez data-prechod se stránka chová jako dřív (zamykání).
+  - Nová verze stránky převezme z nejvyšší starší verze volby, přeskočení, texty a otevřené kapitoly.
+  - Souhrn ukazuje stav všech sekcí; klepnutí na sekci skočí na ni.
+  - Sledování: oblast = název kapitoly (čas po kapitolách v přehledu), porozumění posílá sledovani.js.
+    Poslední otevřená kapitola a otevřené kapitoly se pamatují v prohlížeči; adresa #k3 otevře kapitolu 3.
+  - Verze v hlavičce se bere z názvu souboru (nemůže se rozejít), název z <title> (část před „ – “).
+  - Tisk: všechny kapitoly pod sebou, bez ovládání.
+-->
+<link rel="apple-touch-icon" href="../system/img/apple-touch-icon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<style>
+  :root { --bg:#fafaf7; --paper:#fff; --text:#1d1d1b; --muted:#6b6b66; --line:#dcdcd5; --accent:#2b5cab; --mark:#fff4c2;
+    --prakticky:#eef4fb; --st-zelena:#1f8a3c; --st-cervena:#b3261e; --st-seda:#a9a9a2; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:17px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif; }
+  header#panel { position:sticky; top:0; z-index:10; background:rgba(255,255,255,.97); border-bottom:1px solid var(--line);
+    padding:8px 16px; padding-top:calc(8px + env(safe-area-inset-top)); display:flex; gap:12px; align-items:center; }
+  header#panel .t { flex:1; min-width:0; font-weight:600; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  header#panel .t .kap { font-weight:400; color:var(--muted); }
+  header#panel a { font-size:14px; padding:4px 10px; border-radius:8px; border:1px solid var(--accent); color:var(--accent); text-decoration:none; background:#fff; white-space:nowrap; }
+  main { max-width:860px; margin:0 auto; padding:16px 16px calc(var(--tl-h, 56px) + 40px); }
+  h1 { font-size:26px; margin:8px 0 4px; }
+  .meta { color:var(--muted); font-size:14px; }
+  section.kapitola { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:4px 18px 14px; margin:14px 0; }
+  .js section.kapitola { display:none; }
+  .js section.kapitola.vidim { display:block; }
+  .js .uvod { display:none; } .js .uvod.vidim { display:block; }
+  h2 { font-size:21px; margin:14px 0 8px; }
+  h3 { font-size:17px; margin:18px 0 6px; color:var(--accent); }
+  .sekce { padding:2px 0 4px; scroll-margin-top:70px; }
+  .sekce + .sekce { border-top:1px dashed var(--line); margin-top:6px; }
+  .sekce.blik { animation: blik 1.4s ease-out 1; }
+  @keyframes blik { 0% { background:#fff4c2; } 100% { background:transparent; } }
+  .rule { background:var(--mark); border-radius:8px; padding:6px 12px; margin:8px 0; }
+  .prakticky { background:var(--prakticky); border-radius:8px; padding:6px 12px; margin:8px 0; }
+  .prakticky::before { content:"Na konkrétních číslech: "; font-weight:600; color:var(--accent); }
+  .ex { border-left:3px solid var(--line); padding:2px 0 2px 12px; margin:10px 0; }
+  .ex .lab { font-weight:600; }
+  .note { font-size:14px; color:var(--muted); }
+  .katex-display { overflow-x:auto; overflow-y:hidden; padding:2px 0; margin:.5em 0; }
+  .katex { font-size:1.08em; }
+  .siroke { overflow-x:auto; }
+  table.two { border-collapse:collapse; } table.two td { padding:2px 18px 2px 0; vertical-align:top; }
+  table.tab { border-collapse:collapse; margin:8px 0; } table.tab td, table.tab th { border:1px solid var(--line); padding:3px 10px; text-align:left; }
+  details { margin-top:6px; } summary { cursor:pointer; color:var(--accent); }
+  ul.fix li { margin:4px 0; }
+  svg { max-width:100%; height:auto; }
+  /* konec kapitoly: stav a přechod dál (malá tlačítka – Pouceni bod 18) */
+  .konec { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; margin:14px 0 2px;
+    padding-top:10px; border-top:1px solid var(--line); font-size:14px; color:var(--muted); }
+  .konec button, .sum-tab button.odkaz { font:inherit; font-size:14px; padding:4px 10px; border-radius:8px; border:1px solid var(--accent);
+    background:#fff; color:var(--accent); cursor:pointer; }
+  .konec button.dal:not(.zamceno) { background:var(--accent); color:#fff; }
+  .konec button.zamceno { opacity:.45; }
+  /* souhrn */
+  #souhrn { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:4px 18px 14px; margin:14px 0; }
+  .js #souhrn { display:none; } .js #souhrn.vidim { display:block; }
+  .sum-kap { margin:12px 0 4px; font-weight:600; }
+  .sum-tab { width:100%; border-collapse:collapse; font-size:15px; }
+  .sum-tab td { padding:3px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .sum-tab td.st { width:7.5em; white-space:nowrap; }
+  .sum-tab button.odkaz { border:0; padding:0; text-align:left; background:none; color:var(--text); }
+  .ok { color:var(--st-zelena); font-weight:600; } .ne { color:var(--st-cervena); font-weight:600; } .nic { color:var(--muted); }
+  /* hláška */
+  #hlaska { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--tl-h, 56px) + 12px); z-index:30; max-width:92vw;
+    background:#1d1d1b; color:#fff; font-size:14px; padding:7px 14px; border-radius:10px; opacity:0; pointer-events:none; transition:opacity .25s; }
+  #hlaska.vidim { opacity:.94; }
+  /* časová osa (jako v testech) */
+  #timeline { position:fixed; left:0; right:0; bottom:0; z-index:20; background:rgba(255,255,255,.97);
+    border-top:1px solid var(--line); padding:6px 8px; padding-bottom:calc(6px + env(safe-area-inset-bottom));
+    display:flex; align-items:center; gap:8px; }
+  #tlItems { flex:1 1 auto; min-width:0; display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; }
+  .tl-b { width:28px; height:28px; border-radius:50%; border:1.5px solid var(--line); background:#fff; color:var(--text);
+    font:600 12px/1 -apple-system,"Segoe UI",Roboto,sans-serif; cursor:pointer; padding:0; flex:0 0 auto; }
+  .tl-b.st-seda { background:var(--st-seda); border-color:var(--st-seda); color:#fff; }
+  .tl-b.st-zelena { background:var(--st-zelena); border-color:var(--st-zelena); color:#fff; }
+  .tl-b.st-cervena { background:var(--st-cervena); border-color:var(--st-cervena); color:#fff; }
+  .tl-b.zamceno { opacity:.35; border-style:dashed; }
+  .tl-b.cur { border:2.5px solid var(--text); opacity:1; }
+  .tl-b.stitek { width:auto; border-radius:14px; padding:0 10px; border-color:var(--accent); color:var(--accent); font-weight:500; }
+  .tl-b.stitek.cur { background:var(--accent); color:#fff; border-color:var(--text); }
+  .tl-nav { flex:0 0 auto; display:flex; gap:6px; }
+  .tl-nav button { width:34px; height:30px; border-radius:7px; border:1px solid var(--accent); background:#fff; color:var(--accent);
+    font:700 18px/1 -apple-system,"Segoe UI",Roboto,sans-serif; cursor:pointer; padding:0; }
+  .tl-nav button:disabled, .tl-nav button.zamceno { opacity:.35; }
+  .tl-b.presk { position:relative; }
+  .tl-b.presk::after { content:"›"; position:absolute; right:-6px; top:-7px; width:15px; height:15px; border-radius:50%;
+    background:var(--accent); color:#fff; font:700 11px/14px -apple-system,"Segoe UI",Roboto,sans-serif; text-align:center; }
+  .konec .potvrd { color:var(--text); }
+  .konec button.presk { border-color:var(--line); color:var(--muted); }
+  /* Vyzkoušej se (v02): pole pod Chápu / Nechápu, látka sekce se zakryje na místě (výška se nemění) */
+  .sekce .porozumeni { flex-wrap:wrap; }
+  .porozumeni button.vyz { border-color:var(--accent); color:var(--accent); }
+  .porozumeni button.vyz.on { background:var(--accent); color:#fff; }
+  .latka { position:relative; }
+  .latka.skryta > * { visibility:hidden; }
+  .latka.skryta::after { content:"Látka je skrytá – zkus si ji vybavit. Když nevíš, klepni dole na „Ukázat látku“.";
+    position:absolute; inset:0; display:flex; align-items:flex-start; justify-content:center; text-align:center;
+    padding:14px 12px; border:1.5px dashed var(--line); border-radius:8px; background:var(--bg); color:var(--muted); font-size:14px; }
+  main { overflow-anchor:none; }        /* prohlížeč nesmí při rozbalení pole posouvat stránku (scroll anchoring) */
+  .vyz-box { overflow:hidden; height:0; transition:height .4s ease-in-out; }
+  .vyz-box[hidden] { display:none; }
+  .vyz-in { padding:2px 0 8px; }
+  .vyz-papir { border:1px solid var(--line); border-radius:8px; background:#fff; overflow:hidden;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  .vp-bar { display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; padding:4px 6px; border-bottom:1px solid #ecece6; font-size:12px; color:#9a9a93; }
+  .vp-bar button { font:inherit; font-size:12px; padding:2px 7px; border-radius:6px; border:1px solid var(--line); background:#fff; color:var(--text); cursor:pointer; }
+  .vp-bar button.on { border-color:var(--text); }
+  .vp-bar .vp-barva { width:20px; height:20px; padding:0; border-radius:50%; border:3px solid transparent; background-clip:padding-box; }
+  .vp-bar .vp-barva.on { border-color:var(--text); }
+  .vp-bar .vp-tl { width:28px; height:22px; padding:0 5px; display:inline-flex; align-items:center; }
+  .vp-bar .vp-tl i { display:block; width:100%; background:var(--text); border-radius:3px; }
+  .vp-bar .vp-guma.on { background:var(--text); color:#fff; }
+  .vp-sep { width:1px; height:18px; background:var(--line); margin:0 2px; }
+  .vp-tip { flex:1 1 12em; margin-left:4px; }
+  .vp-view { height:320px; overflow:auto; overscroll-behavior:contain; touch-action:none; }
+  .vp-view canvas { display:block; background-color:#fff;
+    background-image:linear-gradient(#edf1f6 1px, transparent 1px), linear-gradient(90deg, #edf1f6 1px, transparent 1px);
+    background-size:24px 24px; }
+  .vyz-box textarea[hidden] { display:none; }
+  .vyz-box textarea { display:block; width:100%; margin-top:6px; min-height:4.6em; max-height:60vh; resize:none; overflow-y:auto;
+    font:16px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif; color:var(--text); background:#fff;
+    border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .vyz-box textarea:focus { outline:none; border-color:var(--accent); }
+  .vyz-lista { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px 8px; margin-top:6px; font-size:13px; color:var(--muted); }
+  .vyz-lista .info { margin-right:auto; }
+  @media (max-width:600px) { .vyz-lista .info { flex-basis:100%; min-height:1.6em; } }
+  .vyz-lista button { font:inherit; font-size:13px; line-height:1.2; padding:3px 10px; border-radius:12px; border:1px solid var(--accent);
+    background:#fff; color:var(--accent); cursor:pointer; }
+  .vyz-lista button.hotovo { background:var(--accent); color:#fff; }
+  @media (prefers-reduced-motion: reduce) { .vyz-box { transition:none; } }
+  @media print {
+    .vyz-box, .porozumeni button.vyz { display:none !important; }
+    .latka.skryta > * { visibility:visible; } .latka.skryta::after { display:none; }
+    #timeline, #hlaska, .konec, #souhrn, header#panel a { display:none !important; }
+    .js section.kapitola, .js .uvod { display:block !important; }
+    section.kapitola { break-before:page; border:0; }
+    main { padding-bottom:0; }
+  }
+</style>
+<!-- ===== HLAVIČKA STRÁNKY (měň jen title a data-typ) ===== -->
+<title>Planetární geografie – zápisky</title>
+<script src="../system/lib/zaznam.js"></script>
+<script src="../system/lib/sledovani.js" data-typ="zapisky"></script>
+<!-- ===== KONEC HLAVIČKY ===== -->
+</head>
+<body>
+<script>document.documentElement.classList.add("js");</script>
+<header id="panel"><span class="t" id="nazev">…</span><a href="../">Rozcestník</a></header>
+<main id="obsah">
+<!-- ===== OBSAH STRÁNKY =====
+  Pravidla (Navod_material kap. 3):
+  - nahoře <div class="uvod"> s <h1> a krátkým popisem (ukáže se nad první kapitolou);
+    <div class="uvod" data-prechod="volny"> = kapitoly se nezamykají, Chápu / Nechápu je jen označení (v04),
+  - každá kapitola: <section class="kapitola" data-kapitola="N. Název"> s <h2>N. Název</h2>,
+  - každá sekce: <div class="sekce"> … <div data-porozumeni="N. Název sekce"></div></div>; název začíná číslem kapitoly,
+    je jednoznačný a nemění se mezi verzemi (podle něj přehled spojuje volby),
+  - u každé definice nebo pravidla zapsaného značkami příklad na konkrétních číslech: <div class="prakticky">…</div>,
+  - řešené příklady patří do sekce, ke které se vztahují (bez vlastních tlačítek),
+  - opravy oproti sešitu do poslední kapitoly <section class="kapitola priloha" data-kapitola="Opravy oproti sešitu">,
+  - vzorce: LaTeX $…$ a $$…$$, pak node system/Vzorce_v01.js <soubor> (předem vyrenderuje KaTeX),
+  - vlastní styly stránky smí být v <style> uvnitř tohoto bloku.
+-->
+<style>
+  .obr { text-align:center; margin:12px 0 6px; }
+  .obr svg { width:100%; max-width:640px; }
+  .obr svg text { font:13px -apple-system, "Segoe UI", Roboto, sans-serif; fill:#1d1d1b; }
+  .obr svg text.m { fill:#6b6b66; font-size:12px; }
+  .obr svg text.b { font-weight:600; }
+  .obr svg text.a { fill:#2b5cab; font-weight:600; }
+  .pop { font-size:14px; color:#6b6b66; text-align:center; margin:0 0 10px; }
+  .povzbuzeni { border-left:3px solid #2b5cab; padding:2px 0 2px 12px; margin:10px 0; color:#2b5cab; }
+  table.tab th { background:#f1f1ec; }
+  details { margin:6px 0 10px; } summary { color:#2b5cab; cursor:pointer; font-size:15px; }
+  ol.kroky { margin:6px 0; padding-left:22px; } ol.kroky li { margin:3px 0; }
+</style>
+<div class="uvod" data-prechod="volny">
+<h1>Planetární geografie</h1>
+<div class="meta">Přepis sešitu od vesmíru až po časová pásma a výšku Slunce nad obzorem. Všechno je vysvětlené co nejjednodušeji, s obrázky a s příklady krok za krokem. Kapitoly můžeš procházet v libovolném pořadí.</div>
+<p class="povzbuzeni">Vypadá to jako hodně čísel, ale většina z nich má jednoduchou logiku. Počítání (kapitoly 9–11 těchto zápisků) stojí na třech větách: 15° = 1 hodina, 1° = 4 minuty a h = 90° − šířka ± 23,5°. To zvládneš.</p>
+</div>
+
+<section class="kapitola" data-kapitola="1. Vesmír a vzdálenosti">
+<h2>1. Vesmír a vzdálenosti</h2>
+
+<div class="sekce">
+<h3>Jak a kdy vznikl vesmír a Země</h3>
+<ul>
+<li><b>Vesmír</b> vznikl <b>velkým třeskem</b> asi před <b>13,8 miliardy let</b>. Od té doby se rozpíná.</li>
+<li><b>Země</b> vznikla asi před <b>4,6 miliardy let</b> (spolu se Sluncem a ostatními planetami). Kolem mladého Slunce obíhal prach a kameny, ty se <b>srážely a spojovaly</b> do větších těles, až z nich vznikly planety.</li>
+</ul>
+<p class="note">Pro představu: kdyby celý vesmír existoval jeden rok, Země by vznikla až začátkem září.</p>
+<div data-porozumeni="1. Vznik vesmíru a Země"></div>
+</div>
+
+<div class="sekce">
+<h3>Světelný rok (ly)</h3>
+<p>Ve vesmíru jsou vzdálenosti tak obrovské, že kilometry nestačí. Proto se používají větší jednotky.</p>
+<div class="rule"><b>Světelný rok</b> je <b>vzdálenost</b> (ne čas!), kterou světlo uletí za jeden rok. 1 ly ≈ <b>9,46 bilionu km</b>.</div>
+<p>Odkud se to číslo vezme? Světlo letí rychlostí asi <b>300 000 km za sekundu</b>. Stačí spočítat, kolik sekund má rok:</p>
+<div class="prakticky">300 000 km/s · 60 (sekund v minutě) · 60 (minut v hodině) · 24 (hodin za den) · 365,25 (dní v roce) ≈ 9 470 000 000 000 km. S přesnou rychlostí světla 299 792 km/s vyjde 9,46 bilionu km.</div>
+<p class="note">Typická chyba: světelný rok není jednotka času. Je to délka – stejně jako „hodina cesty autem“ říká, jak je něco daleko.</p>
+<div data-porozumeni="1. Světelný rok"></div>
+</div>
+
+<div class="sekce">
+<h3>Astronomická jednotka (AU)</h3>
+<div class="rule"><b>1 AU</b> je <b>průměrná vzdálenost Země od Slunce</b> = <b>149,6 milionu km</b>.</div>
+<div class="obr"><svg viewBox="0 0 640 150" role="img" aria-label="Slunce a Země ve vzdálenosti 1 AU">
+<defs><marker id="ar1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#1d1d1b"/></marker></defs>
+<circle cx="80" cy="80" r="42" fill="#f5c518"/><text x="80" y="85" text-anchor="middle" class="b">Slunce</text>
+<circle cx="565" cy="80" r="11" fill="#3b82c4"/><text x="565" y="112" text-anchor="middle">Země</text>
+<line x1="128" y1="80" x2="549" y2="80" stroke="#1d1d1b" stroke-width="1.5" marker-start="url(#ar1)" marker-end="url(#ar1)"/>
+<text x="338" y="68" text-anchor="middle" class="a">1 AU = 149,6 mil. km</text>
+<text x="338" y="100" text-anchor="middle" class="m">světlo tuhle cestu letí asi 8 minut 20 sekund</text>
+</svg></div>
+<p>AU se hodí pro vzdálenosti <b>uvnitř sluneční soustavy</b>.</p>
+<div class="prakticky">Země je od Slunce 1 AU, Uran asi 19 AU – tedy 19krát dál než Země.</div>
+<div data-porozumeni="1. Astronomická jednotka"></div>
+</div>
+
+<div class="sekce">
+<h3>Parsek (pc)</h3>
+<div class="rule"><b>Parsek</b> je vzdálenost, ze které je vidět úsečka dlouhá 1 AU pod úhlem <b>1″</b> (jedna úhlová vteřina). 1 pc ≈ <b>3,26 ly</b>.</div>
+<div class="obr"><svg viewBox="0 0 640 150" role="img" aria-label="Parsek: z dálky 1 pc je 1 AU vidět pod úhlem jedné vteřiny">
+<circle cx="60" cy="110" r="16" fill="#f5c518"/><text x="60" y="142" text-anchor="middle">Slunce</text>
+<circle cx="60" cy="40" r="6" fill="#3b82c4"/><text x="74" y="36">Země</text>
+<line x1="60" y1="94" x2="60" y2="46" stroke="#2b5cab" stroke-width="2"/><text x="22" y="74" class="a">1 AU</text>
+<line x1="76" y1="110" x2="600" y2="110" stroke="#1d1d1b" stroke-width="1.2"/>
+<line x1="66" y1="40" x2="600" y2="110" stroke="#1d1d1b" stroke-width="1.2"/>
+<circle cx="604" cy="110" r="4" fill="#1d1d1b"/>
+<text x="520" y="92" class="a">úhel 1″</text>
+<text x="340" y="130" text-anchor="middle" class="a">vzdálenost 1 pc = 3,26 ly</text>
+<text x="604" y="132" text-anchor="middle" class="m">hvězda</text>
+</svg></div>
+<p class="note">1″ je strašně malý úhel – asi jako když se díváš na korunovou minci ze vzdálenosti 4 km. Obrázek je proto hodně přehnaný. Parseky používají hlavně astronomové pro vzdálenosti hvězd.</p>
+<div class="prakticky">Nejbližší hvězda Proxima Centauri je 4,2 ly daleko. V parsecích: 4,2 : 3,26 ≈ 1,3 pc.</div>
+<table class="tab"><tr><th>jednotka</th><th>kolik to je</th><th>na co se hodí</th></tr>
+<tr><td>AU</td><td>149,6 mil. km</td><td>sluneční soustava</td></tr>
+<tr><td>světelný rok (ly)</td><td>9,46 bilionu km</td><td>hvězdy, galaxie</td></tr>
+<tr><td>parsek (pc)</td><td>3,26 ly</td><td>hvězdy, galaxie</td></tr></table>
+<div data-porozumeni="1. Parsek"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="2. Galaxie a vesmírná tělesa">
+<h2>2. Galaxie a vesmírná tělesa</h2>
+
+<div class="sekce">
+<h3>Co je galaxie</h3>
+<div class="rule"><b>Galaxie</b> je obrovský systém, který drží pohromadě <b>gravitace</b>. Tvoří ho hvězdy, zbytky hvězd, mezihvězdná hmota (plyn), kosmický prach a temná hmota.</div>
+<p>Jednoduše: galaxie je „město hvězd“. Hvězdy v ní neuletí pryč, protože se navzájem přitahují.</p>
+<div class="prakticky">Naše Galaxie drží pohromadě 100–400 miliard hvězd. Nejbližší velká sousední galaxie (v Andromedě) je 2,5 milionu ly daleko – mezi galaxiemi je skoro prázdno.</div>
+<div data-porozumeni="2. Galaxie"></div>
+</div>
+
+<div class="sekce">
+<h3>Naše Galaxie – Mléčná dráha</h3>
+<ul>
+<li>Naše galaxie se jmenuje <b>Mléčná dráha</b>; píše se také Galaxie s velkým G.</li>
+<li>Tvoří ji <b>100–400 miliard hvězd</b>. Jednou z nich je <b>Slunce</b>.</li>
+<li>Má tvar <b>spirály</b>: shora vypadá jako vír se spirálními rameny, z boku jako plochý disk s vypouklým středem.</li>
+<li>Průměr disku je asi <b>100 000 ly</b>. Slunce leží asi <b>28 000 ly od středu</b> – tedy ne uprostřed, ale zhruba v polovině cesty k okraji.</li>
+</ul>
+<div class="obr"><svg viewBox="0 0 640 230" role="img" aria-label="Mléčná dráha shora a z boku s vyznačeným Sluncem">
+<text x="165" y="18" text-anchor="middle" class="b">shora</text>
+<circle cx="165" cy="120" r="96" fill="#eef2fa"/><polyline points="177.0,120.0 178.3,121.2 179.4,122.6 180.4,124.2 181.1,126.1 181.6,128.1 181.9,130.2 181.9,132.4 181.5,134.7 180.9,137.1 179.9,139.5 178.6,141.8 176.9,144.1 174.9,146.2 172.6,148.2 170.0,150.0 167.1,151.6 163.9,152.9 160.5,153.9 156.9,154.6 153.1,154.9 149.1,154.9 145.1,154.4 141.0,153.5 137.0,152.2 132.9,150.5 129.0,148.3 125.3,145.6 121.8,142.6 118.5,139.1 115.5,135.3 113.0,131.1 110.8,126.5 109.0,121.7 107.8,116.6 107.1,111.3 106.9,105.8 107.3,100.3 108.3,94.7 109.9,89.1 112.1,83.5 115.0,78.1 118.5,72.9 122.5,68.0 127.1,63.3 132.3,59.1 138.0,55.2 144.2,51.9 150.8,49.1 157.7,46.9 165.0,45.3 172.5,44.3 180.2,44.1 188.1,44.6 195.9,45.8 203.7,47.8 211.4,50.5 218.9,53.9 226.2,58.1 233.0,63.0 239.4,68.6" fill="none" stroke="#9db4dd" stroke-width="9" stroke-linecap="round" opacity=".8"/><polyline points="153.0,120.0 151.7,118.8 150.6,117.4 149.6,115.8 148.9,113.9 148.4,111.9 148.1,109.8 148.1,107.6 148.5,105.3 149.1,102.9 150.1,100.5 151.4,98.2 153.1,95.9 155.1,93.8 157.4,91.8 160.0,90.0 162.9,88.4 166.1,87.1 169.5,86.1 173.1,85.4 176.9,85.1 180.9,85.1 184.9,85.6 189.0,86.5 193.0,87.8 197.1,89.5 201.0,91.7 204.7,94.4 208.2,97.4 211.5,100.9 214.5,104.7 217.0,108.9 219.2,113.5 221.0,118.3 222.2,123.4 222.9,128.7 223.1,134.2 222.7,139.7 221.7,145.3 220.1,150.9 217.9,156.5 215.0,161.9 211.5,167.1 207.5,172.0 202.9,176.7 197.7,180.9 192.0,184.8 185.8,188.1 179.2,190.9 172.3,193.1 165.0,194.7 157.5,195.7 149.8,195.9 141.9,195.4 134.1,194.2 126.3,192.2 118.6,189.5 111.1,186.1 103.8,181.9 97.0,177.0 90.6,171.4" fill="none" stroke="#9db4dd" stroke-width="9" stroke-linecap="round" opacity=".8"/>
+<circle cx="165" cy="120" r="13" fill="#f5c518"/>
+<circle cx="221" cy="120" r="4" fill="#d9480f"/><line x1="221" y1="120" x2="262" y2="62" stroke="#1d1d1b" stroke-width="1"/><text x="266" y="58">Slunce</text>
+<line x1="165" y1="120" x2="221" y2="120" stroke="#2b5cab" stroke-width="1.5"/><text x="193" y="140" text-anchor="middle" class="a" style="font-size:11px">28 000 ly</text>
+<text x="165" y="224" text-anchor="middle" class="m">průměr asi 100 000 ly</text>
+<text x="475" y="18" text-anchor="middle" class="b">z boku</text>
+<ellipse cx="475" cy="120" rx="140" ry="9" fill="#c9d6ee"/><ellipse cx="475" cy="120" rx="30" ry="20" fill="#f5c518"/>
+<circle cx="553" cy="120" r="4" fill="#d9480f"/><line x1="553" y1="116" x2="570" y2="80" stroke="#1d1d1b" stroke-width="1"/><text x="560" y="74">Slunce</text>
+<text x="475" y="165" text-anchor="middle" class="m">plochý disk, uprostřed vypouklý</text>
+</svg></div>
+<ul>
+<li><b>Nejbližší hvězda</b> (po Slunci): <b>Proxima Centauri</b>, 4,2 ly.</li>
+<li><b>Nejbližší velká galaxie</b>: <b>galaxie v Andromedě</b> (M31), asi <b>2,5 milionu ly</b>.</li>
+</ul>
+<div class="prakticky">Světlo z Proximy k nám letí 4,2 roku. Když se na ni díváš, vidíš ji takovou, jaká byla před 4,2 roku. Světlo z galaxie v Andromedě vyrazilo před 2,5 milionu let – to na Zemi ještě nežil člověk dnešního typu.</div>
+<p class="note">Za jasné noci mimo město je Mléčná dráha vidět jako světlý pás přes oblohu – díváme se totiž do disku naší Galaxie „zevnitř“.</p>
+<div data-porozumeni="2. Mléčná dráha"></div>
+</div>
+
+<div class="sekce">
+<h3>Malá vesmírná tělesa</h3>
+<table class="tab">
+<tr><th>těleso</th><th>co to je</th></tr>
+<tr><td><b>kometa</b></td><td>malé těleso z <b>ledu a prachu</b>; blízko Slunce se led vypařuje a vzniká ohon</td></tr>
+<tr><td><b>planetka</b> (asteroid)</td><td>malé <b>kamenné</b> těleso obíhající kolem hvězdy (Slunce)</td></tr>
+<tr><td><b>meteoroid</b></td><td>kamenné těleso <b>menší než planetka</b>, letí vesmírem</td></tr>
+<tr><td><b>meteor</b></td><td><b>světelný jev</b> při průletu tělesa atmosférou („padající hvězda“)</td></tr>
+<tr><td><b>meteorit</b></td><td>těleso, které <b>dopadlo až na zemský povrch</b></td></tr>
+</table>
+<div class="obr"><svg viewBox="0 0 640 210" role="img" aria-label="Meteoroid letí vesmírem, meteor svítí v atmosféře, meteorit leží na zemi">
+<rect x="0" y="0" width="640" height="210" fill="#fff"/>
+<path d="M0,150 Q320,110 640,150 L640,210 L0,210 Z" fill="#e8f1fb"/>
+<path d="M0,196 Q320,170 640,196 L640,210 L0,210 Z" fill="#b9d3a4"/>
+<text x="20" y="145" class="m">atmosféra</text><text x="20" y="20" class="m">vesmír</text>
+<path d="M95,40 l10,-6 l9,5 l2,9 l-8,7 l-10,-3 z" fill="#8a8275"/>
+<text x="125" y="40" class="b">meteoroid</text><text x="125" y="56" class="m">kámen letící vesmírem</text>
+<line x1="118" y1="56" x2="300" y2="120" stroke="#8a8275" stroke-width="1" stroke-dasharray="4 4"/>
+<line x1="300" y1="120" x2="455" y2="170" stroke="#f08c00" stroke-width="5" stroke-linecap="round"/>
+<line x1="300" y1="120" x2="455" y2="170" stroke="#ffe066" stroke-width="2" stroke-linecap="round"/>
+<text x="395" y="122" class="b">meteor</text><text x="395" y="138" class="m">světlo („padající hvězda“)</text>
+<path d="M500,186 l9,-5 l8,4 l2,7 l-19,1 z" fill="#5c5549"/>
+<text x="528" y="180" class="b">meteorit</text><text x="528" y="196" class="m">leží na zemi</text>
+</svg></div>
+<div class="rule">Pomůcka: meteor<b>oid</b> letí, mete<b>or</b> svítí, meteor<b>it</b> leží (dá se vzít do ruky).</div>
+<div class="prakticky">Každý rok kolem 12. srpna je na obloze vidět hodně meteorů najednou (roj Perseid) – i desítky za hodinu. Halleyova kometa se ke Slunci vrací jednou za 76 let.</div>
+<div data-porozumeni="2. Malá vesmírná tělesa"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="3. Sluneční soustava a Keplerovy zákony">
+<h2>3. Sluneční soustava a Keplerovy zákony</h2>
+
+<div class="sekce">
+<h3>Slunce a planety</h3>
+<ul>
+<li><b>Slunce</b> je hvězda. Má průměr necelých <b>1,4 milionu km</b> (na jeho průměr by se vedle sebe vešlo 109 Zemí).</li>
+<li>Tvoří <b>99,8 % hmotnosti</b> celé sluneční soustavy – všechny planety dohromady jsou jen 0,2 %.</li>
+<li>Složení: <b>92,1 % vodík (H)</b>, <b>7,8 % helium (He)</b> (podle počtu atomů).</li>
+<li>Kolem Slunce obíhá 8 planet. <b>První čtyři jsou kamenné</b> (Merkur, Venuše, Země, Mars), další čtyři jsou velké plynné (Jupiter, Saturn, Uran, Neptun).</li>
+</ul>
+<div class="prakticky">Kdyby celá sluneční soustava vážila 1 kg, Slunce by z toho bylo 998 g a všechno ostatní jen 2 g.</div>
+<div data-porozumeni="3. Slunce a planety"></div>
+</div>
+
+<div class="sekce">
+<h3>1. Keplerův zákon – tvar dráhy</h3>
+<div class="rule">Planety se pohybují po <b>elipsách</b>. Slunce je v jejich společném <b>ohnisku</b> (ne uprostřed!).</div>
+<p>Elipsa je „zmáčknutá kružnice“. Má dva zvláštní body – ohniska. V jednom z nich je Slunce, druhé je prázdné. Proto je planeta ke Slunci někdy blíž a někdy dál.</p>
+<div class="prakticky">Země je Slunci nejblíž začátkem ledna (147 mil. km) a nejdál začátkem července (152 mil. km). Rozdíl je malý – dráha Země je skoro kružnice.</div>
+<div data-porozumeni="3. První Keplerův zákon"></div>
+</div>
+
+<div class="sekce">
+<h3>2. Keplerův zákon – rychlost planety</h3>
+<div class="rule">Spojnice planety a Slunce opíše <b>za stejný čas stejně velkou plochu</b>. Když S₁ = S₂, pak t₁ = t₂.</div>
+<div class="obr"><svg viewBox="0 0 640 340" role="img" aria-label="Elipsa se Sluncem v ohnisku a dvěma stejně velkými plochami">
+<ellipse cx="330" cy="160" rx="210" ry="150" fill="#fbfbf8" stroke="#1d1d1b" stroke-width="1.5"/><path d="M183.0,160L164.5,252.3L160.3,248.4L156.3,244.3L152.5,240.2L148.9,235.9L145.4,231.6L142.2,227.2L139.2,222.7L136.4,218.1L133.8,213.5L131.4,208.8L129.3,204.1L127.3,199.3L125.6,194.5L124.1,189.6L122.9,184.8L121.8,179.8L121.0,174.9L120.5,169.9L120.1,165.0L120.0,160.0L120.1,155.0L120.5,150.1L121.0,145.1L121.8,140.2L122.9,135.2L124.1,130.4L125.6,125.5L127.3,120.7L129.3,115.9L131.4,111.2L133.8,106.5L136.4,101.9L139.2,97.3L142.2,92.8L145.4,88.4L148.9,84.1L152.5,79.8L156.3,75.7L160.3,71.6L164.5,67.7Z" fill="#f7c9b6" stroke="#1d1d1b" stroke-width="1"/><path d="M183.0,160L538.0,139.5L538.2,140.6L538.4,141.6L538.6,142.6L538.7,143.6L538.9,144.6L539.0,145.7L539.2,146.7L539.3,147.7L539.4,148.7L539.5,149.7L539.6,150.8L539.7,151.8L539.8,152.8L539.8,153.8L539.9,154.9L539.9,155.9L540.0,156.9L540.0,157.9L540.0,159.0L540.0,160.0L540.0,161.0L540.0,162.1L540.0,163.1L539.9,164.1L539.9,165.1L539.8,166.2L539.8,167.2L539.7,168.2L539.6,169.2L539.5,170.3L539.4,171.3L539.3,172.3L539.2,173.3L539.0,174.3L538.9,175.4L538.7,176.4L538.6,177.4L538.4,178.4L538.2,179.4L538.0,180.5Z" fill="#c9d9f2" stroke="#1d1d1b" stroke-width="1"/><circle cx="183.0" cy="160" r="15" fill="#f5c518"/><text x="197.0" y="192" class="b">Slunce</text><circle cx="477.0" cy="160" r="2.5" fill="#9a9a92"/><text x="477.0" y="186" text-anchor="middle" class="m">druhé ohnisko (prázdné)</text><text x="141.0" y="165" class="b" style="fill:#d9480f">S₁</text><text x="480" y="138" class="a">S₂</text><circle cx="164.5" cy="252.3" r="5" fill="#3b82c4"/><circle cx="164.5" cy="67.7" r="5" fill="#3b82c4"/><circle cx="538.0" cy="139.5" r="5" fill="#3b82c4"/><circle cx="538.0" cy="180.5" r="5" fill="#3b82c4"/><text x="8" y="85" class="b" style="fill:#d9480f">blízko Slunce:</text><text x="8" y="101" style="fill:#d9480f">letí rychle,</text><text x="8" y="117" style="fill:#d9480f">dlouhý kus dráhy</text><text x="632" y="272" text-anchor="end" class="a">daleko: letí pomalu,</text><text x="632" y="288" text-anchor="end" class="a">krátký kus dráhy</text><text x="330" y="334" text-anchor="middle" class="m">obě barevné plochy jsou stejně velké a planeta je opíše za stejný čas</text>
+</svg></div>
+<p>Co to znamená jednoduše: <b>čím blíž je planeta Slunci, tím rychleji se pohybuje</b>. Blízko Slunce je „trojúhelník“ krátký, takže aby měl stejnou plochu, musí planeta uletět delší kus dráhy. Daleko od Slunce je trojúhelník dlouhý a stačí kratší kousek.</p>
+<div class="prakticky">Země letí v lednu (blízko Slunce) rychlostí asi 30,3 km/s, v červenci (daleko) asi 29,3 km/s.</div>
+<p class="note">Ze života: krasobruslařka při piruetě přitáhne ruce k tělu a roztočí se rychleji. Blíž ke středu = rychleji.</p>
+<div data-porozumeni="3. Druhý Keplerův zákon"></div>
+</div>
+
+<div class="sekce">
+<h3>3. Keplerův zákon – vzdálenost a doba oběhu</h3>
+<div class="rule">Čím je planeta od Slunce <b>dál</b>, tím <b>déle</b> jí trvá jeden oběh.</div>
+<table class="tab"><tr><th></th><th>Země</th><th>Uran</th></tr>
+<tr><td>doba oběhu</td><td>1 rok</td><td>84 let</td></tr>
+<tr><td>vzdálenost od Slunce</td><td>1 AU</td><td>19 AU</td></tr></table>
+<p>Vzdálená planeta má delší dráhu a navíc letí pomaleji. Proto Uranu trvá oběh 84 let, i když je „jen“ 19krát dál.</p>
+<div class="prakticky">Navíc (v sešitu je jen tabulka): přesně platí, že (doba oběhu v letech)² = (vzdálenost v AU)³. Pro Uran: 19 · 19 · 19 = 6 859 a 84 · 84 = 7 056 – skoro stejné (přesněji je Uran 19,2 AU daleko).</div>
+<div data-porozumeni="3. Třetí Keplerův zákon"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="4. Měsíc">
+<h2>4. Měsíc</h2>
+
+<div class="sekce">
+<h3>Základní údaje</h3>
+<ul>
+<li>Měsíc je <b>přirozená družice Země</b>.</li>
+<li>Obíhá kolem Země po <b>eliptické dráze</b>, průměrně ve vzdálenosti <b>384 000 km</b>.</li>
+<li>Kolem své osy se otočí <b>za stejnou dobu</b>, za jakou oběhne Zemi. Proto k nám má <b>pořád natočenou stejnou stranu</b> (říká se tomu vázaná rotace).</li>
+</ul>
+<div class="prakticky">Vzdálenost 384 000 km je asi 30 průměrů Země. Světlo ji uletí za 1,3 sekundy.</div>
+<p class="note">Vyzkoušej: obcházej židli a buď k ní pořád otočená obličejem. Než ji obejdeš jednou dokola, otočíš se i jednou kolem sebe. Přesně to dělá Měsíc.</p>
+<div data-porozumeni="4. Měsíc – základní údaje"></div>
+</div>
+
+<div class="sekce">
+<h3>Měsíční fáze</h3>
+<p>Měsíc sám nesvítí. Slunce osvětluje vždy <b>polovinu</b> Měsíce. Fáze záleží na tom, <b>jakou část osvětlené poloviny ze Země zrovna vidíme</b>.</p>
+<div class="obr"><svg viewBox="0 0 640 350" role="img" aria-label="Čtyři polohy Měsíce kolem Země a jak vypadají ze Země">
+<defs><marker id="ar6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#e0a800"/></marker>
+<marker id="ab6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#6b6b66"/></marker></defs>
+<path d="M640,20 Q585,175 640,330 Z" fill="#f5c518"/><text x="618" y="180" text-anchor="middle" class="b">S</text>
+<line x1="580" y1="120" x2="520" y2="120" stroke="#e0a800" stroke-width="2" marker-end="url(#ar6)"/>
+<line x1="575" y1="175" x2="515" y2="175" stroke="#e0a800" stroke-width="2" marker-end="url(#ar6)"/>
+<line x1="580" y1="230" x2="520" y2="230" stroke="#e0a800" stroke-width="2" marker-end="url(#ar6)"/>
+<text x="548" y="105" text-anchor="middle" class="m">světlo</text>
+<circle cx="290" cy="175" r="120" fill="none" stroke="#b5b5ad" stroke-dasharray="4 5"/>
+<path d="M375,90 A120,120 0 0 0 330,62" fill="none" stroke="#6b6b66" stroke-width="1.5" marker-end="url(#ab6)"/>
+<circle cx="290" cy="175" r="34" fill="#3b82c4"/><text x="290" y="180" text-anchor="middle" class="b" style="fill:#fff">Země</text>
+<g id="m1"><circle cx="410" cy="175" r="14" fill="#55524c"/><path d="M410,161 A14,14 0 0 1 410,189 Z" fill="#f3efe2"/><circle cx="410" cy="175" r="14" fill="none" stroke="#1d1d1b"/></g>
+<g><circle cx="290" cy="55" r="14" fill="#55524c"/><path d="M290,41 A14,14 0 0 1 290,69 Z" fill="#f3efe2"/><circle cx="290" cy="55" r="14" fill="none" stroke="#1d1d1b"/></g>
+<g><circle cx="170" cy="175" r="14" fill="#55524c"/><path d="M170,161 A14,14 0 0 1 170,189 Z" fill="#f3efe2"/><circle cx="170" cy="175" r="14" fill="none" stroke="#1d1d1b"/></g>
+<g><circle cx="290" cy="295" r="14" fill="#55524c"/><path d="M290,281 A14,14 0 0 1 290,309 Z" fill="#f3efe2"/><circle cx="290" cy="295" r="14" fill="none" stroke="#1d1d1b"/></g>
+<text x="440" y="165" class="b">nov</text><text x="440" y="181" class="m">ze Země:</text><circle cx="505" cy="176" r="9" fill="#55524c" stroke="#1d1d1b"/>
+<text x="318" y="42" class="b">první čtvrť</text><text x="318" y="58" class="m">ze Země:</text><g><circle cx="384" cy="54" r="9" fill="#55524c"/><path d="M384,45 A9,9 0 0 1 384,63 Z" fill="#f3efe2"/><circle cx="384" cy="54" r="9" fill="none" stroke="#1d1d1b"/></g><text x="400" y="58" class="m">(tvar D – dorůstá)</text>
+<text x="20" y="165" class="b">úplněk</text><text x="20" y="181" class="m">ze Země:</text><circle cx="86" cy="176" r="9" fill="#f3efe2" stroke="#1d1d1b"/>
+<text x="318" y="300" class="b">poslední čtvrť</text><text x="318" y="316" class="m">ze Země:</text><g><circle cx="384" cy="312" r="9" fill="#55524c"/><path d="M384,303 A9,9 0 0 0 384,321 Z" fill="#f3efe2"/><circle cx="384" cy="312" r="9" fill="none" stroke="#1d1d1b"/></g><text x="400" y="316" class="m">(tvar C – couvá)</text>
+</svg></div>
+<table class="tab"><tr><th>fáze</th><th>kde je Měsíc</th><th>co vidíme</th></tr>
+<tr><td><b>nov</b></td><td>mezi Zemí a Sluncem</td><td>nic – k nám je otočená neosvětlená strana</td></tr>
+<tr><td><b>první čtvrť</b></td><td>„vedle“ Země (pravý úhel)</td><td>pravou polovinu – tvar D, Měsíc <b>d</b>orůstá</td></tr>
+<tr><td><b>úplněk</b></td><td>za Zemí (na opačné straně než Slunce)</td><td>celý osvětlený kotouč</td></tr>
+<tr><td><b>poslední čtvrť</b></td><td>„vedle“ Země z druhé strany</td><td>levou polovinu – tvar C, Měsíc <b>c</b>ouvá</td></tr></table>
+<div class="rule">Doba mezi dvěma úplňky (celý cyklus fází) je <b>29,5 dne</b>.</div>
+<div class="prakticky">Když je úplněk 1. prosince, další bude asi 30. nebo 31. prosince. Od úplňku k novu je to polovina, tedy asi 15 dní.</div>
+<div data-porozumeni="4. Měsíční fáze"></div>
+</div>
+
+<div class="sekce">
+<h3>Zatmění Měsíce a zatmění Slunce</h3>
+<p>Při zatmění jsou Slunce, Země a Měsíc <b>v jedné přímce</b>. Rozdíl je jen v tom, kdo je uprostřed.</p>
+<div class="obr"><svg viewBox="0 0 640 250" role="img" aria-label="Zatmění Měsíce: Země mezi Sluncem a Měsícem. Zatmění Slunce: Měsíc mezi Sluncem a Zemí.">
+<text x="10" y="18" class="b">Zatmění Měsíce: Slunce – Země – Měsíc (při úplňku)</text>
+<circle cx="70" cy="75" r="38" fill="#f5c518"/><text x="70" y="80" text-anchor="middle" class="b">S</text>
+<path d="M402,55 L620,64 L620,86 L402,95 Z" fill="#cfcfc8"/>
+<circle cx="400" cy="75" r="20" fill="#3b82c4"/><text x="400" y="80" text-anchor="middle" class="b" style="fill:#fff">Z</text>
+<circle cx="520" cy="75" r="8" fill="#7a4a3a" stroke="#1d1d1b"/><text x="520" y="110" text-anchor="middle">M ve stínu Země</text>
+<text x="10" y="148" class="b">Zatmění Slunce: Slunce – Měsíc – Země (při novu)</text>
+<circle cx="70" cy="200" r="38" fill="#f5c518"/><text x="70" y="205" text-anchor="middle" class="b">S</text>
+<path d="M352,192 L482,199 L482,201 L352,208 Z" fill="#9c9c94"/>
+<circle cx="350" cy="200" r="8" fill="#55524c" stroke="#1d1d1b"/><text x="350" y="232" text-anchor="middle">M</text>
+<circle cx="500" cy="200" r="20" fill="#3b82c4"/><text x="500" y="205" text-anchor="middle" class="b" style="fill:#fff">Z</text>
+<text x="530" y="196" class="m">stín Měsíce padá</text><text x="530" y="212" class="m">na kousek Země</text>
+</svg></div>
+<ul>
+<li><b>Zatmění Měsíce</b>: Země je uprostřed a vrhá na Měsíc stín. Může být <b>jen při úplňku</b>. Vidí ho celá noční polovina Země.</li>
+<li><b>Zatmění Slunce</b>: Měsíc je uprostřed a zakryje Slunce. Může být <b>jen při novu</b>. Je vidět jen z malého území, kam dopadne stín Měsíce.</li>
+</ul>
+<div class="rule">Pomůcka: <b>uprostřed je vždy ten, kdo stíní.</b> Země uprostřed → zatmění Měsíce. Měsíc uprostřed → zatmění Slunce.</div>
+<p class="note">Proč není zatmění každý měsíc? Dráha Měsíce je oproti dráze Země nakloněná asi o 5°, takže Měsíc většinou projde nad stínem nebo pod ním.</p>
+<div class="prakticky">Úplňků je za rok 12 nebo 13, ale zatmění Měsíce bývají jen asi 2 za rok.</div>
+<div data-porozumeni="4. Zatmění Měsíce a Slunce"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="5. Slapové jevy">
+<h2>5. Slapové jevy</h2>
+
+<div class="sekce">
+<h3>Příliv a odliv</h3>
+<div class="rule"><b>Slapové jevy</b> jsou nejvýznamnější projev <b>gravitačního působení Měsíce na Zemi</b> (spolu s odstředivou silou). Projevují se jako <b>příliv a odliv</b> vodních hmot.</div>
+<div class="obr"><svg viewBox="0 0 640 220" role="img" aria-label="Země s vodou vytaženou do dvou výdutí směrem k Měsíci a od něj">
+<defs><marker id="ar8" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#1d1d1b"/></marker></defs>
+<ellipse cx="230" cy="110" rx="92" ry="60" fill="#9cc7ee"/>
+<circle cx="230" cy="110" r="52" fill="#8fae7a"/><text x="230" y="115" text-anchor="middle" class="b">Země</text>
+<circle cx="560" cy="110" r="17" fill="#cfcabd" stroke="#1d1d1b"/><text x="560" y="150" text-anchor="middle">Měsíc</text>
+<line x1="330" y1="110" x2="535" y2="110" stroke="#1d1d1b" stroke-width="1.3" stroke-dasharray="5 4" marker-end="url(#ar8)"/>
+<text x="430" y="100" text-anchor="middle" class="m">Měsíc přitahuje vodu</text>
+<text x="308" y="80" class="a">příliv</text><text x="118" y="80" class="a">příliv</text>
+<text x="230" y="36" text-anchor="middle" class="a">odliv</text><text x="230" y="194" text-anchor="middle" class="a">odliv</text>
+</svg></div>
+<ul>
+<li>Na straně <b>k Měsíci</b> voda stoupne, protože ji Měsíc přitahuje nejsilněji.</li>
+<li>Na <b>opačné straně</b> voda stoupne také – tam je přitažlivost Měsíce nejslabší a převáží odstředivá síla.</li>
+<li>Mezi tím (na „bocích“) je voda nízko – odliv.</li>
+</ul>
+<p>Země se pod těmito dvěma „boulemi“ vody otáčí. Každé místo na pobřeží tak zažije za den zhruba <b>dvakrát příliv a dvakrát odliv</b>.</p>
+<div class="rule">Doba mezi dvěma přílivy po sobě: <b>12 h 25 min</b>.</div>
+<div class="prakticky">Je-li příliv v 6:00, odliv přijde asi v 12:12 (za polovinu doby) a další příliv v 18:25.</div>
+<p class="note">Proč ne přesně 12 hodin? Měsíc se mezitím na své dráze kousek posune, takže Země se musí otočit o trochu víc, aby byl Měsíc zase nad stejným místem.</p>
+<div data-porozumeni="5. Příliv a odliv"></div>
+</div>
+
+<div class="sekce">
+<h3>Skočný a hluchý příliv</h3>
+<p>Vodu přitahuje i <b>Slunce</b>. Jeho vliv je ale <b>menší než vliv Měsíce</b> (asi poloviční) – Slunce je sice obrovské, ale mnohem dál.</p>
+<div class="obr"><svg viewBox="0 0 640 220" role="img" aria-label="Skočný příliv: Slunce, Země a Měsíc v přímce. Hluchý příliv: Měsíc v pravém úhlu.">
+<text x="160" y="18" text-anchor="middle" class="b">skočný příliv (nejvyšší)</text>
+<path d="M0,60 Q52,110 0,160 Z" fill="#f5c518"/><text x="12" y="115" class="b">S</text>
+<ellipse cx="190" cy="110" rx="44" ry="24" fill="#9cc7ee"/><circle cx="190" cy="110" r="20" fill="#8fae7a"/><text x="190" y="115" text-anchor="middle" class="b">Z</text>
+<circle cx="268" cy="110" r="8" fill="#cfcabd" stroke="#1d1d1b"/><text x="268" y="135" text-anchor="middle" class="m">úplněk</text>
+<circle cx="112" cy="110" r="8" fill="#cfcabd" stroke="#1d1d1b" stroke-dasharray="2 2"/><text x="112" y="135" text-anchor="middle" class="m">nebo nov</text>
+<text x="160" y="180" text-anchor="middle" class="m">S, Z a M v přímce –</text><text x="160" y="196" text-anchor="middle" class="m">síly Slunce a Měsíce se sčítají</text>
+<line x1="320" y1="10" x2="320" y2="210" stroke="#dcdcd5"/>
+<text x="490" y="18" text-anchor="middle" class="b">hluchý příliv (nejnižší)</text>
+<path d="M330,60 Q382,110 330,160 Z" fill="#f5c518"/><text x="342" y="115" class="b">S</text>
+<ellipse cx="520" cy="110" rx="27" ry="30" fill="#9cc7ee"/><circle cx="520" cy="110" r="20" fill="#8fae7a"/><text x="520" y="115" text-anchor="middle" class="b">Z</text>
+<circle cx="520" cy="44" r="8" fill="#cfcabd" stroke="#1d1d1b"/><text x="536" y="48" class="m">první (nebo poslední) čtvrť</text>
+<text x="490" y="180" text-anchor="middle" class="m">M v pravém úhlu ke Slunci –</text><text x="490" y="196" text-anchor="middle" class="m">síly působí „proti sobě“</text>
+</svg></div>
+<table class="tab"><tr><th></th><th>kdy</th><th>jak vysoký</th></tr>
+<tr><td><b>skočný příliv</b></td><td>při <b>novu a úplňku</b> (S, Z, M v přímce)</td><td>nejvyšší – voda „vyskočí“</td></tr>
+<tr><td><b>hluchý příliv</b></td><td>při <b>první a poslední čtvrti</b> (pravý úhel)</td><td>nejnižší</td></tr></table>
+<div class="prakticky">Cyklus fází trvá 29,5 dne a jsou v něm 2 skočné (nov, úplněk) a 2 hluché přílivy (čtvrti). Skočný příliv tedy přichází zhruba každých 15 dní.</div>
+<div data-porozumeni="5. Skočný a hluchý příliv"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="6. Země a její tvar">
+<h2>6. Země a její tvar</h2>
+
+<div class="sekce">
+<h3>Geoid a elipsoid</h3>
+<div class="rule">Země má tvar <b>geoidu</b>. Matematicky ji nahrazujeme <b>rotačním elipsoidem</b> (koule zploštělá na pólech).</div>
+<ul>
+<li><b>Geoid</b> = skutečný, trochu nepravidelný tvar Země. Představ si klidnou hladinu oceánu protaženou i pod pevninami.</li>
+<li><b>Rotační elipsoid</b> = jednoduché pravidelné těleso, se kterým se dá počítat. Vznikne otáčením elipsy kolem kratší osy.</li>
+</ul>
+<div class="obr"><svg viewBox="0 0 640 260" role="img" aria-label="Zploštělá Země s rovníkovým a polárním poloměrem">
+<ellipse cx="250" cy="130" rx="150" ry="118" fill="#dbe9f7" stroke="#1d1d1b" stroke-width="1.5"/>
+<line x1="100" y1="130" x2="400" y2="130" stroke="#6b6b66" stroke-dasharray="5 4"/><text x="408" y="134" class="m">rovník</text>
+<line x1="250" y1="2" x2="250" y2="258" stroke="#6b6b66" stroke-dasharray="2 4"/><text x="256" y="12" class="m">osa (severní pól)</text>
+<line x1="250" y1="130" x2="400" y2="130" stroke="#2b5cab" stroke-width="2.5"/>
+<line x1="250" y1="130" x2="250" y2="12" stroke="#d9480f" stroke-width="2.5"/>
+<text x="300" y="150" class="a">na rovníku 6 378 km</text>
+<text x="262" y="70" style="fill:#d9480f;font-weight:600">k pólu 6 357 km</text>
+<text x="430" y="200" class="m">Zploštění je ve skutečnosti</text><text x="430" y="216" class="m">jen 21 km – obrázek ho</text><text x="430" y="232" class="m">hodně přehání.</text>
+</svg></div>
+<p>Proč je Země zploštělá? Protože se <b>otáčí</b>. Odstředivá síla ji na rovníku „vyboulila“ – stejně jako se roztáhne těsto na pizzu, když ho kuchař roztočí.</p>
+<div class="prakticky">Poloměr na rovníku je 6 378 km, k pólu 6 357 km. Rozdíl je 21 km. Na glóbusu o průměru 30 cm by to bylo jen půl milimetru – okem bys to nepoznala.</div>
+<div data-porozumeni="6. Geoid a elipsoid"></div>
+</div>
+
+<div class="sekce">
+<h3>Rozměry Země</h3>
+<table class="tab"><tr><th>údaj</th><th>hodnota</th></tr>
+<tr><td>poloměr na rovníku</td><td><b>6 378 km</b></td></tr>
+<tr><td>průměrný poloměr</td><td><b>6 371 km</b></td></tr>
+<tr><td>povrch Země</td><td><b>510,1 mil. km²</b></td></tr>
+<tr><td>obvod rovníku</td><td><b>40 075 km</b></td></tr>
+<tr><td>obvod přes póly (obvod poledníků)</td><td><b>40 008 km</b></td></tr></table>
+<div class="prakticky">Obvod rovníku je asi 40 000 km. Letadlo letící 900 km/h by Zemi obletělo za necelé dva dny (40 075 : 900 ≈ 44,5 h). Obvod přes póly je o 67 km kratší než rovník – další důkaz zploštění.</div>
+<p class="note">Pomůcka: poloměr 6 378 km, obvod asi 40 000 km, povrch asi 510 mil. km² (z toho přes dvě třetiny je oceán).</p>
+<div data-porozumeni="6. Rozměry Země"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="7. Pohyby Země – rotace">
+<h2>7. Pohyby Země – rotace</h2>
+
+<div class="sekce">
+<h3>Přehled pohybů Země</h3>
+<table class="tab"><tr><th>pohyb</th><th>co to je</th></tr>
+<tr><td><b>rotace</b></td><td>otáčení Země <b>kolem vlastní osy</b> (jednou za den)</td></tr>
+<tr><td><b>revoluce</b></td><td><b>oběh</b> Země kolem Slunce (jednou za rok)</td></tr>
+<tr><td><b>precese</b></td><td>pomalé „kroužení“ zemské osy jako u dětské káči (jednou asi za 26 000 let)</td></tr>
+<tr><td><b>nutace</b></td><td>drobné „kývání“ osy při precesi</td></tr></table>
+<div class="rule">Zemská osa je <b>skloněná o 23,5°</b> (oproti kolmici k rovině oběhu). Tento sklon je příčinou ročních období.</div>
+<p class="note">Pozor na záměnu: <b>rot</b>ace = <b>rot</b>uje, točí se na místě (den). <b>Rev</b>oluce = oběh kolem Slunce (rok).</p>
+<div class="prakticky">Rotace: 1 otočka za den. Revoluce: 1 oběh za rok. Během jednoho oběhu kolem Slunce se tedy Země otočí kolem osy asi 365krát.</div>
+<div data-porozumeni="7. Pohyby Země – přehled"></div>
+</div>
+
+<div class="sekce">
+<h3>Hvězdný a sluneční den</h3>
+<ul>
+<li><b>Hvězdný den</b> = doba otočení Země přesně o <b>360°</b>. Trvá <b>23 h 56 min 4 s</b>.</li>
+<li><b>Sluneční den</b> = doba mezi dvěma po sobě jdoucími průchody Slunce poledníkem (od poledne do poledne). Trvá <b>24 h</b>.</li>
+</ul>
+<p>Proč je sluneční den o 4 minuty delší? Země se za den nejen otočí, ale také popoletí kus po své dráze kolem Slunce. Aby bylo Slunce zase přesně na jihu, musí se dotočit ještě o kousek (asi o 1°) – a to trvá ty 4 minuty.</p>
+<div class="prakticky">24 h − 23 h 56 min 4 s = 3 min 56 s. Za rok se tyto rozdíly nasčítají zhruba na jeden den: 365 · asi 4 min ≈ 24 h.</div>
+<div data-porozumeni="7. Hvězdný a sluneční den"></div>
+</div>
+
+<div class="sekce">
+<h3>Důsledky rotace</h3>
+<p>Země se otáčí <b>od západu k východu</b>. Z toho plyne:</p>
+<ol>
+<li><b>střídání dne a noci</b>,</li>
+<li><b>zdánlivý pohyb hvězdné sféry</b> – Slunce a hvězdy „vycházejí“ na východě a „zapadají“ na západě (ve skutečnosti se točíme my),</li>
+<li><b>Coriolisova síla</b>,</li>
+<li>pravidelné střídání přílivu a odlivu (<b>slapové jevy</b> vyvolává Měsíc, ale jejich střídání během dne způsobuje otáčení Země),</li>
+<li>zploštění Země a různý čas na různých polednících (časová pásma).</li>
+</ol>
+<div class="prakticky">Bod na rovníku urazí za 24 h celý obvod 40 075 km, letí tedy rychlostí asi 1 670 km/h. Na pólu se jen otáčí na místě.</div>
+<p class="note">V sešitu je tento seznam pod nadpisem „Důsledky revoluce“ – správně jsou to důsledky <b>rotace</b>. Důsledky revoluce jsou v kapitole 8.</p>
+<div data-porozumeni="7. Důsledky rotace"></div>
+</div>
+
+<div class="sekce">
+<h3>Coriolisova síla</h3>
+<div class="rule"><b>Coriolisova síla</b> je uchylující síla zemské rotace. Vše, co se pohybuje (vítr, mořské proudy, řeky), stáčí na <b>severní polokouli doprava</b> a na <b>jižní polokouli doleva</b>. Na rovníku je nulová.</div>
+<div class="obr"><svg viewBox="0 0 640 280" role="img" aria-label="Zeměkoule: na severní polokouli se pohyb stáčí doprava, na jižní doleva">
+<defs><marker id="ar11" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#2b5cab"/></marker>
+<marker id="ab11" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#9a9a92"/></marker></defs>
+<circle cx="250" cy="140" r="125" fill="#eef3f8" stroke="#1d1d1b" stroke-width="1.5"/>
+<line x1="125" y1="140" x2="375" y2="140" stroke="#1d1d1b"/><text x="382" y="144">rovník (0°) – síla je nulová</text>
+<line x1="205" y1="125" x2="205" y2="50" stroke="#9a9a92" stroke-dasharray="4 4" marker-end="url(#ab11)"/>
+<path d="M205,125 Q205,75 245,58" fill="none" stroke="#2b5cab" stroke-width="2.5" marker-end="url(#ar11)"/>
+<line x1="300" y1="45" x2="300" y2="120" stroke="#9a9a92" stroke-dasharray="4 4" marker-end="url(#ab11)"/>
+<path d="M300,45 Q300,95 262,116" fill="none" stroke="#2b5cab" stroke-width="2.5" marker-end="url(#ar11)"/>
+<line x1="205" y1="155" x2="205" y2="230" stroke="#9a9a92" stroke-dasharray="4 4" marker-end="url(#ab11)"/>
+<path d="M205,155 Q205,205 245,222" fill="none" stroke="#2b5cab" stroke-width="2.5" marker-end="url(#ar11)"/>
+<line x1="300" y1="235" x2="300" y2="160" stroke="#9a9a92" stroke-dasharray="4 4" marker-end="url(#ab11)"/>
+<path d="M300,235 Q300,185 262,164" fill="none" stroke="#2b5cab" stroke-width="2.5" marker-end="url(#ar11)"/>
+<text x="400" y="70" class="a">severní polokoule: doprava</text>
+<text x="400" y="88" class="m">(z pohledu toho, kdo se pohybuje)</text>
+<text x="400" y="215" class="a">jižní polokoule: doleva</text>
+<text x="400" y="250" class="m">šedá čárkovaná = kam by to letělo</text><text x="400" y="266" class="m">bez otáčení Země, modrá = skutečně</text>
+</svg></div>
+<p>„Doprava“ a „doleva“ se vždy myslí <b>ve směru pohybu</b> – jako když jedeš na kole a díváš se dopředu.</p>
+<div class="prakticky">Vítr vanoucí na severní polokouli k rovníku (pasát) se stáčí doprava a fouká pak od severovýchodu. Velké řeky na severní polokouli víc podemílají pravý břeh.</div>
+<div data-porozumeni="7. Coriolisova síla"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="8. Oběh Země kolem Slunce">
+<h2>8. Oběh Země kolem Slunce</h2>
+
+<div class="sekce">
+<h3>Dráha Země, přísluní a odsluní</h3>
+<p>Země oběhne Slunce po elipse (1. Keplerův zákon) za jeden rok. Na dráze jsou důležité body:</p>
+<div class="obr"><svg viewBox="0 0 640 330" role="img" aria-label="Dráha Země kolem Slunce se slunovraty, rovnodennostmi, přísluním a odsluním">
+<defs><marker id="ar12" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#6b6b66"/></marker></defs>
+<ellipse cx="320" cy="170" rx="215" ry="105" fill="#f6f6f1" stroke="#1d1d1b" stroke-width="1.3"/>
+<path d="M455,84 A215,105 0 0 0 400,72" fill="none" stroke="#6b6b66" stroke-width="1.5" marker-end="url(#ar12)"/>
+<circle cx="345" cy="170" r="20" fill="#f5c518"/><text x="345" y="175" text-anchor="middle" class="b">S</text>
+<line x1="365" y1="168" x2="530" y2="150" stroke="#2b5cab" stroke-dasharray="4 3"/><text x="405" y="150" class="a" style="font-size:12px">147 mil. km</text>
+<line x1="325" y1="172" x2="107" y2="188" stroke="#d9480f" stroke-dasharray="4 3"/><text x="170" y="174" style="fill:#d9480f;font-weight:600;font-size:12px">152 mil. km</text>
+<circle cx="320" cy="65" r="8" fill="#3b82c4"/><text x="320" y="44" text-anchor="middle" class="b">jarní rovnodennost 21. 3.</text>
+<circle cx="105" cy="170" r="8" fill="#3b82c4"/><text x="8" y="140" class="b">letní slunovrat</text><text x="8" y="156" class="b">21. 6.</text>
+<circle cx="320" cy="275" r="8" fill="#3b82c4"/><text x="320" y="302" text-anchor="middle" class="b">podzimní rovnodennost 23. 9.</text>
+<circle cx="535" cy="170" r="8" fill="#3b82c4"/><text x="548" y="196" class="b">zimní</text><text x="548" y="212" class="b">slunovrat</text><text x="548" y="228" class="b">21. 12.</text>
+<circle cx="531" cy="149" r="5" fill="#2b5cab"/><text x="545" y="140" class="a">přísluní 3. 1.</text>
+<circle cx="107" cy="189" r="5" fill="#d9480f"/><text x="8" y="214" style="fill:#d9480f;font-weight:600">odsluní 5. 7.</text>
+<text x="320" y="324" text-anchor="middle" class="m">roční období platí pro severní polokouli</text>
+</svg></div>
+<ul>
+<li><b>Přísluní</b> (perihelium) – Země je Slunci <b>nejblíž</b>: <b>3. 1.</b>, 147 mil. km.</li>
+<li><b>Odsluní</b> (afelium) – Země je od Slunce <b>nejdál</b>: <b>5. 7.</b>, 152 mil. km.</li>
+</ul>
+<div class="rule">Pozor: nejblíž Slunci jsme <b>v lednu</b>, kdy je u nás zima. Roční období tedy <b>nezpůsobuje vzdálenost</b> od Slunce, ale <b>sklon zemské osy</b>.</div>
+<p class="note">Pomůcka: <b>pří</b>sluní = <b>při</b> Slunci (blízko), <b>od</b>sluní = <b>od</b> Slunce (daleko).</p>
+<div class="prakticky">152 − 147 = 5 mil. km. To jsou jen asi 3 % vzdálenosti – tak malý rozdíl roční období způsobit nemůže.</div>
+<div data-porozumeni="8. Dráha Země – přísluní a odsluní"></div>
+</div>
+
+<div class="sekce">
+<h3>Délka roku a přestupný rok</h3>
+<div class="rule">Jeden oběh Země kolem Slunce trvá <b>365 dní 5 h 48 min 46 s</b> – tedy skoro o čtvrt dne déle než 365 dní.</div>
+<p>Kalendář ale umí jen celé dny. Ten „přebytek“ se proto srovnává přestupnými roky (únor má 29 dní):</p>
+<ol class="kroky">
+<li><b>Jednou za 4 roky</b> je přestupný rok. (4 · necelých 6 h ≈ 1 den navíc.)</li>
+<li><b>Každých 100 let se přestupný rok vynechá</b> (1900, 2100, 2200, 2300 nejsou přestupné). Přidáváním celého dne za 4 roky se totiž přidává o trochu moc.</li>
+<li><b>Každý násobek 400 ale přestupný zůstává</b> (2000, 2400).</li>
+<li>Malý zbytek, který ještě zůstane, udělá 1 den až za několik tisíc let.</li>
+</ol>
+<div class="prakticky">4 · (5 h 48 min 46 s) = 23 h 15 min 4 s – to není celých 24 h, chybí asi 45 minut. Proto pravidlo „každé 4 roky“ přidává o 45 minut za 4 roky víc, než má, a jednou za 100 let se to musí opravit vynecháním dne.<br>Je přestupný? 2024 ano (dělitelný 4), 2026 ne, 2100 ne (stovka, není násobek 400), 2000 ano (násobek 400).</div>
+<div data-porozumeni="8. Délka roku a přestupný rok"></div>
+</div>
+
+<div class="sekce">
+<h3>Slunovraty, rovnodennosti a roční období</h3>
+<p>Zemská osa je skloněná o 23,5° a míří pořád stejným směrem. Během roku je proto ke Slunci víc přikloněná jednou severní, jednou jižní polokoule. <b>To je důsledek revoluce</b> (spolu se sklonem osy): střídání ročních období a změna délky dne a noci během roku.</p>
+<div class="obr"><svg viewBox="0 0 640 300" role="img" aria-label="Zeměkoule s rovníkem, obratníky a polárními kruhy">
+<circle cx="190" cy="150" r="120" fill="#eef3f8" stroke="#1d1d1b" stroke-width="1.5"/>
+<line x1="142" y1="40" x2="238" y2="40" stroke="#6b6b66" stroke-dasharray="2 4"/>
+<line x1="80" y1="102" x2="300" y2="102" stroke="#d9480f" stroke-dasharray="7 5" stroke-width="1.5"/>
+<line x1="70" y1="150" x2="310" y2="150" stroke="#1d1d1b" stroke-width="1.5"/>
+<line x1="80" y1="198" x2="300" y2="198" stroke="#2b5cab" stroke-dasharray="7 5" stroke-width="1.5"/>
+<line x1="142" y1="260" x2="238" y2="260" stroke="#6b6b66" stroke-dasharray="2 4"/>
+<text x="330" y="36" class="m">severní polární kruh 66,5° s. š.</text>
+<text x="330" y="98" style="fill:#d9480f;font-weight:600">obratník Raka 23,5° s. š.</text><text x="330" y="114" class="m">Slunce kolmo nad ním 21. 6. – letní slunovrat</text>
+<text x="330" y="146" class="b">rovník 0°</text><text x="330" y="162" class="m">Slunce kolmo nad ním 21. 3. a 23. 9. – rovnodennosti</text>
+<text x="330" y="194" class="a">obratník Kozoroha 23,5° j. š.</text><text x="330" y="210" class="m">Slunce kolmo nad ním 21. 12. – zimní slunovrat</text>
+<text x="330" y="264" class="m">jižní polární kruh 66,5° j. š.</text>
+</svg></div>
+<table class="tab"><tr><th>datum</th><th>název (pro severní polokouli)</th><th>Slunce je v poledne kolmo nad</th><th>den a noc u nás</th></tr>
+<tr><td><b>21. 3.</b></td><td>jarní rovnodennost</td><td>rovníkem</td><td>stejně dlouhé (12 h a 12 h)</td></tr>
+<tr><td><b>21. 6.</b></td><td>letní slunovrat</td><td>obratníkem Raka</td><td>nejdelší den (asi 16 h)</td></tr>
+<tr><td><b>23. 9.</b></td><td>podzimní rovnodennost</td><td>rovníkem</td><td>stejně dlouhé</td></tr>
+<tr><td><b>21. 12.</b></td><td>zimní slunovrat</td><td>obratníkem Kozoroha</td><td>nejkratší den (asi 8 h)</td></tr></table>
+<ul>
+<li><b>Obratníky</b> (23,5°) jsou nejvzdálenější rovnoběžky od rovníku, kde ještě může být Slunce přesně v nadhlavníku. Slunce se tam „obrací“ zpět k rovníku – odtud název.</li>
+<li><b>Polární kruhy</b> (66,5° = 90° − 23,5°) ohraničují oblasti, kde aspoň jednou za rok Slunce vůbec nezapadne (polární den) nebo nevyjde (polární noc).</li>
+<li>Na jižní polokouli je všechno obráceně: 21. 12. tam začíná léto.</li>
+</ul>
+<div class="prakticky">Číslo 23,5° je všude stejné – je to sklon zemské osy. Obratníky jsou na 23,5°, polární kruhy na 90° − 23,5° = 66,5°.</div>
+<p class="note">Data se mohou o den lišit (např. jarní rovnodennost bývá 20. 3.). Ve škole se počítá s 21. 3., 21. 6., 23. 9. a 21. 12.</p>
+<div data-porozumeni="8. Slunovraty, rovnodennosti a obratníky"></div>
+</div>
+
+<div class="sekce">
+<h3>Zdánlivá dráha Slunce po obloze</h3>
+<p>Jak to vypadá, když stojíš u nás venku a sleduješ Slunce během dne? Vždy vyjde někde na východě, nejvýš je v poledne <b>nad jihem</b> a zapadne někde na západě. Během roku se ale mění, <b>kde přesně</b> vychází a <b>jak vysoko</b> vystoupá.</p>
+<div class="obr"><svg viewBox="0 0 640 330" role="img" aria-label="Obloha jako polokoule se třemi drahami Slunce: léto, rovnodennost, zima">
+<path d="M90,240 A230,205 0 0 1 550,240" fill="none" stroke="#1d1d1b" stroke-width="1.5"/>
+<ellipse cx="320" cy="240" rx="230" ry="52" fill="#f1f6ea" stroke="#1d1d1b" stroke-width="1.5"/>
+<text x="68" y="246" text-anchor="middle" class="b">S</text><text x="68" y="262" text-anchor="middle" class="m">sever</text>
+<text x="572" y="246" text-anchor="middle" class="b">J</text><text x="572" y="262" text-anchor="middle" class="m">jih</text>
+<text x="320" y="180" text-anchor="middle" class="b">V</text><text x="320" y="312" text-anchor="middle" class="b">Z</text>
+<line x1="320" y1="240" x2="320" y2="218" stroke="#1d1d1b" stroke-width="2"/><circle cx="320" cy="213" r="5" fill="none" stroke="#1d1d1b" stroke-width="2"/>
+<path d="M225,193 Q360,40 425,52 Q400,150 225,287" fill="none" stroke="#2f9e44" stroke-width="2.5"/>
+<circle cx="425" cy="52" r="8" fill="#f5c518" stroke="#e0a800"/>
+<path d="M320,188 Q450,92 496,104 Q470,190 320,292" fill="none" stroke="#1d1d1b" stroke-width="2"/>
+<circle cx="496" cy="104" r="8" fill="#f5c518" stroke="#e0a800"/>
+<path d="M415,193 Q505,160 540,176 Q520,235 415,287" fill="none" stroke="#2b5cab" stroke-width="2.5"/>
+<circle cx="540" cy="176" r="8" fill="#f5c518" stroke="#e0a800"/>
+<text x="60" y="40" style="fill:#2f9e44;font-weight:600">21. 6. – den asi 16 h</text>
+<text x="512" y="92" class="b">21. 3. a 23. 9. – 12 h</text>
+<text x="554" y="166" class="a">21. 12.</text><text x="554" y="182" class="a">asi 8 h</text>
+<text x="205" y="186" text-anchor="end" style="fill:#2f9e44;font-size:12px">východ na SV</text>
+<text x="205" y="300" text-anchor="end" style="fill:#2f9e44;font-size:12px">západ na SZ</text>
+<text x="408" y="182" text-anchor="end" class="a" style="font-size:12px">JV</text><text x="408" y="303" text-anchor="end" class="a" style="font-size:12px">JZ</text>
+</svg></div>
+<table class="tab"><tr><th>datum</th><th>vychází</th><th>zapadá</th><th>délka dne u nás</th><th>výška v poledne</th></tr>
+<tr><td>21. 6.</td><td>na severovýchodě</td><td>na severozápadě</td><td>asi 16 h</td><td>nejvyšší</td></tr>
+<tr><td>21. 3. a 23. 9.</td><td>přesně na východě</td><td>přesně na západě</td><td>12 h</td><td>střední</td></tr>
+<tr><td>21. 12.</td><td>na jihovýchodě</td><td>na jihozápadě</td><td>asi 8 h</td><td>nejnižší</td></tr></table>
+<p class="note">Všimni si: v létě je dráha Slunce dlouhá a vysoká (dlouhý den, teplo), v zimě krátká a nízká. V sešitu jsou světové strany anglicky (N, E, S, W), tady česky.</p>
+<div data-porozumeni="8. Zdánlivá dráha Slunce po obloze"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="9. Výška Slunce nad obzorem">
+<h2>9. Výška Slunce nad obzorem</h2>
+<p class="povzbuzeni">Tohle je jeden vzorec a tři čísla (+23,5; 0; −23,5). Když víš, které číslo vzít, je to jen odčítání.</p>
+
+<div class="sekce">
+<h3>Vzorec</h3>
+<div class="rule"><span class="katex-display"><span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal">h</span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.8074em;vertical-align:-0.0833em;"></span><span class="mord">9</span><span class="mord"><span class="mord">0</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7241em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mbin mtight">∘</span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.7778em;vertical-align:-0.1944em;"></span><span class="mord mathnormal">φ</span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">±</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6944em;"></span><span class="mord mathnormal" style="margin-right:0.03785em;">δ</span></span></span></span></span> <b>h</b> = výška Slunce nad obzorem v pravé poledne (úhel), <b>φ</b> = zeměpisná šířka místa, <b>δ</b> = deklinace Slunce (podle data).</div>
+<div class="obr"><svg viewBox="0 0 640 200" role="img" aria-label="Pozorovatel, obzor a úhel h mezi obzorem a Sluncem">
+<line x1="40" y1="170" x2="600" y2="170" stroke="#1d1d1b" stroke-width="1.5"/><text x="600" y="190" text-anchor="end" class="m">obzor (směr k jihu)</text>
+<line x1="150" y1="170" x2="150" y2="140" stroke="#1d1d1b" stroke-width="2"/><circle cx="150" cy="133" r="6" fill="none" stroke="#1d1d1b" stroke-width="2"/>
+<line x1="150" y1="170" x2="450" y2="50" stroke="#e0a800" stroke-width="2" stroke-dasharray="6 4"/>
+<circle cx="470" cy="42" r="18" fill="#f5c518"/>
+<path d="M250,170 A100,100 0 0 0 243,133" fill="none" stroke="#2b5cab" stroke-width="2.5"/>
+<text x="262" y="156" class="a" style="font-size:16px">h</text>
+<text x="150" y="190" text-anchor="middle" class="m">ty</text>
+</svg></div>
+<p><b>Výška Slunce</b> je úhel mezi obzorem a Sluncem. 0° = Slunce je právě na obzoru, 90° = Slunce je přesně nad hlavou (v nadhlavníku).</p>
+<p>Jak vzorci rozumět:</p>
+<ul>
+<li><b>90° − φ</b> je výška Slunce o rovnodennosti. Na rovníku (φ = 0°) je 90°, na pólu (φ = 90°) je 0°. Čím dál od rovníku, tím níž Slunce.</li>
+<li><b>± δ</b> je oprava podle ročního období: v létě je Slunce o 23,5° výš, v zimě o 23,5° níž.</li>
+</ul>
+<div class="prakticky">Brno leží asi na 49° s. š. O rovnodennosti je tam Slunce v poledne ve výšce 90° − 49° = 41°.</div>
+<div data-porozumeni="9. Vzorec pro výšku Slunce"></div>
+</div>
+
+<div class="sekce">
+<h3>Deklinace δ – které číslo dosadit</h3>
+<p><b>Deklinace δ</b> je ve vzorci oprava podle ročního období na dané polokouli. Souvisí s tím, nad kterou rovnoběžkou je Slunce ten den v poledne kolmo (viz obratníky v kapitole 8). Tabulka říká, co do vzorce dosadit:</p>
+<table class="tab"><tr><th>datum</th><th>dosadím na severní polokouli (SP)</th><th>dosadím na jižní polokouli (JP)</th></tr>
+<tr><td><b>21. 6.</b></td><td>+23,5°</td><td>−23,5°</td></tr>
+<tr><td><b>21. 12.</b></td><td>−23,5°</td><td>+23,5°</td></tr>
+<tr><td><b>21. 3. a 23. 9.</b></td><td>0°</td><td>0°</td></tr></table>
+<div class="rule">Jednoduché pravidlo: <b>když je na dané polokouli léto, přičítám 23,5°. Když je tam zima, odčítám 23,5°.</b> O rovnodennosti nic.</div>
+<div class="prakticky">Brno (49° s. š.): 21. 6. je h = 90° − 49° + 23,5° = 64,5°. 21. 12. je h = 90° − 49° − 23,5° = 17,5°. Rozdíl mezi létem a zimou je 47° (= 2 · 23,5°).</div>
+<p class="note">Typická chyba: na jižní polokouli je 21. 12. léto, takže se tam 23,5° <b>přičítá</b>.</p>
+<div data-porozumeni="9. Deklinace"></div>
+</div>
+
+<div class="sekce">
+<h3>Příklady na výšku Slunce</h3>
+<p>Postup je vždy stejný: ① napiš 90° − φ, ② podle data a polokoule přičti nebo odečti 23,5° (nebo nic).</p>
+<div class="ex"><span class="lab">Příklad 1 (ze sešitu):</span> Vypočítej výšku Slunce nad obzorem v pravé poledne dne 21. 3. pro 30° s. š.
+<details><summary>Ukázat řešení</summary>
+<p>21. 3. je rovnodennost → δ = 0°.<br>h = 90° − 30° = <b>60°</b>.</p></details></div>
+<div class="ex"><span class="lab">Příklad 2:</span> Vypočítej výšku Slunce v pravé poledne dne 21. 12. pro 50° s. š.
+<details><summary>Ukázat řešení</summary>
+<p>21. 12. je na severní polokouli zima → odčítám 23,5°.<br>h = 90° − 50° − 23,5° = 40° − 23,5° = <b>16,5°</b>.</p></details></div>
+<div class="ex"><span class="lab">Příklad 3 (ze sešitu):</span> Vypočítej výšku Slunce v pravé poledne dne 21. 6. pro 30° s. š.
+<details><summary>Ukázat řešení</summary>
+<p>21. 6. je na severní polokouli léto → přičítám 23,5°.<br>h = 90° − 30° + 23,5° = 60° + 23,5° = <b>83,5°</b>.</p></details></div>
+<div class="ex"><span class="lab">Příklad 4:</span> Vypočítej výšku Slunce v pravé poledne dne 21. 12. pro 70° s. š.
+<details><summary>Ukázat řešení</summary>
+<p>h = 90° − 70° − 23,5° = 20° − 23,5° = <b>−3,5°</b>.<br>Výsledek je <b>záporný</b> → Slunce je i v poledne pod obzorem. Je tam <b>polární noc</b>.</p></details></div>
+<div class="ex"><span class="lab">Příklad 5 (navíc, jižní polokoule):</span> Vypočítej výšku Slunce v pravé poledne dne 21. 12. pro 40° j. š.
+<details><summary>Ukázat řešení</summary>
+<p>21. 12. je na jižní polokouli léto → přičítám 23,5°.<br>h = 90° − 40° + 23,5° = <b>73,5°</b>.</p></details></div>
+<p class="note">V sešitu jsou u příkladů 2 a 4 jen výsledky (16,5 a −3,5). Zadání je doplněné tak, aby k nim vedlo. Kontrola rozumem: výsledek má být mezi 0° a 90°. Záporný = polární noc. (Kdyby vyšlo víc než 90°, je Slunce v poledne na opačné straně oblohy a výška je 180° minus výsledek – to nastává jen mezi obratníky.)</p>
+<div data-porozumeni="9. Příklady na výšku Slunce"></div>
+</div>
+
+<div class="sekce">
+<h3>Polární kruh – odkud se bere 66,5°</h3>
+<p>Na kterou šířku musíme dojít, aby Slunce o zimním slunovratu v poledne právě jen „líznulo“ obzor (h = 0°)?</p>
+<div class="rule">90° − <b>66,5°</b> − 23,5° = 0° → severní a jižní <b>polární kruh</b> leží na 66,5°.</div>
+<p>66,5° je tedy první šířka, od které může výška Slunce vyjít nulová nebo záporná. Blíž k pólu už v zimě nastává polární noc a v létě polární den (Slunce nezapadne ani o půlnoci).</p>
+<div class="prakticky">Na 66,5° s. š. dne 21. 12.: h = 0° (Slunce na obzoru). Na 70° s. š.: h = −3,5° (polární noc). Na 60° s. š.: h = 6,5° (Slunce nízko, ale vyjde).</div>
+<div data-porozumeni="9. Polární kruh"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="10. Časová pásma">
+<h2>10. Časová pásma</h2>
+<p class="povzbuzeni">Celé počítání s časem je o jedné věci: Země se otočí o 15° za hodinu. Na východ přičítáš, na západ odčítáš. Nic víc v tom není.</p>
+
+<div class="sekce">
+<h3>Proč 24 pásem po 15°</h3>
+<p>Země se otočí o 360° za 24 hodin. Proto je Země rozdělena na <b>24 časových pásem</b> a každé je široké:</p>
+<div class="rule"><span class="katex-display"><span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:2.0371em;vertical-align:-0.686em;"></span><span class="mord"><span class="mopen nulldelimiter"></span><span class="mfrac"><span class="vlist-t vlist-t2"><span class="vlist-r"><span class="vlist" style="height:1.3511em;"><span style="top:-2.314em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">24</span></span></span><span style="top:-3.23em;"><span class="pstrut" style="height:3em;"></span><span class="frac-line" style="border-bottom-width:0.04em;"></span></span><span style="top:-3.677em;"><span class="pstrut" style="height:3em;"></span><span class="mord"><span class="mord">36</span><span class="mord"><span class="mord">0</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.6741em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mbin mtight">∘</span></span></span></span></span></span></span></span></span></span></span><span class="vlist-s">​</span></span><span class="vlist-r"><span class="vlist" style="height:0.686em;"><span></span></span></span></span></span><span class="mclose nulldelimiter"></span></span><span class="mspace" style="margin-right:0.2778em;"></span><span class="mrel">=</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.7241em;"></span><span class="mord">1</span><span class="mord"><span class="mord">5</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.7241em;"><span style="top:-3.113em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mbin mtight">∘</span></span></span></span></span></span></span></span></span></span></span></span> <b>15° zeměpisné délky = 1 hodina.</b></div>
+<ul>
+<li>Základem je <b>nultý (greenwichský) poledník</b>, 0° – prochází Londýnem.</li>
+<li>Každé pásmo má svůj <b>střední poledník</b>: 0°, 15°, 30°, 45°… a sahá <b>7,5° na každou stranu</b> od něj.</li>
+<li>Nulté pásmo je tedy od 7,5° z. d. do 7,5° v. d.</li>
+<li>V celém pásmu platí stejný čas – <b>pásmový čas</b>.</li>
+</ul>
+<div class="obr"><svg viewBox="0 0 640 190" role="img" aria-label="Pět časových pásem kolem nultého poledníku a čas v nich">
+<rect x="20" y="40" width="120" height="100" fill="#eef3f8"/><rect x="140" y="40" width="120" height="100" fill="#fff"/><rect x="260" y="40" width="120" height="100" fill="#eef3f8"/><rect x="380" y="40" width="120" height="100" fill="#fff"/><rect x="500" y="40" width="120" height="100" fill="#eef3f8"/>
+<g stroke="#1d1d1b"><line x1="20" y1="40" x2="20" y2="140"/><line x1="140" y1="40" x2="140" y2="140"/><line x1="260" y1="40" x2="260" y2="140"/><line x1="380" y1="40" x2="380" y2="140"/><line x1="500" y1="40" x2="500" y2="140"/><line x1="620" y1="40" x2="620" y2="140"/></g>
+<g stroke="#2b5cab" stroke-dasharray="5 4"><line x1="80" y1="40" x2="80" y2="140"/><line x1="200" y1="40" x2="200" y2="140"/><line x1="320" y1="40" x2="320" y2="140" stroke-width="2"/><line x1="440" y1="40" x2="440" y2="140"/><line x1="560" y1="40" x2="560" y2="140"/></g>
+<g text-anchor="middle"><text x="80" y="30" class="a">30° z. d.</text><text x="200" y="30" class="a">15° z. d.</text><text x="320" y="30" class="a">0°</text><text x="440" y="30" class="a">15° v. d.</text><text x="560" y="30" class="a">30° v. d.</text>
+<text x="80" y="75" class="b">−2 h</text><text x="200" y="75" class="b">−1 h</text><text x="320" y="75" class="b">0</text><text x="440" y="75" class="b">+1 h</text><text x="560" y="75" class="b">+2 h</text>
+<text x="80" y="110" style="font-size:16px">10:00</text><text x="200" y="110" style="font-size:16px">11:00</text><text x="320" y="110" style="font-size:16px">12:00</text><text x="440" y="110" style="font-size:16px">13:00</text><text x="560" y="110" style="font-size:16px">14:00</text>
+<text x="140" y="156" class="m">22,5°</text><text x="260" y="156" class="m">7,5° z. d.</text><text x="380" y="156" class="m">7,5° v. d.</text><text x="500" y="156" class="m">22,5°</text>
+<text x="320" y="182" class="m">← na západ je méně hodin · na východ je více hodin →</text></g>
+</svg></div>
+<div class="rule"><b>Na východ čas přičítám, na západ odčítám.</b> (Slunce vychází na východě – tam už mají „víc hodin“.)</div>
+<div class="prakticky">Česko leží kolem 15° v. d. → pásmo +1 h. Když je v Londýně 12:00, u nás je 13:00 (v zimním čase).</div>
+<p class="note">Skutečné hranice pásem vedou po hranicích států, takže se od těchto „rovných“ pásem liší. V příkladech ve škole se ale počítá přesně po 15°.</p>
+<div data-porozumeni="10. Proč 24 pásem po 15°"></div>
+</div>
+
+<div class="sekce">
+<h3>Jak zjistit, ve kterém pásmu místo leží</h3>
+<ol class="kroky">
+<li>Vezmi zeměpisnou <b>délku</b> (šířka nás u času vůbec nezajímá!).</li>
+<li><b>Vyděl ji 15</b> a zaokrouhli na celé číslo. To je číslo pásma.</li>
+<li>Východní délka → pásmo <b>+</b>, západní délka → pásmo <b>−</b>.</li>
+</ol>
+<p>Nebo bez dělení – podle hranic pásem:</p>
+<div class="siroke"><table class="tab"><tr><th>pásmo</th><td>0</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td><td>10</td><td>11</td><td>12</td></tr>
+<tr><th>střední poledník</th><td>0°</td><td>15°</td><td>30°</td><td>45°</td><td>60°</td><td>75°</td><td>90°</td><td>105°</td><td>120°</td><td>135°</td><td>150°</td><td>165°</td><td>180°</td></tr>
+<tr><th>od – do</th><td>0–7,5°</td><td>7,5–22,5°</td><td>22,5–37,5°</td><td>37,5–52,5°</td><td>52,5–67,5°</td><td>67,5–82,5°</td><td>82,5–97,5°</td><td>97,5–112,5°</td><td>112,5–127,5°</td><td>127,5–142,5°</td><td>142,5–157,5°</td><td>157,5–172,5°</td><td>172,5–180°</td></tr></table></div>
+<div class="prakticky">113° v. d.: 113 : 15 = 7,53 → zaokrouhlím na 8 → pásmo <b>+8 h</b> (leží mezi 112,5° a 127,5°).<br>74°05′ z. d.: 74 : 15 = 4,9 → 5 → pásmo <b>−5 h</b>.<br>18°25′ v. d.: 18 : 15 = 1,2 → 1 → pásmo <b>+1 h</b>.</div>
+<p class="note">Typická chyba: zaokrouhlit dolů místo k nejbližšímu číslu. 113 : 15 = 7,53 je pásmo 8, ne 7 – protože 113° už je za hranicí 112,5°.</p>
+<div data-porozumeni="10. Jak určit pásmo"></div>
+</div>
+
+<div class="sekce">
+<h3>Příklady na pásmový čas</h3>
+<p>Postup: ① pásmo prvního místa, ② pásmo druhého místa, ③ rozdíl pásem = rozdíl hodin, ④ jdu na východ → přičtu, jdu na západ → odečtu.</p>
+<div class="rule">Rozdíl pásem: <b>obě místa na stejné straně</b> (obě v. d. nebo obě z. d.) → čísla pásem <b>odečtu</b>. <b>Každé na jiné straně</b> od nultého poledníku → čísla pásem <b>sečtu</b>.</div>
+<div class="prakticky">Z pásma +1 do pásma +9 je to 9 − 1 = 8 hodin. Z pásma −5 do pásma +1 je to 5 + 1 = 6 hodin (5 h k nultému poledníku a ještě 1 h za něj).</div>
+
+<div class="ex"><span class="lab">Příklad 1 (ze sešitu):</span> V místě A (37° s. š., 21° v. d.) je 13:30. Kolik hodin je v místě B (28° j. š., 131° v. d.)?
+<details><summary>Ukázat řešení</summary>
+<ol class="kroky"><li>A: 21 : 15 = 1,4 → pásmo +1.</li><li>B: 131 : 15 = 8,7 → pásmo +9.</li><li>Obě na východě → 9 − 1 = 8 h.</li><li>B je víc na východ → přičítám: 13:30 + 8 h = <b>21:30</b>.</li></ol></details></div>
+
+<div class="ex"><span class="lab">Příklad 2 (ze sešitu):</span> V místě na 18°25′ v. d. je 21:30. Kolik hodin je v místě na 74°05′ z. d.?
+<div class="obr"><svg viewBox="0 0 640 120" role="img" aria-label="Od pásma minus 5 k nultému poledníku 5 hodin a dál 1 hodina do pásma plus 1">
+<defs><marker id="ar17" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="#2b5cab"/></marker></defs>
+<line x1="60" y1="20" x2="60" y2="100" stroke="#1d1d1b"/><line x1="460" y1="20" x2="460" y2="100" stroke="#1d1d1b" stroke-width="2"/><line x1="540" y1="20" x2="540" y2="100" stroke="#1d1d1b"/>
+<text x="60" y="14" text-anchor="middle" class="b">75° z. d. (−5)</text><text x="460" y="14" text-anchor="middle" class="b">0°</text><text x="545" y="14" text-anchor="middle" class="b">15° v. d. (+1)</text>
+<line x1="64" y1="60" x2="456" y2="60" stroke="#2b5cab" stroke-width="2" marker-start="url(#ar17)" marker-end="url(#ar17)"/><text x="260" y="52" text-anchor="middle" class="a">5 h</text>
+<line x1="464" y1="60" x2="536" y2="60" stroke="#2b5cab" stroke-width="2" marker-start="url(#ar17)" marker-end="url(#ar17)"/><text x="500" y="52" text-anchor="middle" class="a">1 h</text>
+<text x="60" y="116" text-anchor="middle">15:30</text><text x="540" y="116" text-anchor="middle">21:30</text>
+</svg></div>
+<details><summary>Ukázat řešení</summary>
+<ol class="kroky"><li>18°25′ v. d.: 18 : 15 = 1,2 → pásmo +1.</li><li>74°05′ z. d.: 74 : 15 = 4,9 → pásmo −5.</li><li>Každé na jiné straně → 5 + 1 = 6 h.</li><li>Jdu na západ → odčítám: 21:30 − 6 h = <b>15:30</b>.</li></ol></details></div>
+
+<div class="ex"><span class="lab">Příklad 3 (ze sešitu):</span> V místě na 139°40′ v. d. je 22:20. Kolik hodin je v místě na 118°15′ z. d.?
+<details><summary>Ukázat řešení</summary>
+<ol class="kroky"><li>139°40′ v. d.: 139,7 : 15 = 9,3 → pásmo +9.</li><li>118°15′ z. d.: 118,25 : 15 = 7,9 → pásmo −8.</li><li>Každé na jiné straně → 9 + 8 = 17 h.</li><li>Jdu na západ → odčítám: 22:20 − 17 h = <b>5:20</b> (téhož dne).</li></ol>
+<p class="note">Tip: 22:20 − 17 h spočítáš snadno jako 22 − 17 = 5, minuty zůstávají.</p></details></div>
+
+<div class="ex"><span class="lab">Příklad 4 (souřadnice ze sešitu):</span> V místě B (15° j. š., 126° z. d.) je 13:00. Kolik hodin je v místě A (26° s. š., 37° v. d.)?
+<details><summary>Ukázat řešení</summary>
+<ol class="kroky"><li>B: 126 : 15 = 8,4 → pásmo −8.</li><li>A: 37 : 15 = 2,47 → pásmo +2. Pozor, je to těsně u hranice: pásmo +2 sahá do 37,5°, takže 37° do něj ještě patří.</li><li>Každé na jiné straně → 8 + 2 = 10 h.</li><li>Jdu na východ → přičítám: 13:00 + 10 h = <b>23:00</b>.</li></ol></details></div>
+<p class="note">Když při přičítání přejdeš přes půlnoc, je to už další den (např. 20:00 + 6 h = 2:00 následujícího dne). Když při odčítání přejdeš pod 0:00, je to předchozí den.</p>
+<div data-porozumeni="10. Příklady na pásmový čas"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="11. Místní čas">
+<h2>11. Místní čas</h2>
+
+<div class="sekce">
+<h3>Co je místní čas</h3>
+<p>Pásmový čas je dohoda – stejný pro celé pásmo. <b>Místní čas</b> je „skutečný sluneční čas“ na daném poledníku: 12:00 je přesně tehdy, když je Slunce nejvýš. Každý poledník má proto svůj místní čas.</p>
+<div class="rule">360° = 24 h &nbsp;→&nbsp; <b>15° = 1 h</b> &nbsp;→&nbsp; <b>1° = 4 min</b></div>
+<div class="prakticky">1 hodina = 60 minut připadá na 15°, takže na 1° připadá 60 : 15 = 4 minuty. Rozdíl 5° = 20 minut, rozdíl 6° = 24 minut.</div>
+<div class="rule"><b>Pásmový čas = místní čas středního poledníku pásma.</b> Na středním poledníku (0°, 15°, 30°…) jsou tedy oba časy stejné.</div>
+<div data-porozumeni="11. Místní čas – co to je"></div>
+</div>
+
+<div class="sekce">
+<h3>Převod mezi pásmovým a místním časem</h3>
+<div class="obr"><svg viewBox="0 0 640 200" role="img" aria-label="Pásmo plus 1: pásmový čas je všude 12:00, místní čas se mění podle poledníku">
+<rect x="60" y="40" width="520" height="90" fill="#eef3f8" stroke="#1d1d1b"/>
+<line x1="320" y1="40" x2="320" y2="130" stroke="#2b5cab" stroke-width="2" stroke-dasharray="5 4"/>
+<text x="320" y="30" text-anchor="middle" class="a">střední poledník 15° v. d.</text>
+<text x="60" y="30" text-anchor="middle" class="m">7,5°</text><text x="580" y="30" text-anchor="middle" class="m">22,5°</text>
+<text x="320" y="64" text-anchor="middle" class="b">pásmový čas: všude 12:00</text>
+<circle cx="147" cy="100" r="5" fill="#d9480f"/><text x="147" y="122" text-anchor="middle" class="m">10° v. d.</text>
+<circle cx="376" cy="100" r="5" fill="#d9480f"/><text x="376" y="122" text-anchor="middle" class="m">Brno 16,6°</text>
+<text x="20" y="160" class="b">místní čas:</text>
+<g text-anchor="middle"><text x="147" y="160">11:40</text><text x="320" y="160" class="a">12:00</text><text x="376" y="160">12:06</text><text x="580" y="160">12:30</text></g>
+<text x="320" y="190" text-anchor="middle" class="m">← na západ od středního poledníku je místní čas menší · na východ větší →</text>
+</svg></div>
+<ol class="kroky">
+<li>Urči pásmo a jeho <b>střední poledník</b> (číslo pásma · 15°).</li>
+<li>Spočítej, <b>o kolik stupňů</b> je místo od středního poledníku a <b>na kterou stranu</b>.</li>
+<li>Stupně <b>vynásob 4</b> → minuty.</li>
+<li>Místo je <b>východně</b> od středního poledníku → minuty k pásmovému času <b>přičti</b>. <b>Západně</b> → <b>odečti</b>.</li>
+</ol>
+<div class="prakticky">Brno leží asi na 16,6° v. d., tedy 1,6° východně od 15°. 1,6 · 4 ≈ 6 min. Když hodinky (pásmový čas, v zimě) ukazují 12:00, místní čas v Brně je 12:06 – Slunce bylo nejvýš už před 6 minutami.</div>
+<p class="note">Pozor u západní délky: na západní polokouli čísla rostou směrem na západ. Místo na 25° z. d. je tedy <b>východně</b> od poledníku 30° z. d. (je blíž k Greenwichi).</p>
+<div data-porozumeni="11. Převod pásmový a místní čas"></div>
+</div>
+
+<div class="sekce">
+<h3>Příklady na místní čas</h3>
+<div class="ex"><span class="lab">Příklad 1 (ze sešitu):</span> V místě A (39° j. š., 55° v. d.) je 13:00 pásmového času. Jaký je v A místní čas? Jaký pásmový a místní čas je v místě B (21° s. š., 41° z. d.)?
+<details><summary>Ukázat řešení</summary>
+<ol class="kroky"><li>A: 55 : 15 = 3,7 → pásmo +4, střední poledník 60° v. d.</li>
+<li>A je 60° − 55° = 5° <b>západně</b> od středního poledníku → 5 · 4 = 20 min odečtu. Místní čas v A: 13:00 − 20 min = <b>12:40</b>.</li>
+<li>B: 41 : 15 = 2,7 → pásmo −3, střední poledník 45° z. d.</li>
+<li>Rozdíl pásem: 4 + 3 = 7 h, B je na západ → pásmový čas v B: 13:00 − 7 h = <b>6:00</b>.</li>
+<li>B (41° z. d.) je 45° − 41° = 4° <b>východně</b> od středního poledníku 45° z. d. → 4 · 4 = 16 min přičtu. Místní čas v B: <b>6:16</b>.</li></ol></details></div>
+
+<div class="ex"><span class="lab">Příklad 2 (ze sešitu):</span> V místě A (51° j. š., 25° z. d.) je 9:11 pásmového času. Jaký je v A místní čas? Jaký pásmový a místní čas je v místě B (14° s. š., 111° v. d.)?
+<details><summary>Ukázat řešení</summary>
+<ol class="kroky"><li>A: 25 : 15 = 1,7 → pásmo −2, střední poledník 30° z. d.</li>
+<li>A (25° z. d.) je 5° <b>východně</b> od 30° z. d. → + 20 min. Místní čas v A: <b>9:31</b>.</li>
+<li>B: 111 : 15 = 7,4 → pásmo +7, střední poledník 105° v. d.</li>
+<li>Rozdíl pásem: 2 + 7 = 9 h, B je na východ → pásmový čas v B: 9:11 + 9 h = <b>18:11</b>.</li>
+<li>B (111° v. d.) je 6° <b>východně</b> od 105° → + 24 min. Místní čas v B: <b>18:35</b>.</li></ol></details></div>
+
+<div class="ex"><span class="lab">Příklad 3 (ze sešitu):</span> V místě A (51° j. š., 36° z. d.) je 21:12 pásmového času. Jaký pásmový a místní čas je v místě B (14° j. š., 161° z. d.)?
+<details><summary>Ukázat řešení</summary>
+<ol class="kroky"><li>A: 36 : 15 = 2,4 → pásmo −2.</li>
+<li>B: 161 : 15 = 10,7 → pásmo −11, střední poledník 165° z. d.</li>
+<li>Obě na západě → 11 − 2 = 9 h, B je víc na západ → pásmový čas v B: 21:12 − 9 h = <b>12:12</b>.</li>
+<li>B (161° z. d.) je 4° <b>východně</b> od 165° z. d. → + 16 min. Místní čas v B: <b>12:28</b>.</li></ol></details></div>
+<p class="note">Kontrola rozumem: místní čas se od pásmového nikdy neliší o víc než 30 minut (pásmo má 7,5° na každou stranu a 7,5 · 4 = 30).</p>
+<div data-porozumeni="11. Příklady na místní čas"></div>
+</div>
+</section>
+
+<section class="kapitola priloha" data-kapitola="Opravy oproti sešitu">
+<h2>Opravy oproti sešitu</h2>
+<ul class="fix">
+<li><b>Důsledky revoluce</b>: v sešitu jsou pod tímto nadpisem střídání dne a noci, slapové jevy, zdánlivý pohyb hvězdné sféry a Coriolisova síla. To jsou důsledky <b>rotace</b> (otáčení kolem osy). Důsledkem revoluce (oběhu) je střídání ročních období a změna délky dne a noci během roku.</li>
+<li><b>Tvar Země</b>: „matematicky = elipsa“ → správně <b>rotační elipsoid</b> (elipsa je plochý obrazec, Země je těleso).</li>
+<li><b>Zdánlivá dráha Slunce</b>: u dráhy pro 21. 12. je v obrázku 16 h → správně asi <b>8 h</b> (16 h trvá den 21. 6.).</li>
+<li><b>Místní čas, příklad s 9:11</b>: škrtnutý výpočet s rozdílem 5 h (14:11) by platil pro 25° <b>v. d.</b> Pro zadaných 25° <b>z. d.</b> je rozdíl pásem 9 h a v B je 18:11.</li>
+<li><b>Galaxie v Andromedě</b> je nejbližší <b>velká</b> galaxie (úplně nejblíž jsou malé galaxie, např. Magellanova mračna).</li>
+<li><b>Doplněno navíc</b> (v sešitu není): názvy planet, 3. Keplerův zákon slovně, polární poloměr 6 357 km, vysvětlení „proč“ u jednotlivých jevů, zadání k příkladům, kde byl v sešitu jen výsledek nebo souřadnice. Údaj „80 mld. ly“ u světelného roku je vynechaný (není jasné, k čemu patří).</li>
+</ul>
+</section>
+<!-- ===== KONEC OBSAHU ===== -->
+<div id="souhrn"></div>
+</main>
+<div id="hlaska" role="status" aria-live="polite"></div>
+<nav id="timeline"><div id="tlItems"></div><div class="tl-nav"><button type="button" id="tlPrev" aria-label="Předchozí">‹</button><button type="button" id="tlNext" aria-label="Další">›</button></div></nav>
+<script>
+/* ---------- stránka s teorií: kapitoly, zamykání, přeskočení, Vyzkoušej se, časová osa (Sablona_material_v04) ---------- */
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const cesta = location.pathname.replace(/^.*\/annschool\//, "").replace(/^\//, "");
+  const verze = (location.pathname.match(/_(v\d\d)\.html$/) || [])[1] || "";
+  const typText = { zapisky: "zápisky", material: "materiál", tahak: "tahák", "pracovni-list": "pracovní list" };
+  const typ = (location.pathname.match(/_([a-z-]+)_v\d\d\.html$/) || [])[1] || "";
+  const KEY = "annschool:kapitoly:" + cesta;
+  const POR_KEY = "annschool:porozumeni:" + cesta;
+  const PRESK_KEY = "annschool:preskoceno:" + cesta;
+  const VYZ_KEY = "annschool:vyzkousej:" + cesta;
+  const VOLNY = !!document.querySelector('.uvod[data-prechod="volny"]');   // v04: Chápu / Nechápu jen označení
+  const nazevTema = (document.title.split(" – ")[0] || document.title).trim();
+
+  // načte uložená data; nová verze stránky bez dat je převezme z nejvyšší starší verze (sledovani.js)
+  function nacti(klic, prefix, vychozi) {
+    try {
+      let s = localStorage.getItem(klic);
+      if (s === null && window.Sledovani && Sledovani.zPredchoziVerze) {
+        const st = Sledovani.zPredchoziVerze(prefix);
+        if (st && st.data) { s = st.data; localStorage.setItem(klic, s); }
+      }
+      return s === null ? vychozi : (JSON.parse(s) || vychozi);
+    } catch (e) { return vychozi; }
+  }
+  function uloz(klic, v) { try { localStorage.setItem(klic, JSON.stringify(v)); } catch (e) { /* plné úložiště, soukromé okno */ } }
+  function zapis(udalost, sekce, detail) {
+    try { if (window.Sledovani && Sledovani.udalost) Sledovani.udalost(udalost, sekce, detail); } catch (e) { /* bez záznamu */ }
+  }
+
+  const kapitoly = [...document.querySelectorAll("section.kapitola")].map((el, i) => ({
+    el, i, nazev: el.dataset.kapitola || ("Kapitola " + (i + 1)), priloha: el.classList.contains("priloha"),
+    casti: [...el.querySelectorAll("[data-porozumeni]")].map(x => x.getAttribute("data-porozumeni"))
+  }));
+  const hlavni = kapitoly.filter(k => !k.priloha);
+  const SOUHRN = -1;
+  const ulozene = nacti(KEY, "annschool:kapitoly:", {});
+  // otevřené kapitoly podle názvu (v01 ukládala čísla – převezmou se podle pořadí)
+  const otevrene = new Set((ulozene.otevrene || []).map(x => typeof x === "number" ? (kapitoly[x] || {}).nazev : x).filter(Boolean));
+  const presk = new Set(nacti(PRESK_KEY, "annschool:preskoceno:", []));
+  let cur = 0, potvrzuji = -2;
+
+  function stav() {
+    if (window.Sledovani && Sledovani.porozumeniStav) return Sledovani.porozumeniStav();
+    try { return JSON.parse(localStorage.getItem(POR_KEY) || "{}") || {}; } catch (e) { return {}; }
+  }
+  function ulozit() {
+    const posl = cur === SOUHRN ? "souhrn" : (kapitoly[cur] || {}).nazev;
+    uloz(KEY, { otevrene: [...otevrene], posledni: posl });
+  }
+  function info(k, P) {
+    const zbyva = k.casti.filter(c => !P[c]);
+    return { hotovo: zbyva.length === 0, zbyva, ne: k.casti.filter(c => P[c] === "nechapu").length,
+      ano: k.casti.filter(c => P[c] === "chapu").length, presk: presk.has(k.nazev) && zbyva.length > 0 };
+  }
+  // kapitola pustí dál, když je celá rozhodnutá, nebo byla přeskočena
+  function prosla(k, P) { return info(k, P).hotovo || presk.has(k.nazev); }
+  function odemcena(i, P) {
+    if (VOLNY || i === SOUHRN || kapitoly[i].priloha) return true;
+    for (const k of hlavni) { if (k.i >= i) break; if (!prosla(k, P)) return false; }
+    return true;
+  }
+  function prvniNedokoncena(P) { const k = hlavni.find(k => !prosla(k, P)); return k ? k.i : (hlavni.length ? hlavni[hlavni.length - 1].i : 0); }
+  let hlaskaT = 0;
+  function hlaska(t) { const h = $("hlaska"); h.textContent = t; h.classList.add("vidim"); clearTimeout(hlaskaT); hlaskaT = setTimeout(() => h.classList.remove("vidim"), 3600); }
+  function ukazNedorozhodnutou(k, P) {
+    const c = info(k, P).zbyva[0];
+    const el = c && [...k.el.querySelectorAll("[data-porozumeni]")].find(x => x.getAttribute("data-porozumeni") === c);
+    const cil = el && (el.closest(".sekce") || el);
+    if (cil) { cil.scrollIntoView({ behavior: "smooth", block: "center" }); cil.classList.remove("blik"); void cil.offsetWidth; cil.classList.add("blik"); }
+  }
+
+  function jdi(i, opts) {
+    opts = opts || {};
+    const P = stav();
+    if (i !== SOUHRN && (i < 0 || i >= kapitoly.length)) return;
+    if (!odemcena(i, P)) {
+      const blok = hlavni.find(k => k.i < i && !prosla(k, P));
+      hlaska(`Nejdřív u každé části kapitoly ${blok ? blok.nazev.split(".")[0] : ""} vyber Chápu, nebo Nechápu (nebo ji na konci přeskoč).`);
+      if (blok && blok.i === cur) ukazNedorozhodnutou(blok, P);
+      return;
+    }
+    if (i !== cur) zavriVsechnaPole("kapitola");
+    $("obsah").style.minHeight = "";
+    cur = i; potvrzuji = -2;
+    if (i !== SOUHRN) otevrene.add(kapitoly[i].nazev);
+    kapitoly.forEach(k => k.el.classList.toggle("vidim", k.i === i));
+    document.querySelectorAll(".uvod").forEach(u => u.classList.toggle("vidim", i === (kapitoly[0] ? 0 : SOUHRN)));
+    $("souhrn").classList.toggle("vidim", i === SOUHRN);
+    if (i === SOUHRN) vykresliSouhrn();
+    const nazev = i === SOUHRN ? "Souhrn" : kapitoly[i].nazev;
+    $("nazev").innerHTML = `${esc(nazevTema)} · ${esc(typText[typ] || typ)} ${esc(verze)} <span class="kap">· ${esc(nazev)}</span>`;
+    try { history.replaceState(null, "", i === SOUHRN ? "#souhrn" : "#k" + (i + 1)); } catch (e) { /* file:// */ }
+    if (window.Sledovani) { Sledovani.oblast(i === SOUHRN ? "Σ Souhrn" : nazev); }
+    ulozit(); prekresli();
+    if (opts.cast) {
+      const el = [...document.querySelectorAll("[data-porozumeni]")].find(x => x.getAttribute("data-porozumeni") === opts.cast);
+      const cil = el && (el.closest(".sekce") || el);
+      if (cil) setTimeout(() => { cil.scrollIntoView({ block: "center" }); cil.classList.add("blik"); }, 30);
+    } else if (!opts.bezPosunu) window.scrollTo(0, 0);
+  }
+  function dalsi(i) { return i === SOUHRN ? SOUHRN : (i + 1 < kapitoly.length ? i + 1 : SOUHRN); }
+  function predchozi(i) { return i === SOUHRN ? kapitoly.length - 1 : Math.max(0, i - 1); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+  function barva(k, P) {
+    if (k.priloha) return "";
+    const n = info(k, P);
+    if (n.hotovo && k.casti.length) return n.ne ? "st-cervena" : "st-zelena";
+    if (n.hotovo) return "st-zelena";
+    return otevrene.has(k.nazev) || n.presk ? "st-seda" : "";
+  }
+  function preskoc(k) {
+    const P = stav(), bez = info(k, P).zbyva;
+    presk.add(k.nazev); uloz(PRESK_KEY, [...presk]);
+    zapis("preskoceni", k.nazev, { kapitola: k.nazev, bez_volby: bez, pocet: bez.length });
+    potvrzuji = -2;
+    jdi(dalsi(k.i));
+  }
+  function prekresli() {
+    const P = stav();
+    // časová osa
+    const box = $("tlItems"); box.innerHTML = "";
+    kapitoly.forEach(k => {
+      const b = document.createElement("button"); b.type = "button";
+      const zam = !odemcena(k.i, P), pr = !k.priloha && info(k, P).presk;
+      b.className = "tl-b " + (k.priloha ? "stitek " : barva(k, P)) + (pr ? " presk" : "") + (zam ? " zamceno" : "") + (k.i === cur ? " cur" : "");
+      b.textContent = k.priloha ? k.nazev.replace(/^\d+\.\s*/, "").split(" ")[0] : String(hlavni.indexOf(k) + 1);
+      b.title = k.nazev + (zam ? " (zamčeno)" : pr ? " (přeskočeno bez volby)" : "");
+      b.setAttribute("aria-label", b.title);
+      b.addEventListener("click", () => jdi(k.i));
+      box.appendChild(b);
+    });
+    const s = document.createElement("button"); s.type = "button"; s.className = "tl-b stitek" + (cur === SOUHRN ? " cur" : "");
+    s.textContent = "Σ Souhrn"; s.addEventListener("click", () => jdi(SOUHRN)); box.appendChild(s);
+    $("tlPrev").disabled = cur === 0;
+    $("tlNext").disabled = cur === SOUHRN;
+    $("tlNext").classList.toggle("zamceno", cur !== SOUHRN && !odemcena(dalsi(cur), P));
+    // konec každé kapitoly
+    kapitoly.forEach(k => {
+      let kon = k.el.querySelector(":scope > .konec");
+      if (!kon) { kon = document.createElement("div"); kon.className = "konec"; k.el.appendChild(kon); }
+      const n = info(k, P), d = dalsi(k.i), dNazev = d === SOUHRN ? "Souhrn" : "Další kapitola";
+      const lzePreskocit = !VOLNY && !k.priloha && k.casti.length && !n.hotovo && !presk.has(k.nazev);
+      const txt = k.priloha || !k.casti.length ? "" :
+        n.hotovo ? `Rozhodnuto ${k.casti.length} z ${k.casti.length} · chápu ${n.ano}, nechápu ${n.ne}`
+          : n.presk ? `Rozhodnuto ${k.casti.length - n.zbyva.length} z ${k.casti.length} · přeskočeno bez volby`
+          : VOLNY ? `Označeno ${k.casti.length - n.zbyva.length} z ${k.casti.length}`
+          : `Rozhodnuto ${k.casti.length - n.zbyva.length} z ${k.casti.length} – u každé části vyber Chápu, nebo Nechápu`;
+      let prava = (k.i > 0 ? '<button type="button" class="zpet">‹ Zpět</button> ' : "");
+      if (lzePreskocit && potvrzuji === k.i) {
+        prava += `<span class="potvrd">Opravdu? ${n.zbyva.length === 1 ? "1 část nemá" : n.zbyva.length + (n.zbyva.length < 5 ? " části nemají" : " částí nemá")} volbu. ` +
+          `<button type="button" class="ano">Ano, přeskočit</button> <button type="button" class="ne">Ne</button></span>`;
+      } else {
+        if (lzePreskocit) prava += '<button type="button" class="presk">Přeskočit bez volby ›</button> ';
+        prava += `<button type="button" class="dal${odemcena(d, P) ? "" : " zamceno"}">${dNazev} ›</button>`;
+      }
+      kon.innerHTML = `<span>${esc(txt)}</span><span>${prava}</span>`;
+      const z = kon.querySelector(".zpet"); if (z) z.onclick = () => jdi(predchozi(k.i));
+      const dl = kon.querySelector(".dal"); if (dl) dl.onclick = () => jdi(d);
+      const p = kon.querySelector(".presk"); if (p) p.onclick = () => { potvrzuji = k.i; prekresli(); };
+      const a = kon.querySelector(".ano"); if (a) a.onclick = () => preskoc(k);
+      const ne = kon.querySelector(".ne"); if (ne) ne.onclick = () => { potvrzuji = -2; prekresli(); };
+    });
+    document.documentElement.style.setProperty("--tl-h", $("timeline").offsetHeight + "px");
+  }
+  function vykresliSouhrn() {
+    const P = stav();
+    const vse = hlavni.reduce((a, k) => a + k.casti.length, 0);
+    const ano = hlavni.reduce((a, k) => a + info(k, P).ano, 0), ne = hlavni.reduce((a, k) => a + info(k, P).ne, 0);
+    const naps = Object.values(VYZ).filter(z => z && ((z.text && z.text.trim()) || z.tahu)).length;
+    let h = `<h2>Souhrn</h2><p class="meta">Chápu ${ano} · nechápu ${ne} · nerozhodnuto ${vse - ano - ne} (celkem ${vse} částí)` +
+      `${naps ? ` · ✎ Vyzkoušej se napsáno u ${naps}` : ""}. Klepnutím na část na ni skočíš.</p>`;
+    kapitoly.forEach(k => {
+      if (k.priloha) { h += `<div class="sum-kap"><button type="button" class="odkaz" data-k="${k.i}">${esc(k.nazev)}</button></div>`; return; }
+      const pr = info(k, P).presk;
+      h += `<div class="sum-kap">${esc(k.nazev)}${pr ? ' <span class="nic">(přeskočeno)</span>' : ""}</div><table class="sum-tab">`;
+      k.casti.forEach(c => {
+        const s = P[c] === "chapu" ? '<span class="ok">✓ chápu</span>' : P[c] === "nechapu" ? '<span class="ne">✗ nechápu</span>'
+          : pr ? '<span class="nic">– přeskočeno</span>' : '<span class="nic">– nerozhodnuto</span>';
+        const z = VYZ[c] && ((VYZ[c].text && VYZ[c].text.trim()) || VYZ[c].tahu) ? ' <span class="nic" title="Vyzkoušej se – napsáno">✎</span>' : "";
+        h += `<tr><td><button type="button" class="odkaz" data-k="${k.i}" data-c="${esc(c)}">${esc(c)}</button>${z}</td><td class="st">${s}</td></tr>`;
+      });
+      h += "</table>";
+    });
+    $("souhrn").innerHTML = h;
+    $("souhrn").querySelectorAll("button.odkaz").forEach(b => b.addEventListener("click", () => jdi(+b.dataset.k, { cast: b.dataset.c })));
+  }
+
+  /* ---------- Vyzkoušej se: papír na psaní perem (jako v testu) pod Chápu / Nechápu, látka sekce zakrytá na místě ---------- */
+  const VYZ = nacti(VYZ_KEY, "annschool:vyzkousej:", {});
+  const POLE = {};                 // cast → { box, ta, latka, tl, odkryt, info, otevreno, odkrytoOd, pauza, cv, view, tahy }
+  const MAX = 4000, PAUZA_MS = 20000, ANIM_MS = 430;
+  const PW = 820, PH = 1200;       // papír v CSS px (okno 320 px vysoké, papír se v něm posouvá prstem)
+  const PAP = cast => "annschool:papir:" + cast + "|";          // + adresa stránky (převzetí ze starší verze)
+  const draw = { color: "#1d1d1b", width: 1.1, eraser: false };
+  function z(cast) {
+    return VYZ[cast] || (VYZ[cast] = { text: "", odkryto: 0, odkryto_ms: 0, pred_odkrytim: null, pred_odkrytim_tahu: null, pv: 0, tahu: 0, cas: "", odeslano: "", odeslano_pv: 0 });
+  }
+  function ulozVyz() { uloz(VYZ_KEY, VYZ); }
+  function pricistOdkryti(p, cast) {
+    if (p.odkrytoOd) { z(cast).odkryto_ms += Date.now() - p.odkrytoOd; p.odkrytoOd = 0; }
+  }
+  // tahy papíru: vlastní klíč pro každou sekci; při plném úložišti se mažou nejstarší papíry (do výsledků už odešly)
+  function nactiTahy(cast) {
+    try {
+      let s = localStorage.getItem(PAP(cast) + cesta);
+      if (s === null && window.Sledovani && Sledovani.zPredchoziVerze) {
+        const st = Sledovani.zPredchoziVerze(PAP(cast));
+        if (st && st.data) { s = st.data; try { localStorage.setItem(PAP(cast) + cesta, s); } catch (e) { /* plné */ } }
+      }
+      const o = s ? JSON.parse(s) : null;
+      return o && Array.isArray(o.s) ? o.s : [];
+    } catch (e) { return []; }
+  }
+  function ulozTahy(cast, tahy) {
+    const k = PAP(cast) + cesta;
+    const v = JSON.stringify({ cas: Date.now(), s: tahy.map(t => ({ c: t.c, w: t.w, e: t.e ? 1 : 0,
+      p: t.p.map(q => [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10, Math.round(q[2] * 100) / 100]) })) });
+    for (let i = 0; i < 60; i++) {
+      try { if (tahy.length) localStorage.setItem(k, v); else localStorage.removeItem(k); return true; }
+      catch (e) {
+        let nej = null, cas = Infinity;
+        try {
+          for (let j = 0; j < localStorage.length; j++) {
+            const kk = localStorage.key(j);
+            if (!kk || kk.indexOf("annschool:papir:") !== 0 || kk === k) continue;
+            let c = 0; try { c = JSON.parse(localStorage.getItem(kk)).cas || 0; } catch (x) { c = 0; }
+            if (c < cas) { cas = c; nej = kk; }
+          }
+        } catch (x) { return false; }
+        if (!nej) return false;
+        try { localStorage.removeItem(nej); } catch (x) { return false; }
+      }
+    }
+    return false;
+  }
+  function pocetTahu(tahy) { return tahy.filter(t => !t.e).length; }
+  // kreslení jako v šabloně testu: vyhlazené křivky přes středy úseků, tloušťka podle tlaku pera
+  const sirka = (t, p) => t.e ? 22 : t.w * (0.55 + p * 0.9);
+  function usek(c, t, od) {
+    const P = t.p;
+    c.save(); c.lineCap = "round"; c.lineJoin = "round";
+    c.globalCompositeOperation = t.e ? "destination-out" : "source-over";
+    c.strokeStyle = c.fillStyle = t.c;
+    if (P.length === 1 && od <= 1) { c.beginPath(); c.arc(P[0][0], P[0][1], sirka(t, P[0][2]) / 2, 0, 7); c.fill(); }
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    for (let i = Math.max(1, od); i < P.length; i++) {
+      const p0 = i === 1 ? P[0] : mid(P[i - 2], P[i - 1]), p1 = mid(P[i - 1], P[i]);
+      c.lineWidth = sirka(t, P[i - 1][2]);
+      c.beginPath(); c.moveTo(p0[0], p0[1]); c.quadraticCurveTo(P[i - 1][0], P[i - 1][1], p1[0], p1[1]); c.stroke();
+    }
+    c.restore();
+  }
+  function prekresliPapir(p) {
+    if (!p.cv) return;
+    const c = p.ctx;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, p.cv.width, p.cv.height);
+    c.setTransform(p.dpr, 0, 0, p.dpr, 0, 0);
+    p.tahy.forEach(t => usek(c, t, 1));
+  }
+  // obrázek popsané části papíru (jako v testu): JPEG s mřížkou, oříznutý na tahy
+  function snimek(tahy) {
+    if (!tahy.some(t => !t.e)) return null;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    tahy.forEach(t => t.p.forEach(q => { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); }));
+    const m = 16, sc = 1.5; x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m); x1 = Math.min(PW, x1 + m); y1 = Math.min(PH, y1 + m);
+    const W = Math.max(1, Math.round((x1 - x0) * sc)), H = Math.max(1, Math.round((y1 - y0) * sc));
+    const ink = document.createElement("canvas"); ink.width = W; ink.height = H;
+    const ic = ink.getContext("2d"); ic.setTransform(sc, 0, 0, sc, -x0 * sc, -y0 * sc);
+    tahy.forEach(t => usek(ic, t, 1));
+    const out = document.createElement("canvas"); out.width = W; out.height = H;
+    const oc = out.getContext("2d"); oc.fillStyle = "#fff"; oc.fillRect(0, 0, W, H);
+    oc.strokeStyle = "#edf1f6"; oc.lineWidth = 1; oc.beginPath();
+    for (let x = Math.ceil(x0 / 24) * 24; x < x1; x += 24) { const X = Math.round((x - x0) * sc) + .5; oc.moveTo(X, 0); oc.lineTo(X, H); }
+    for (let y = Math.ceil(y0 / 24) * 24; y < y1; y += 24) { const Y = Math.round((y - y0) * sc) + .5; oc.moveTo(0, Y); oc.lineTo(W, Y); }
+    oc.stroke(); oc.drawImage(ink, 0, 0);
+    try { return out.toDataURL("image/jpeg", 0.75); } catch (e) { return null; }
+  }
+  function posli(cast, duvod) {
+    const p = POLE[cast], st = z(cast);
+    if (p) { pricistOdkryti(p, cast); if (p.otevreno && !p.latka.classList.contains("skryta")) p.odkrytoOd = Date.now(); clearTimeout(p.pauza); }
+    const podpis = JSON.stringify([st.text, st.odkryto, st.pv]);
+    if (podpis === st.odeslano || (!st.text && !st.odkryto && !st.pv && !st.odeslano)) { ulozVyz(); return; }
+    let papir = "";
+    if (st.pv !== st.odeslano_pv) {
+      const tahy = p && p.tahy ? p.tahy : nactiTahy(cast);
+      papir = snimek(tahy) || "";
+    }
+    st.odeslano = podpis; st.odeslano_pv = st.pv; ulozVyz();
+    const u = { cast, text: st.text, znaku: st.text.length, tahu: st.tahu, papir_zmena: st.pv !== 0 && !!papir,
+      papir_prazdny: !st.tahu, odkryto: st.odkryto, odkryto_s: Math.round(st.odkryto_ms / 1000),
+      pred_odkrytim: st.pred_odkrytim, pred_odkrytim_tahu: st.pred_odkrytim_tahu, duvod,
+      poradi: kapitoly.reduce((a, k) => a.concat(k.casti), []).indexOf(cast) + 1 };
+    try {
+      if (window.Sledovani && Sledovani.udalost) {
+        if (papir && window.Zaznam) Zaznam.zapis({ udalost: "vyzkousej", typ: typ, sekce: cast.slice(0, 120), detail: u, papir });
+        else Sledovani.udalost("vyzkousej", cast, u);
+      }
+    } catch (e) { /* bez záznamu */ }
+  }
+  function napsano(st) { return !!(st.text.trim() || st.tahu); }
+  function popisPole(p, cast) {
+    const st = z(cast);
+    p.info.textContent = st.odkryto ? `látku jsi odkryla ${st.odkryto}×` : "";
+    p.odkryt.textContent = p.latka.classList.contains("skryta") ? "Ukázat látku" : "Skrýt látku";
+    p.kl.textContent = p.ta.hidden ? "⌨ Psát textem" : "⌨ Skrýt text";
+    p.tl.classList.toggle("on", p.otevreno);
+    p.tl.textContent = "Vyzkoušej se" + (napsano(st) ? " ✓" : "");
+  }
+  function vyska(ta) { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight + 2, innerHeight * 0.6) + "px"; }
+  function nastroje(p) {
+    p.box.querySelectorAll(".vp-barva").forEach(b => b.classList.toggle("on", !draw.eraser && b.dataset.c === draw.color));
+    p.box.querySelectorAll(".vp-tl").forEach(b => b.classList.toggle("on", !draw.eraser && +b.dataset.w === draw.width));
+    p.box.querySelector(".vp-guma").classList.toggle("on", draw.eraser);
+  }
+  // papír: pero a myš píšou, prst posouvá (na okraji papíru posouvá stránku); Scribble se potlačí jako v testu
+  function vytvorPapir(cast) {
+    const p = POLE[cast];
+    if (p.cv) return;
+    const cv = p.cv = document.createElement("canvas");
+    p.dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.style.width = PW + "px"; cv.style.height = PH + "px";
+    cv.width = Math.round(PW * p.dpr); cv.height = Math.round(PH * p.dpr);
+    p.ctx = cv.getContext("2d");
+    p.view.appendChild(cv);
+    prekresliPapir(p);
+  }
+  function uvolniPapir(p) { if (p.cv) { p.cv.width = 0; p.cv.height = 0; p.cv.remove(); p.cv = null; p.ctx = null; } }
+  function zmenaPapiru(cast) {
+    const p = POLE[cast], st = z(cast);
+    st.pv++; st.tahu = pocetTahu(p.tahy); st.cas = new Date().toISOString();
+    ulozTahy(cast, p.tahy); ulozVyz(); popisPole(p, cast);
+    clearTimeout(p.pauza); p.pauza = setTimeout(() => posli(cast, "pauza"), PAUZA_MS);
+  }
+  function navazPapir(cast) {
+    const p = POLE[cast], view = p.view;
+    const jePero = e => Array.prototype.some.call(e.changedTouches || [], t => t.touchType === "stylus");
+    ["touchstart", "touchmove", "touchend"].forEach(t => view.addEventListener(t, e => { if (jePero(e) && e.cancelable) e.preventDefault(); }, { passive: false }));
+    let rect = null, drawn = 1, raf = 0, pr = 0.5, cur = null, pan = null;
+    const pos = e => {
+      const raw = e.pointerType === "pen" ? (e.pressure || .5) : .5;
+      pr = pr * 0.6 + raw * 0.4;
+      return [e.clientX - rect.left, e.clientY - rect.top, pr];
+    };
+    const flush = () => { raf = 0; if (!cur || !p.ctx) return; usek(p.ctx, cur, drawn); drawn = cur.p.length; };
+    view.addEventListener("pointerdown", e => {
+      if (e.pointerType === "touch") {
+        if (cur || pan) return;
+        pan = { id: e.pointerId, x: e.clientX, y: e.clientY };
+        try { view.setPointerCapture(e.pointerId); } catch (x) { /* nic */ }
+        return;
+      }
+      if (!p.cv || e.target !== p.cv || (e.pointerType !== "pen" && e.pointerType !== "mouse")) return;
+      if (pan) pan = null;
+      e.preventDefault(); try { p.cv.setPointerCapture(e.pointerId); } catch (x) { /* nic */ }
+      rect = p.cv.getBoundingClientRect(); pr = e.pointerType === "pen" ? (e.pressure || .5) : .5;
+      cur = { c: draw.color, w: draw.width, e: draw.eraser, p: [pos(e)] };
+      p.tahy.push(cur); drawn = 0; flush(); drawn = 1;
+      clearTimeout(p.pauza);
+    });
+    view.addEventListener("pointermove", e => {
+      if (pan && e.pointerId === pan.id) {
+        const dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+        const st0 = view.scrollTop;
+        view.scrollLeft -= dx; view.scrollTop -= dy;
+        const zbyva = -dy - (view.scrollTop - st0);                  // papír už dál nejde – posune se stránka
+        if (Math.abs(zbyva) > 0.5) window.scrollBy(0, zbyva);
+        pan.x = e.clientX; pan.y = e.clientY;
+        return;
+      }
+      if (!cur || e.pointerType === "touch") return;
+      e.preventDefault();
+      const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+      (evs.length ? evs : [e]).forEach(ev => {
+        const q = pos(ev), last = cur.p[cur.p.length - 1];
+        if (Math.abs(q[0] - last[0]) + Math.abs(q[1] - last[1]) >= 0.4) cur.p.push(q);
+      });
+      if (!raf) raf = requestAnimationFrame(flush);
+    });
+    ["pointerup", "pointercancel"].forEach(t => view.addEventListener(t, e => {
+      if (pan && e.pointerId === pan.id) { pan = null; return; }
+      if (!cur || e.pointerType === "touch") return;
+      if (cur.p.length > 1) cur.p.push(cur.p[cur.p.length - 1].slice());
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      flush(); cur = null;
+      zmenaPapiru(cast);
+    }));
+    const lista = p.box.querySelector(".vp-bar");
+    lista.querySelector(".vp-zpet").onclick = () => { if (p.tahy.length) { p.tahy.pop(); prekresliPapir(p); zmenaPapiru(cast); } };
+    lista.querySelector(".vp-smaz").onclick = () => {
+      if (!p.tahy.length) return;
+      const b = lista.querySelector(".vp-smaz");
+      if (b.dataset.potvrd) { delete b.dataset.potvrd; b.textContent = "Smazat"; p.tahy = []; prekresliPapir(p); zmenaPapiru(cast); return; }
+      b.dataset.potvrd = "1"; b.textContent = "Opravdu smazat?";                       // potvrzení na místě, bez okna prohlížeče
+      setTimeout(() => { if (b.dataset.potvrd) { delete b.dataset.potvrd; b.textContent = "Smazat"; } }, 3000);
+    };
+    lista.querySelectorAll(".vp-barva").forEach(b => b.onclick = () => { draw.color = b.dataset.c; draw.eraser = false; Object.values(POLE).forEach(nastroje); });
+    lista.querySelectorAll(".vp-tl").forEach(b => b.onclick = () => { draw.width = +b.dataset.w; draw.eraser = false; Object.values(POLE).forEach(nastroje); });
+    lista.querySelector(".vp-guma").onclick = () => { draw.eraser = !draw.eraser; Object.values(POLE).forEach(nastroje); };
+  }
+  function otevri(cast) {
+    const p = POLE[cast]; if (!p || p.otevreno) return;
+    p.otevreno = true;
+    p.latka.classList.add("skryta");                      // zakrytí na místě – výška sekce se nemění
+    if (!p.tahy) p.tahy = nactiTahy(cast).map(t => ({ c: t.c, w: t.w, e: !!t.e, p: t.p }));
+    const st = z(cast);
+    st.tahu = pocetTahu(p.tahy);
+    p.ta.value = st.text;
+    p.ta.hidden = !st.text;                               // text jen když už nějaký je, nebo po „⌨ Psát textem“
+    vytvorPapir(cast); nastroje(p);
+    const box = p.box; box.hidden = false; box.style.height = "0px";
+    if (!p.ta.hidden) vyska(p.ta);
+    const h = box.scrollHeight; void box.offsetHeight;
+    box.style.height = h + "px";                           // plynulé rozbalení, obsah pod polem se posune plynule
+    clearTimeout(p.anim); p.anim = setTimeout(() => { if (p.otevreno) box.style.height = "auto"; }, ANIM_MS);
+    popisPole(p, cast);
+  }
+  function zavri(cast, duvod, hned) {
+    const p = POLE[cast]; if (!p || !p.otevreno) return;
+    posli(cast, duvod);
+    pricistOdkryti(p, cast); ulozVyz();
+    p.otevreno = false;
+    p.latka.classList.remove("skryta");
+    const box = p.box;
+    if (hned) { box.style.height = "0px"; box.hidden = true; uvolniPapir(p); }
+    else {
+      // stránka se nezkrátí – jinak by ji prohlížeč u konce stránky posunul skokem
+      const m = $("obsah"); m.style.minHeight = m.offsetHeight + "px";
+      box.style.height = box.scrollHeight + "px"; void box.offsetHeight; box.style.height = "0px";
+      clearTimeout(p.anim); p.anim = setTimeout(() => { if (!p.otevreno) { box.hidden = true; uvolniPapir(p); } }, ANIM_MS);
+    }
+    if (document.activeElement === p.ta) p.ta.blur();
+    popisPole(p, cast);
+  }
+  function zavriVsechnaPole(duvod) { Object.keys(POLE).forEach(c => zavri(c, duvod, true)); }
+  const BARVY = [["#1d1d1b", "černá"], ["#2b5cab", "modrá"], ["#b3261e", "červená"]];
+  const TLOUSTKY = [[1.1, "tenké pero", 1.5], [2, "střední pero", 3], [3.4, "silné pero", 5]];
+  function vlozVyzkousej() {
+    document.querySelectorAll(".sekce [data-porozumeni]").forEach(el => {
+      const cast = el.getAttribute("data-porozumeni"), sekce = el.closest(".sekce");
+      if (!sekce || POLE[cast]) return;
+      // látka = vše v sekci před tlačítky kromě úvodního nadpisu
+      const latka = document.createElement("div"); latka.className = "latka";
+      const deti = [...sekce.childNodes];
+      const zac = deti.findIndex(n => n.nodeType === 1);
+      const prvni = zac >= 0 && deti[zac].tagName === "H3" ? zac + 1 : 0;
+      deti.slice(prvni, deti.indexOf(el)).forEach(n => latka.appendChild(n));
+      sekce.insertBefore(latka, el);
+      const tl = document.createElement("button"); tl.type = "button"; tl.className = "vyz";
+      el.appendChild(tl);
+      const box = document.createElement("div"); box.className = "vyz-box"; box.hidden = true;
+      box.innerHTML = `<div class="vyz-in">${prvni === 0 ? `<div class="meta">${esc(cast.replace(/^\d+\.\s*/, ""))}</div>` : ""}` +
+        `<div class="vyz-papir"><div class="vp-bar"><button type="button" class="vp-zpet">Zpět</button><button type="button" class="vp-smaz">Smazat</button><i class="vp-sep"></i>` +
+        BARVY.map(([c, n]) => `<button type="button" class="vp-barva" data-c="${c}" style="background:${c}" aria-label="${n}"></button>`).join("") + `<i class="vp-sep"></i>` +
+        TLOUSTKY.map(([w, n, h]) => `<button type="button" class="vp-tl" data-w="${w}" aria-label="${n}"><i style="height:${h}px"></i></button>`).join("") +
+        `<button type="button" class="vp-guma">Guma</button><span class="vp-tip">Napiš, co sis zapamatovala – pero píše, prst posouvá</span></div>` +
+        `<div class="vp-view"></div></div>` +
+        `<textarea maxlength="${MAX}" rows="3" hidden placeholder="Napiš vlastními slovy, co sis z této části zapamatovala." aria-label="Vyzkoušej se – ${esc(cast)}"></textarea>` +
+        `<div class="vyz-lista"><span class="info"></span><button type="button" class="kl">⌨ Psát textem</button><button type="button" class="odkryt">Ukázat látku</button><button type="button" class="hotovo">Hotovo</button></div></div>`;
+      el.after(box);
+      const p = POLE[cast] = { box, ta: box.querySelector("textarea"), latka, tl, odkryt: box.querySelector(".odkryt"), kl: box.querySelector(".kl"),
+        info: box.querySelector(".info"), view: box.querySelector(".vp-view"), otevreno: false, odkrytoOd: 0, pauza: 0, anim: 0, tahy: null, cv: null };
+      navazPapir(cast);
+      tl.addEventListener("click", () => p.otevreno ? zavri(cast, "hotovo") : otevri(cast));
+      box.querySelector(".hotovo").addEventListener("click", () => zavri(cast, "hotovo"));
+      p.kl.addEventListener("click", () => {
+        p.ta.hidden = !p.ta.hidden;
+        if (!p.ta.hidden) { vyska(p.ta); try { p.ta.focus({ preventScroll: true }); } catch (e) { /* nic */ } }
+        popisPole(p, cast);
+      });
+      p.odkryt.addEventListener("click", () => {
+        const st = z(cast);
+        if (p.latka.classList.contains("skryta")) {
+          p.latka.classList.remove("skryta"); st.odkryto++; p.odkrytoOd = Date.now();
+          if (st.pred_odkrytim === null) { st.pred_odkrytim = st.text.length; st.pred_odkrytim_tahu = st.tahu; }
+        } else { p.latka.classList.add("skryta"); pricistOdkryti(p, cast); }
+        ulozVyz(); popisPole(p, cast);
+      });
+      p.ta.addEventListener("input", () => {
+        const st = z(cast); st.text = p.ta.value.slice(0, MAX); st.cas = new Date().toISOString();
+        vyska(p.ta); ulozVyz(); popisPole(p, cast);
+        clearTimeout(p.pauza); p.pauza = setTimeout(() => posli(cast, "pauza"), PAUZA_MS);
+      });
+      p.ta.addEventListener("blur", () => { if (p.otevreno) posli(cast, "opusteni"); });
+      popisPole(p, cast);
+    });
+  }
+  // na papíře a liště se nic neoznačuje dlouhým stiskem (dlaň, pero) – jako v testu
+  const vPapiru = e => { const t = e.target && e.target.nodeType === 1 ? e.target : e.target && e.target.parentElement; return !!(t && t.closest(".vyz-papir")); };
+  document.addEventListener("selectstart", e => { if (vPapiru(e)) e.preventDefault(); });
+  document.addEventListener("contextmenu", e => { if (vPapiru(e)) e.preventDefault(); });
+  function odchod() { Object.keys(POLE).forEach(c => posli(c, "odchod")); try { if (window.Zaznam) Zaznam.beacon(); } catch (e) { /* nic */ } }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") odchod(); });
+  window.addEventListener("pagehide", odchod);
+
+  function start() {
+    if (!kapitoly.length) return;
+    vlozVyzkousej();
+    if (window.Sledovani && Sledovani.pocetOblasti) Sledovani.pocetOblasti(kapitoly.length + 1);
+    const P = stav();
+    const m = location.hash.match(/^#k(\d+)$/);
+    const posl = ulozene.posledni;
+    const ix = typeof posl === "number" ? posl : posl === "souhrn" ? SOUHRN : Math.max(0, kapitoly.findIndex(k => k.nazev === posl));
+    let cil = location.hash === "#souhrn" ? SOUHRN : m ? +m[1] - 1 : ix;
+    if (cil !== SOUHRN && (cil < 0 || cil >= kapitoly.length)) cil = 0;
+    if (!odemcena(cil, P)) cil = prvniNedokoncena(P);
+    jdi(cil);
+    document.addEventListener("porozumeni", () => {
+      prekresli();
+      const k = kapitoly[cur], P2 = stav();
+      if (k && !k.priloha && k.casti.length && info(k, P2).hotovo) {
+        const d = dalsi(cur);
+        hlaska(d === SOUHRN ? "Kapitola je hotová – pokračuj na souhrn." : "Kapitola je hotová – můžeš pokračovat na další.");
+      }
+    });
+    $("tlPrev").addEventListener("click", () => jdi(predchozi(cur)));
+    $("tlNext").addEventListener("click", () => jdi(dalsi(cur)));
+    window.addEventListener("hashchange", () => {
+      const mm = location.hash.match(/^#k(\d+)$/);
+      if (mm && +mm[1] - 1 !== cur) jdi(+mm[1] - 1); else if (location.hash === "#souhrn" && cur !== SOUHRN) jdi(SOUHRN);
+    });
+    if (window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty("--tl-h", $("timeline").offsetHeight + "px")).observe($("timeline"));
+  }
+  // až za sledovani.js (ten vkládá tlačítka Chápu / Nechápu při DOMContentLoaded)
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
+  window.Kapitoly = { jdi, stav, get aktualni() { return cur; }, kapitoly: kapitoly.map(k => ({ nazev: k.nazev, priloha: k.priloha, casti: k.casti })),
+    preskoceno: () => [...presk], vyzkousej: () => JSON.parse(JSON.stringify(VYZ)), otevri, zavri };
+})();
+</script>
+</body>
+</html>
