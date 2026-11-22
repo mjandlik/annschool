@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- ===== HLAVIČKA STRÁNKY (měň jen <title>: „<Téma> – Rychloučení“) ===== -->
+<title>Pravěk a starověk – Rychloučení: pravěk</title>
+<!-- ===== KONEC HLAVIČKY ===== -->
+<!--
+  ŠABLONA RYCHLOUČENÍ – Ann School (system/Sablona_rychlouceni_vXX.html)
+  Nové Rychloučení = kopie této šablony do složky předmětu: <předmět>/<tema>_rychlouceni_vXX.html.
+  Měň JEN bloky HLAVIČKA (<title>), NÁZEV V PANELU (název a verze) a KONFIGURACE RYCHLOUČENÍ. Postup: system/Navod_rychlouceni_vXX.md.
+  v01 (09.11.2026): učení formou testu.
+  v02 (09.11.2026): časová osa dole – kolečko za každý fakt v pořadí kapitol (šedá = ještě nebylo, oranžová = učí se,
+       červená = poslední odpověď špatně, zelená = naučeno; aktuální otázka orámovaná).
+  - Fakt = jedna věc, kterou má žák umět (stálé id, kapitola, priorita jadro / doplnek, 2+ varianty otázky).
+    Otázka = výběr z 5 zamíchaných možností + „Nevím“ (počítá se jako špatně). Po odpovědi hned vyhodnocení,
+    vysvětlení, pomůcka a co znamená vybraná špatná možnost (ze slovníku POJMY). „Další“ je pod vyhodnocením,
+    400 ms po vyhodnocení se na klepnutí nereaguje (dvojité klepnutí nepřeskočí vysvětlení).
+  - Plánovač (čistá funkce bez DOM, Rychlouceni.planovac): fronta podle toho, kdy je fakt na řadě – špatně za 3 otázky,
+    správně za 6; vždy fakt, který je na řadě nejdřív; když nic není na řadě a v práci je < 8 faktů, přidá nový
+    (nejdřív jadro, kapitoly v pořadí); jinak nejbližší i dřív. Nikdy stejný fakt dvakrát po sobě (kromě posledního).
+    Naučený = 2 správné odpovědi za sebou s jinou otázkou mezi nimi (u posledního faktu je mezi nimi výplň = naučený
+    fakt s nejvíc chybami). Varianta = nejdéle nepoužitá, jiná než minule.
+  - Kapitola s kostra: true – možnosti až po „Ukázat možnosti“ (nejdřív si odpověď řekne v duchu).
+  - Závěrečné kolo: fakta s aspoň jednou chybou, promíchaná, každé jednou v jiné variantě.
+  - Ranní opakování: nejslabší fakta (nejvíc chyb, pak nejméně správných), stačí 1 správná odpověď; po 10 min
+    nebo 30 otázkách nabídne „Pokračovat“. Bez uloženého stavu: nejdřív kostra, pak náhodně.
+  - Pauza po 25 min učení, po 60 min „Zbytek nech na ráno“. Odhad zbývajícího času podle úspěšnosti a tempa.
+  - Stav po každé odpovědi v localStorage „annschool:rychlouceni:<cesta>“; nová verze stránky převezme stav
+    z nejvyšší starší verze (Sledovani.zPredchoziVerze), fakta podle id.
+  - Záznam (sledovani.js, Sledovani.udalost): rychlo_start, rychlo_odpoved, rychlo_naucen, rychlo_souhrn,
+    rychlo_reset, rychlo_rano; oblast = kapitola. Pro kontrolu jen pro čtení window.Rychlouceni { stav(), otazka() }.
+  - Na stránce se nic neoznačuje dlouhým stiskem (jako šablona testu v22), malá tlačítka, touch-action: manipulation.
+-->
+<link rel="icon" type="image/svg+xml" href="../system/img/cat.svg">
+<link rel="apple-touch-icon" href="../system/img/apple-touch-icon.png">
+<script src="../system/lib/zaznam.js"></script>
+<script src="../system/lib/sledovani.js" data-typ="rychlouceni"></script>
+<style>
+  :root {
+    --bg: #fafaf7; --paper: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd5;
+    --ok: #1f7a3a; --ok-bg: #e6f4ea; --bad: #b3261e; --bad-bg: #fbe9e7; --accent: #2b5cab; --panel-h: 48px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  /* dlouhý stisk (dlaň, prst, pero) nic neoznačuje ani neotevře nabídku */
+  html, body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+    -webkit-tap-highlight-color: transparent; }
+  button { touch-action: manipulation; font: inherit; cursor: pointer; }
+
+  /* ---------- horní panel ---------- */
+  #panel { position: fixed; top: 0; left: 0; right: 0; z-index: 20; min-height: var(--panel-h);
+    padding: 6px 12px; padding-top: calc(6px + env(safe-area-inset-top));
+    background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 12px; }
+  .panel-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .panel-title .ver { color: var(--muted); font-weight: 400; }
+  .panel-actions, .panel-home { flex: 0 0 auto; display: flex; gap: 6px; }
+  .btn { font-size: 14px; line-height: 1.25; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--accent);
+    background: var(--paper); color: var(--accent); white-space: nowrap; }
+  .btn.hl { background: var(--accent); color: #fff; }
+  .btn.tiche { border-color: var(--line); color: var(--muted); }
+  .btn:disabled { opacity: .4; cursor: default; }
+  @media (max-width: 700px) { .panel-home .lbl { display: none; } }
+
+  main { max-width: 820px; margin: 0 auto; padding: calc(var(--panel-h) + env(safe-area-inset-top) + 14px) 16px 110px; }
+  .obrazovka[hidden] { display: none; }
+  h1 { font-size: 22px; margin: 4px 0 8px; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .radek { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0; }
+
+  /* ---------- úvod ---------- */
+  #uvodText p { margin: 6px 0; }
+  .stavUceni { margin: 12px 0; font-size: 15px; }
+
+  /* ---------- otázka ---------- */
+  .hlava { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: baseline; font-size: 13px; color: var(--muted); }
+  .hlava .kap { flex: 1 1 auto; min-width: 0; }
+  .hlava .rez { font-weight: 600; color: var(--accent); }
+  .lista { height: 5px; background: var(--line); border-radius: 3px; margin: 6px 0 14px; overflow: hidden; }
+  .lista i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .3s; }
+  .zadani { font-size: 20px; font-weight: 600; margin: 0 0 12px; overflow-wrap: anywhere; }
+  .vduchu { font-size: 14px; color: var(--muted); margin: 0 0 10px; }
+  #moznosti { display: flex; flex-direction: column; gap: 8px; }
+  #moznosti[hidden] { display: none; }
+  .moznost { text-align: left; font-size: 16px; line-height: 1.35; padding: 8px 12px; border-radius: 8px;
+    border: 2px solid var(--line); background: var(--paper); color: var(--text); overflow-wrap: anywhere; }
+  .moznost:disabled { cursor: default; }
+  .moznost.spravna { border-color: var(--ok); background: var(--ok-bg); }
+  .moznost.vybrana-spatne { border-color: var(--bad); background: var(--bad-bg); }
+  .moznost.ztlumena { opacity: .55; }
+  .pod { display: flex; gap: 8px; align-items: center; margin-top: 10px; min-height: 30px; }
+  #vyhodnoceni { margin-top: 14px; padding: 10px 14px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper); }
+  #vyhodnoceni[hidden] { display: none; }
+  #vyhodnoceni.ok { border-color: var(--ok); }
+  #vyhodnoceni.bad { border-color: var(--bad); }
+  #vyhodnoceni .verdikt { font-weight: 700; font-size: 17px; }
+  #vyhodnoceni.ok .verdikt { color: var(--ok); }
+  #vyhodnoceni.bad .verdikt { color: var(--bad); }
+  #vyhodnoceni p { margin: 6px 0; font-size: 16px; }
+  #vyhodnoceni .pomucka { font-size: 15px; color: #2f3d57; background: #eef4fb; border-radius: 6px; padding: 4px 8px; }
+  #vyhodnoceni .volba { font-size: 15px; color: #5c2a20; }
+  .dalsiRadek { display: flex; justify-content: flex-end; margin-top: 10px; }
+
+  /* ---------- souhrn, mezistránka ---------- */
+  table.slabe { border-collapse: collapse; font-size: 14px; margin-top: 8px; width: 100%; }
+  table.slabe td, table.slabe th { padding: 4px 6px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+
+  /* ---------- dialog ---------- */
+  #dialog { position: fixed; inset: 0; z-index: 40; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; padding: 16px; }
+  #dialog[hidden] { display: none; }
+  #dialog .box { background: var(--paper); border-radius: 12px; padding: 16px 18px; max-width: 460px; width: 100%; box-shadow: 0 6px 30px rgba(0,0,0,.25); }
+  #dialog .box p { margin: 0 0 12px; }
+  #dialog .tl { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+  /* ---------- v02: časová osa dole ---------- */
+  #osa { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; background: rgba(255,255,255,.97); border-top: 1px solid var(--line);
+    padding: 6px 12px; padding-bottom: calc(6px + env(safe-area-inset-bottom)); display: flex; flex-wrap: wrap; gap: 4px; justify-content: center; }
+  #osa i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); display: block; }
+  #osa i.prace { background: #e08a00; }
+  #osa i.chyba { background: var(--bad); }
+  #osa i.nauceno { background: var(--ok); }
+  #osa i.ted { outline: 2px solid var(--text); outline-offset: 1px; }
+  #toast { position: fixed; left: 50%; top: calc(var(--panel-h) + 8px); transform: translateX(-50%); z-index: 30;
+    background: #1d1d1b; color: #fff; font-size: 14px; padding: 6px 14px; border-radius: 8px; opacity: .92;
+    transition: opacity .6s; pointer-events: none; max-width: 90vw; text-align: center; }
+  #toast.pryc { opacity: 0; }
+</style>
+</head>
+<body>
+<div id="panel">
+  <div class="panel-home"><button type="button" class="btn" id="btnHome" aria-label="zpět na rozcestník">⌂ <span class="lbl">Rozcestník</span></button></div>
+<!-- ===== NÁZEV V PANELU (název a verze = verze v názvu souboru) ===== -->
+  <div class="panel-title">Pravěk a starověk – Rychloučení: pravěk <span class="ver">v01</span></div>
+<!-- ===== KONEC NÁZVU ===== -->
+  <div class="panel-actions"><button type="button" class="btn" id="btnUvod">Úvod</button></div>
+</div>
+
+<main>
+  <section class="obrazovka" id="scUvod">
+    <h1 id="uvodNadpis"></h1>
+    <div id="uvodText"></div>
+    <div class="stavUceni" id="uvodStav"></div>
+    <div class="radek">
+      <button type="button" class="btn hl" id="btnZacit">Začít</button>
+      <button type="button" class="btn hl" id="btnPokracovat">Pokračovat</button>
+      <button type="button" class="btn" id="btnRano">Ranní opakování</button>
+      <button type="button" class="btn tiche" id="btnZnovu">Začít znovu</button>
+    </div>
+  </section>
+
+  <section class="obrazovka" id="scOtazka" hidden>
+    <div class="hlava"><span class="kap" id="oKap"></span><span class="rez" id="oRezim"></span><span id="oStav"></span></div>
+    <div class="lista"><i id="oLista"></i></div>
+    <p class="zadani" id="oZadani"></p>
+    <p class="vduchu" id="oVduchu" hidden>Nejdřív si odpověď řekni v duchu, pak si ukaž možnosti.</p>
+    <div id="moznosti"></div>
+    <div class="pod">
+      <button type="button" class="btn hl" id="btnUkazat" hidden>Ukázat možnosti</button>
+      <button type="button" class="btn tiche" id="btnNevim">Nevím</button>
+    </div>
+    <div id="vyhodnoceni" hidden>
+      <div class="verdikt" id="vVerdikt"></div>
+      <p id="vSpravna"></p>
+      <p id="vVysv"></p>
+      <p class="pomucka" id="vPomucka" hidden></p>
+      <p class="volba" id="vVolba" hidden></p>
+      <div class="dalsiRadek"><button type="button" class="btn hl" id="btnDalsi">Další ›</button></div>
+    </div>
+  </section>
+
+  <section class="obrazovka" id="scMezi" hidden>
+    <h1 id="mNadpis"></h1>
+    <p id="mText"></p>
+    <div class="radek" id="mTlacitka"></div>
+    <div id="mTabulka"></div>
+  </section>
+</main>
+
+<nav id="osa" aria-label="přehled faktů"></nav>
+
+<div id="dialog" hidden><div class="box"><p id="dText"></p><div class="tl" id="dTlacitka"></div></div></div>
+
+<script>
+/* =====================================================================
+   KONFIGURACE RYCHLOUČENÍ – měň jen tuto část (návod: system/Navod_rychlouceni_vXX.md)
+   kapitoly: [{ id, nazev, kostra?: true }] – pořadí = pořadí učení (kostra první)
+   pojmy:    { "pojem": "krátká definice ze slidů" } – vysvětlení špatných možností se skládá samo
+   fakta:    [{ id (stálé mezi verzemi), kap, pri: "jadro" | "doplnek", vysv (1–2 věty ke správné odpovědi),
+               pomucka?, var: [{ t: zadání, ok: správná možnost, s: [[špatná možnost, pojem nebo vlastní vysvětlení] ×4],
+               vyjimka5?: "důvod" (méně než 5 možností) }, …] }]
+   ===================================================================== */
+const RYCHLO = {
+  title: "Pravěk a starověk – Rychloučení: pravěk",
+  version: "v01",
+  topic: "pravek-a-starovek",
+  kapitoly: [{"id": "kostra", "nazev": "Kostra: to nejdůležitější", "kostra": true}, {"id": "k1", "nazev": "1. Periodizace pravěku a vývoj člověka"}, {"id": "k2", "nazev": "2. Doba kamenná a neolit"}, {"id": "k3", "nazev": "3. Doby kovů, Keltové, Ötzi"}],
+  pojmy: {
+ "paleolit": "starší doba kamenná, 4 mil. – 10 000 let př. n. l.",
+ "mezolit": "střední doba kamenná, 10 000 – 8000 př. n. l.",
+ "neolit": "mladší doba kamenná, 8000 – 5000 př. n. l., zemědělská revoluce",
+ "eneolit": "pozdní doba kamenná (doba měděná), 5000 – 2000 př. n. l.",
+ "doba bronzová": "asi 2000 – 750 př. n. l.",
+ "doba železná": "asi 750 – 0 př. n. l.",
+ "doba římská": "0 – 400 n. l.",
+ "halštatská": "starší doba železná, 750–400 př. n. l., Hallstatt v Rakousku",
+ "laténská": "mladší doba železná, 400 př. n. l. – 0, La Tène ve Švýcarsku",
+ "Australopithecus": "prapůvodní stadium, chodil po dvou, nejjednodušší nástroje",
+ "Homo habilis": "člověk zručný, primitivní nástroje, jen Afrika",
+ "Homo erectus": "člověk vzpřímený, pěstní klín, oheň",
+ "neandertálec": "Homo sapiens neanderthalensis, velký mozek, pohřbíval mrtvé, vymřel",
+ "Homo sapiens": "člověk rozumný – dnešní člověk",
+ "přisvojovací hospodářství": "lov, rybolov, sběr – člověk si bere, co dá příroda",
+ "výrobní hospodářství": "zemědělství a chov – člověk si potravu vyrobí",
+ "matriarchát": "hlavní slovo v rodu mají ženy",
+ "patriarchát": "hlavní slovo v rodu mají muži",
+ "Sumerové": "nejstarší civilizace v jižní Mezopotámii",
+ "Akkadská říše": "první centralizovaný stát v Mezopotámii (2340–2200 př. n. l.)",
+ "Babylonská říše": "říše v jižní Mezopotámii, Chammurapi, Nabukadnezar II.",
+ "Asýrie": "říše na severu Mezopotámie, centrum Ninive",
+ "Chetité": "první výrobci železa, Malá Asie (Turecko)",
+ "Féničané": "mořeplavci z dnešního Libanonu, první hláskové písmo",
+ "Peršané": "národ, který vytvořil největší starověkou říši (dnešní Írán)",
+ "Chammurapi": "babylonský král 18. stol. př. n. l., zákoník",
+ "Nabukadnezar II.": "babylonský král 605–562 př. n. l., dobyl Jeruzalém",
+ "Kýros II.": "zakladatel Perské říše",
+ "Kambýsés II.": "perský král, dobyl Egypt 525 př. n. l.",
+ "Dareios I.": "perský král, řecko-perské války",
+ "Amenhotep IV. (Achnaton)": "egyptský faraon, zavedl uctívání jediného boha Atona",
+ "Tutanchamon": "mladý faraon, vrátil polyteismus, hrobka objevena 1922",
+ "Ramesse II.": "faraon, mírová smlouva s Chetity",
+ "Kleopatra": "poslední vládkyně Egypta z rodu Ptolemaiovců",
+ "Ptolemaios": "vojevůdce Alexandra, po něm vládli Egyptu Ptolemaiovci",
+ "Alexandr Makedonský": "dobyl Egypt (332 př. n. l.) i Perskou říši",
+ "Čchin Š'-chuang-ti": "první čínský císař, sjednotil Čínu",
+ "Saul": "první izraelský král",
+ "David": "izraelský král, dobyl Jeruzalém",
+ "Šalamoun": "moudrý izraelský král, rozkvět; po něm rozpad říše",
+ "piktogramy": "obrázky skutečných předmětů",
+ "ideogramy": "znaky pro slovo, pojem nebo myšlenku (klínové písmo, hieroglyfy)",
+ "slabičné písmo": "jeden znak = jedna slabika",
+ "hláskové písmo": "jeden znak = jedna hláska (abeceda)",
+ "bráhmani": "kněží – nejvyšší kasta",
+ "kšatrijové": "vládci a vojáci",
+ "vajšijové": "svobodní rolníci, obchodníci, řemeslníci",
+ "šúdrové": "sluhové a otroci – nejnižší kasta",
+ "hinduismus": "indické náboženství, bohové Višnu a Šiva",
+ "buddhismus": "náboženství založené Siddhárthou Gautamou (Indie)",
+ "taoismus": "čínské učení o přírodním řádu",
+ "konfucianismus": "čínské učení o sociálních vztazích",
+ "polis": "řecký městský stát",
+ "aristokracie": "vláda šlechty",
+ "tyran": "samovládce v Řecku, který se ujal moci převratem",
+ "mínojská kultura": "Kréta, 2000–1450 př. n. l., paláce, Knóssos",
+ "mykénská civilizace": "pevninské Řecko, 1600–1200 př. n. l., Achájové",
+ "homérské období": "temné období 1200–800 př. n. l.",
+ "archaické období": "800–500 př. n. l., polis, kolonizace",
+ "Achájové": "nejstarší řecké kmeny, mykénská civilizace",
+ "Dórové": "kmen, jehož příchod způsobil úpadek (temné období)",
+ "Bójové": "keltský kmen na našem území (Bohemia)",
+ "Skythové": "kmen, který pronikal z východu",
+ "monoteismus": "víra v jediného boha",
+ "polyteismus": "víra v mnoho bohů",
+ "Sargon Akkadský": "zakladatel Akkadské říše",
+ "Xerxés": "perský král, řecko-perské války (Thermopyly, Salamína)",
+ "Nefertiti": "manželka faraona Achnatona",
+ "Homér": "slepý řecký pěvec, Ilias a Odyssea",
+ "Drakón": "sepsal první zákony v Athénách",
+ "Solón": "athénský zákonodárce po Drakónovi",
+ "Lykúrgos": "legendární zákonodárce Sparty",
+ "Peisistratos": "athénský tyran",
+ "Howard Carter": "objevil Tutanchamonovu hrobku (1922)",
+ "Bedřich Hrozný": "Čech, rozluštil chetitské písmo",
+ "V. G. Childe": "australský archeolog, 10 znaků civilizace",
+ "Mínos": "bájný král Kréty, syn Dia a Európy",
+ "Konfucius": "čínský filozof, učení o vztazích (konfucianismus)",
+ "Siddhártha Gautama": "zakladatel buddhismu (Indie)",
+ "Knóssos": "palác na Krétě (mínojská kultura)",
+ "Mykény": "centrum mykénské civilizace na Peloponésu",
+ "Persepolis": "sídlo perských králů",
+ "Ninive": "centrum Asýrie",
+ "Kartágo": "fénická osada v severní Africe",
+ "Alexandrie": "město v Egyptě založené Alexandrem Makedonským",
+ "Achetaton": "nové sídlo faraona Achnatona",
+ "Gíza": "místo Cheopsovy pyramidy a sfingy",
+ "Údolí králů": "skalní hrobky faraonů Nové říše",
+ "Harappa": "centrum harappské kultury u Indu",
+ "Si-an": "město, u kterého je hrobka prvního čínského císaře",
+ "Dolní Věstonice": "paleolitické naleziště na Moravě (venuše, lovci mamutů)",
+ "Lascaux": "jeskyně s malbami ve Francii",
+ "Altamira": "jeskyně s malbami ve Španělsku",
+ "Hallstatt": "naleziště v Rakousku – starší doba železná",
+ "La Tène": "naleziště ve Švýcarsku – mladší doba železná",
+ "zikkurat": "stupňovitý chrám v Mezopotámii",
+ "oppidum": "keltské opevněné hradiště",
+ "pyramida": "egyptská hrobka krále (Stará říše)",
+ "domestikace": "ochočení divokých zvířat",
+ "žďáření": "vypalování lesa na pole",
+ "kolonizace": "záměrné osidlování území novým obyvatelstvem",
+ "hominizace": "proces polidštění",
+ "talio": "odveta „oko za oko“",
+ "metropole": "mateřská obec, která zakládala kolonii",
+ "falanga": "sevřený šik těžkooděnců (hoplítů)",
+ "hoplíté": "řečtí těžkooděnci"
+},
+  fakta: [
+ {"id": "k-material", "kap": "kostra", "pri": "jadro", "vysv": "Pravěk dělíme hlavně podle materiálu, ze kterého lidé vyráběli nástroje: kámen → bronz → železo.", "pomucka": "kámen → bronz → železo", "var": [{"t": "Podle čeho hlavně dělíme pravěk na doby?", "ok": "podle materiálu, ze kterého se vyráběly nástroje", "s": [["podle vládnoucích dynastií", "tak se dělí dějiny Egypta"], ["podle písemných pramenů", "z pravěku žádné písemné prameny nemáme"], ["podle způsobu získávání potravy", "to je jiné dělení: přisvojovací × výrobní hospodářství"], ["podle uspořádání společnosti", "to je jiné dělení: tlupa × rod"]]}, {"t": "Jaké je správné pořadí dob v pravěku?", "ok": "kamenná → bronzová → železná", "s": [["bronzová → kamenná → železná", "kámen byl první, bronz až po něm"], ["kamenná → železná → bronzová", "bronz byl dřív než železo"], ["železná → bronzová → kamenná", "je to přesně obráceně"], ["měděná → kamenná → železná", "doba měděná (eneolit) je až konec doby kamenné"]]}]},
+ {"id": "k-dk", "kap": "kostra", "pri": "jadro", "vysv": "Doba kamenná: paleolit (starší), mezolit (střední), neolit (mladší), eneolit (pozdní).", "pomucka": "PAleolit = PAleo = starý; NEolit = neo = nový", "var": [{"t": "Jak se jmenuje mladší doba kamenná?", "ok": "neolit", "s": [["paleolit", "paleolit"], ["mezolit", "mezolit"], ["eneolit", "eneolit"], ["halštat", "halštatská"]]}, {"t": "Co je paleolit?", "ok": "starší doba kamenná", "s": [["mladší doba kamenná", "neolit"], ["střední doba kamenná", "mezolit"], ["pozdní doba kamenná", "eneolit"], ["starší doba železná", "halštatská"]]}]},
+ {"id": "k-neolit-rev", "kap": "kostra", "pri": "jadro", "vysv": "Neolitická (zemědělská) revoluce = pozvolný přechod od lovu a sběru k zemědělství a chovu, trval tisíce let.", "var": [{"t": "Co je neolitická revoluce?", "ok": "pozvolný přechod od lovu a sběru k zemědělství", "s": [["rychlé povstání proti vládci v mladší době kamenné", "nebyla to vzpoura ani rychlá změna – trvala tisíce let"], ["objev výroby bronzu", "bronz patří do doby bronzové"], ["vznik prvních států v Mezopotámii", "to je eneolit / začátek starověku"], ["přechod od zemědělství zpět k lovu", "je to obráceně"]]}, {"t": "Jak dlouho trvala neolitická revoluce?", "ok": "několik tisíc let", "s": [["jeden rok", "revoluce v neolitu byla velmi pomalá"], ["asi 10 let", "byla mnohem pomalejší"], ["asi 100 let", "trvala tisíce let"], ["miliony let", "miliony let trvala hominizace, ne neolitická revoluce"]]}]},
+ {"id": "p-dalsi-deleni", "kap": "k1", "pri": "jadro", "vysv": "Přisvojovací × výrobní hospodářství = dělení podle získávání potravy; tlupa × rod = podle uspořádání společnosti.", "pomucka": "přisvojit si = vzít si, co už je", "var": [{"t": "Podle čeho dělíme pravěk na přisvojovací a výrobní hospodářství?", "ok": "podle způsobu získávání potravy", "s": [["podle uspořádání společnosti", "to je dělení tlupa × rod"], ["podle materiálu nástrojů", "to je dělení na dobu kamennou, bronzovou a železnou"], ["podle vládnoucích dynastií", "tak se dělí Egypt"], ["podle druhů písma", "pravěk písmo neznal"]]}, {"t": "Co je přisvojovací hospodářství?", "ok": "lov, rybolov a sběr", "s": [["zemědělství a chov", "výrobní hospodářství"], ["obchod s kovy", "směnný obchod byl až v eneolitu, není to hospodářství podle potravy"], ["výroba keramiky", "keramika je řemeslo, ne způsob získávání potravy"], ["vláda žen v rodu", "matriarchát"]]}]},
+ {"id": "p-matriarchat", "kap": "k1", "pri": "doplnek", "vysv": "Matriarchát = v rodu mají hlavní slovo ženy; v eneolitu se mění na patriarchát.", "var": [{"t": "Co je matriarchát?", "ok": "hlavní slovo v rodu mají ženy", "s": [["hlavní slovo v rodu mají muži", "patriarchát"], ["vláda kněží", "vláda kněží se jmenuje teokracie"], ["vláda šlechty", "aristokracie"], ["vláda jednoho samovládce", "tyran"]]}, {"t": "Jak se v eneolitu změnilo uspořádání společnosti?", "ok": "matriarchát → patriarchát", "s": [["patriarchát → matriarchát", "je to obráceně"], ["tlupa → polis", "polis vznikla až v Řecku"], ["aristokracie → demokracie", "to je až antické Řecko"], ["kasty → rody", "kasty jsou až v Indii za Árjů"]]}]},
+ {"id": "p-hominizace", "kap": "k1", "pri": "jadro", "vysv": "Hominizace = proces polidštění: napřímení a chůze po dvou, vývoj ruky (palec proti prstům), řeč, větší mozek.", "var": [{"t": "Co je hominizace?", "ok": "proces polidštění – vývoj od předků člověka k dnešnímu člověku", "s": [["zemědělská revoluce", "to je neolitická revoluce"], ["ochočování zvířat", "to je domestikace"], ["vypalování lesů na pole", "to je žďáření"], ["osidlování prázdného území", "to je kolonizace"]]}, {"t": "Co NEpatří mezi znaky hominizace?", "ok": "výroba bronzu", "s": [["napřímení a chůze po dvou", "to znak hominizace je"], ["palec postavený proti prstům", "to znak hominizace je"], ["vznik řeči", "to znak hominizace je"], ["zvětšování mozku", "to znak hominizace je"]]}]},
+ {"id": "p-habilis", "kap": "k1", "pri": "jadro", "vysv": "Homo habilis = člověk zručný: malý mozek, primitivní nástroje, žil jen v Africe.", "var": [{"t": "Který druh se nazývá „člověk zručný“?", "ok": "Homo habilis", "s": [["Homo erectus", "Homo erectus"], ["Homo sapiens", "Homo sapiens"], ["neandertálec", "neandertálec"], ["Australopithecus", "Australopithecus"]]}, {"t": "Co znamená Homo habilis?", "ok": "člověk zručný", "s": [["člověk vzpřímený", "Homo erectus"], ["člověk rozumný", "Homo sapiens"], ["jižní opice", "to znamená Australopithecus"], ["člověk z údolí Neander", "neandertálec"]]}]},
+ {"id": "p-erectus", "kap": "k1", "pri": "jadro", "vysv": "Homo erectus = člověk vzpřímený: pěstní klín, uměl rozdělat a udržovat oheň, rozšířil se do Evropy a Asie.", "var": [{"t": "Který druh jako první uměl rozdělat a udržovat oheň?", "ok": "Homo erectus", "s": [["Homo habilis", "Homo habilis"], ["Australopithecus", "Australopithecus"], ["neandertálec", "neandertálec oheň znal, ale už po Homo erectus"], ["Homo sapiens", "Homo sapiens oheň znal, ale nebyl první"]]}, {"t": "Co je pěstní klín?", "ok": "opracovaný kamenný nástroj držený v dlani", "s": [["bronzová sekera", "pěstní klín je z kamene"], ["keramická nádoba", "keramika je až z neolitu"], ["dřevěný srp", "srpy byly až v neolitu"], ["železný meč", "železo je až v době železné"]]}]},
+ {"id": "p-neandertalec", "kap": "k1", "pri": "jadro", "vysv": "Neandertálec měl velký mozek, pohřbíval mrtvé a je slepou vývojovou větví – vymřel.", "var": [{"t": "Co platí o neandertálci?", "ok": "pohřbíval mrtvé a je slepou vývojovou větví", "s": [["je náš přímý předek, ze kterého jsme se vyvinuli", "neandertálci žili současně s námi a vymřeli"], ["měl menší mozek než Homo habilis", "měl velký mozek – asi 1 450 cm³"], ["žil jen v Africe", "žil v Evropě a na Blízkém východě"], ["neuměl vyrábět nástroje", "jeho nástroje byly opracovanější a důmyslnější"]]}, {"t": "Co znamená „slepá vývojová větev“?", "ok": "druh, ze kterého se už nic dalšího nevyvinulo a vymřel", "s": [["druh, který neviděl", "slovo „slepá“ tu znamená, že větev nikam nevede"], ["nejstarší druh člověka", "nejstarší je Australopithecus"], ["druh, ze kterého vznikl dnešní člověk", "to je naopak hlavní větev"], ["druh, který žil jen v jeskyních", "nesouvisí s místem života"]]}]},
+ {"id": "p-mozek", "kap": "k1", "pri": "doplnek", "vysv": "Během vývoje se mozek zvětšoval (asi 450 → 1 350 cm³) a nadočnicové oblouky se zmenšovaly.", "var": [{"t": "Jak se během vývoje člověka měnily nadočnicové oblouky?", "ok": "zmenšovaly se", "s": [["zvětšovaly se", "zvířecí rysy naopak ubývaly"], ["neměnily se", "měnily se – dnes skoro žádné nejsou"], ["objevily se až u Homo sapiens", "výrazné měly už starší druhy"], ["zmizely už u Australopitheka", "výrazné oblouky měl ještě neandertálec"]]}, {"t": "Jak se během vývoje měnil objem mozku?", "ok": "zvětšoval se", "s": [["zmenšoval se", "mozek se zvětšoval – z asi 450 na 1 350 cm³"], ["zůstával stejný", "měnil se výrazně"], ["byl největší u Australopitheka", "Australopithecus měl nejmenší mozek – asi 450 cm³"], ["zvětšil se až v době bronzové", "dnešní velikost měl už Homo sapiens v paleolitu"]]}]},
+ {"id": "p-ker", "kap": "k1", "pri": "doplnek", "vysv": "Vývoj člověka byl rozvětvený keř: více druhů žilo současně, mnoho větví vymřelo, přežil jen Homo sapiens.", "var": [{"t": "Jak se dnes zobrazuje vývoj člověka?", "ok": "jako rozvětvený keř, kde více druhů žilo současně", "s": [["jako přímá řada, kde jeden druh vždy nahradil předchozí", "to je tradiční, zjednodušená představa"], ["jako vývoj jen v Evropě", "člověk vznikl v Africe"], ["jako vývoj trvající pár tisíc let", "trval miliony let"], ["jako vývoj přímo z gorily", "gorila je náš příbuzný, ne předek"]]}, {"t": "Kde vznikl člověk?", "ok": "v Africe", "s": [["v Evropě", "do Evropy se rozšířil až později"], ["v Asii", "do Asie se rozšířil z Afriky"], ["v Mezopotámii", "Mezopotámie je kolébka civilizace, ne člověka"], ["v Americe", "do Ameriky se lidé dostali až velmi pozdě (asi před 15–20 tisíci lety)"]]}]},
+ {"id": "d-paleolit", "kap": "k2", "pri": "jadro", "vysv": "Paleolit: lovci a sběrači, pěstní klín, jeskynní malby (Lascaux, Altamira), venuše (Dolní Věstonice).", "var": [{"t": "Do kterého období patří jeskynní malby v Lascaux a Altamiře?", "ok": "paleolit", "s": [["neolit", "neolit"], ["mezolit", "mezolit"], ["eneolit", "eneolit"], ["doba bronzová", "doba bronzová"]]}, {"t": "Které naleziště z paleolitu je v Česku?", "ok": "Dolní Věstonice", "s": [["Altamira", "Altamira je ve Španělsku"], ["Lascaux", "Lascaux je ve Francii"], ["Hallstatt", "Hallstatt je v Rakousku a patří do doby železné"], ["Knóssos", "Knóssos je palác na Krétě"]]}]},
+ {"id": "d-mezolit", "kap": "k2", "pri": "doplnek", "vysv": "Mezolit: oteplení po době ledové, osídlení celého světa, první počátky chovu a zemědělství, ale převládá lov a sběr.", "var": [{"t": "Co se stalo v mezolitu?", "ok": "oteplilo se a člověk osídlil celý svět", "s": [["vznikly první státy", "to je eneolit"], ["lidé začali vyrábět bronz", "to je doba bronzová"], ["převládlo zemědělství", "v mezolitu pořád převládá lov a sběr"], ["vznikla první města", "první města vznikla až v Mezopotámii"]]}, {"t": "Jaké hospodářství převládá v mezolitu?", "ok": "pořád přisvojovací (lov, rybolov, sběr)", "s": [["výrobní – zemědělství a chov", "výrobní převládne až v neolitu"], ["palácové hospodářství", "to je mykénské Řecko"], ["obchod s bronzem", "bronz je až v době bronzové"], ["řemeslná výroba", "specializovaná řemesla jsou až v době bronzové"]]}]},
+ {"id": "d-podstata", "kap": "k2", "pri": "jadro", "vysv": "Neolit: pěstování rostlin, domestikace zvířat, keramika, žďáření lesů, srpy, tkaní, usedlý život v dlouhých domech.", "var": [{"t": "Co je domestikace?", "ok": "ochočení divokých zvířat a jejich chov", "s": [["vypalování lesa na pole", "to je žďáření"], ["výroba keramiky", "keramika je zpracování a vypalování hlíny"], ["osidlování prázdného území", "to je kolonizace"], ["pohřbívání mrtvých", "to dělal už neandertálec"]]}, {"t": "Co je žďáření?", "ok": "vypalování lesa, aby vzniklo pole", "s": [["ochočování zvířat", "to je domestikace"], ["mletí obilí", "na to se používalo drtidlo"], ["vypalování hliněných nádob", "to je výroba keramiky"], ["tkaní látek", "tkaní se dělalo na stavech"]]}]},
+ {"id": "d-keramika", "kap": "k2", "pri": "jadro", "vysv": "Keramika je nový hmotný pramen neolitu; podle ní rozlišujeme kultury (lineární, vypíchaná).", "var": [{"t": "Jaký nový hmotný pramen se objevuje v neolitu?", "ok": "keramika", "s": [["bronzové šperky", "bronz je až v době bronzové"], ["jeskynní malby", "ty jsou už z paleolitu"], ["písemné prameny", "písmo pravěk nezná"], ["železné nástroje", "železo je až v době železné"]]}, {"t": "Podle čeho pojmenováváme neolitické kultury (lineární, vypíchaná)?", "ok": "podle vzhledu keramiky", "s": [["podle tvaru domů", "kultury se pojmenovávají podle zdobení keramiky"], ["podle druhu pěstovaného obilí", "jména jsou podle zdobení keramiky"], ["podle nástrojů z bronzu", "bronz v neolitu ještě nebyl"], ["podle jména náčelníka", "jména náčelníků z pravěku neznáme"]]}]},
+ {"id": "d-dusledky", "kap": "k2", "pri": "jadro", "vysv": "Důsledky neolitu: konec kočování, usazení se a růst počtu obyvatel.", "var": [{"t": "Jaký byl hlavní důsledek neolitické revoluce?", "ok": "usazení se a růst počtu obyvatel", "s": [["návrat ke kočování", "lidé se naopak usadili"], ["úbytek obyvatel", "víc jídla → víc lidí"], ["vznik demokracie", "demokracie vznikla až v antickém Řecku"], ["vynález písma", "písmo vzniklo až v Mezopotámii kolem 3500 př. n. l."]]}, {"t": "Jak se jmenují první pevné příbytky v neolitu?", "ok": "dlouhé domy", "s": [["zikkuraty", "zikkurat je chrám v Mezopotámii"], ["oppida", "oppidum je keltské hradiště z doby železné"], ["pyramidy", "pyramidy jsou egyptské hrobky"], ["paláce", "paláce stavěla mínojská a mykénská kultura"]]}]},
+ {"id": "d-zuby", "kap": "k2", "pri": "doplnek", "vysv": "S obilnou stravou přibyly zubní kazy (sacharidy) a zuby obrušovala kamenná drť z drtidel.", "var": [{"t": "Proč měli lidé v neolitu zkažené a obroušené zuby?", "ok": "jedli hodně obilí a v mouce byla kamenná drť z drtidel", "s": [["jedli hodně syrového masa", "maso jedli lovci, kazy přibyly až s obilím"], ["neměli dost vápníku z mléka", "naopak chov zvířat mléko přinesl"], ["rvali se o potravu", "rvačka nevysvětlí kazy a obroušení u velké části lidí"], ["jedli hodně cukru z třtiny", "cukrovou třtinu v neolitu v Evropě neznali"]]}, {"t": "Jaká byla nevýhoda nového způsobu obživy v neolitu?", "ok": "kazy, závislost na úrodě a horší stěhování", "s": [["méně jídla než při lovu", "zemědělství naopak uživilo víc lidí"], ["nutnost kočovat", "lidé se usadili"], ["nedalo se nic skladovat", "obilí se skladovat dá – to je výhoda"], ["úbytek obyvatel", "počet obyvatel rostl"]]}]},
+ {"id": "d-eneolit", "kap": "k2", "pri": "jadro", "vysv": "Eneolit (doba měděná): objev mědi, první státy v Mezopotámii a Egyptě, směnný obchod, matriarchát → patriarchát.", "var": [{"t": "Který kov lidé objevili v eneolitu?", "ok": "měď", "s": [["železo", "železo je až v době železné"], ["bronz", "bronz je slitina mědi a cínu, až v době bronzové"], ["zlato jako první kov ve velkém", "eneolit se nazývá doba měděná"], ["cín", "cín se přidával do bronzu"]]}, {"t": "Co se dělo v eneolitu v Mezopotámii a Egyptě?", "ok": "vznikaly první státy", "s": [["trval tam ještě paleolit", "tam byl vývoj naopak nejrychlejší"], ["začala tam doba železná", "doba železná je mnohem později"], ["vznikly tam první řecké poleis", "poleis jsou v Řecku v archaickém období"], ["přišli tam Keltové", "Keltové žili v Evropě"]]}]},
+ {"id": "m-bronz", "kap": "k3", "pri": "jadro", "vysv": "Bronz = slitina mědi a cínu. Doba bronzová asi 2000–750 př. n. l.", "var": [{"t": "Z čeho je bronz?", "ok": "z mědi a cínu", "s": [["ze železa a uhlíku", "to je ocel"], ["z mědi a zinku", "to je mosaz"], ["ze zlata a stříbra", "bronz drahé kovy neobsahuje"], ["jen z mědi", "samotná měď je měkčí; bronz je slitina"]]}, {"t": "Kdy byla u nás doba bronzová?", "ok": "asi 2000 – 750 př. n. l.", "s": [["asi 750 – 0 př. n. l.", "doba železná"], ["asi 5000 – 2000 př. n. l.", "eneolit"], ["asi 0 – 400 n. l.", "doba římská"], ["asi 8000 – 5000 př. n. l.", "neolit"]]}]},
+ {"id": "m-delba", "kap": "k3", "pri": "jadro", "vysv": "Druhá společenská dělba práce (doba bronzová) = řemeslo se stává samostatnou specializovanou činností.", "var": [{"t": "Co je druhá společenská dělba práce?", "ok": "řemeslo se stává specializovanou činností", "s": [["dělba práce mezi muže a ženy", "to je dělba práce v neolitu"], ["rozdělení společnosti na vyšší a nižší vrstvy", "to je diferenciace společnosti"], ["rozdělení společnosti do kast", "kasty jsou v Indii"], ["rozdělení Egypta na Horní a Dolní", "to nesouvisí s dělbou práce"]]}, {"t": "Co je diferenciace společnosti v době bronzové?", "ok": "rozdělení na vyšší a nižší vrstvy (bohatí a chudí)", "s": [["vznik řemeslníků", "to je druhá společenská dělba práce"], ["přechod k zemědělství", "to je neolitická revoluce"], ["stěhování kmenů", "to se jmenuje migrace / kolonizace"], ["vznik písma", "písmo s diferenciací přímo nesouvisí"]]}]},
+ {"id": "m-chetite", "kap": "k3", "pri": "jadro", "vysv": "První výrobci železa byli Chetité (Malá Asie, dnešní Turecko); jejich písmo rozluštil Bedřich Hrozný.", "var": [{"t": "Kdo byli první výrobci železa?", "ok": "Chetité", "s": [["Féničané", "Féničané"], ["Keltové", "Keltové železo uměli, ale nebyli první"], ["Sumerové", "Sumerové"], ["Egypťané", "Egypťané železo dováželi"]]}, {"t": "Který Čech rozluštil chetitské písmo?", "ok": "Bedřich Hrozný", "s": [["Jaromír Málek", "Jaromír Málek je egyptolog"], ["Howard Carter", "Howard Carter objevil Tutanchamonovu hrobku a nebyl Čech"], ["Vere Gordon Childe", "V. G. Childe byl australský archeolog"], ["Homér", "Homér byl řecký pěvec"]]}]},
+ {"id": "m-halstat", "kap": "k3", "pri": "jadro", "vysv": "Doba železná: starší halštatská (750–400, Hallstatt v Rakousku), mladší laténská (400–0, La Tène ve Švýcarsku).", "pomucka": "Halštat je před Laténem i v abecedě", "var": [{"t": "Jak se jmenuje starší doba železná?", "ok": "halštatská", "s": [["laténská", "laténská"], ["eneolit", "eneolit"], ["doba římská", "doba římská"], ["mezolit", "mezolit"]]}, {"t": "Kde je naleziště, podle kterého se jmenuje laténská doba?", "ok": "ve Švýcarsku", "s": [["v Rakousku", "v Rakousku je Hallstatt – halštatská doba"], ["v Česku", "La Tène není v Česku"], ["ve Francii", "ve Francii jsou jeskyně Lascaux"], ["ve Španělsku", "ve Španělsku je Altamira"]]}]},
+ {"id": "m-keltove", "kap": "k3", "pri": "jadro", "vysv": "U nás žil keltský kmen Bójů (Bojohemum → Bohemia); Keltové stavěli oppida.", "var": [{"t": "Podle kterého kmene se Čechy latinsky jmenují Bohemia?", "ok": "Bójové", "s": [["Skythové", "Skythové"], ["Dórové", "Dórové"], ["Achájové", "Achájové"], ["Chetité", "Chetité"]]}, {"t": "Co je oppidum?", "ok": "keltské opevněné hradiště", "s": [["řecký městský stát", "polis"], ["egyptská hrobka", "to je pyramida"], ["stupňovitý chrám", "to je zikkurat"], ["římská hranice", "to je limes"]]}]},
+ {"id": "m-limes", "kap": "k3", "pri": "doplnek", "vysv": "Limes Romanus = opevněná hranice Římské říše (od Británie přes Rýn a Dunaj), sloužila k obraně proti nájezdům.", "var": [{"t": "Co byl Limes Romanus?", "ok": "opevněná hranice Římské říše", "s": [["římská silnice do Persie", "Královská cesta byla perská"], ["keltské hradiště", "oppidum"], ["čínská zeď", "Velká čínská zeď je v Číně"], ["hrobka římského císaře", "limes je hranice"]]}, {"t": "K čemu hlavně sloužil Limes Romanus?", "ok": "k obraně proti nájezdům a kontrole hranice", "s": [["k zavlažování polí", "to byly kanály"], ["k úplnému zákazu obchodu", "obchod přes něj procházel"], ["k pohřbívání vojáků", "limes je hranice"], ["k oddělení Egypta od Persie", "limes byla hranice Římské říše"]]}]},
+ {"id": "m-otzi", "kap": "k3", "pri": "jadro", "vysv": "Ötzi – mumie z ledovce v Alpách (nalezena 1991, žil asi 3300 př. n. l.). Zemřel na krvácení po zásahu šípem pod levou lopatku.", "var": [{"t": "Proč je nález Ötziho výjimečný?", "ok": "zachovalo se celé tělo i s oblečením a výbavou", "s": [["je to nejstarší člověk na světě", "nejstarší pozůstatky lidí jsou z Afriky a jsou o miliony let starší"], ["byl to první egyptský faraon", "Ötzi byl pravěký muž z Alp"], ["měl u sebe písemný dopis", "v jeho době v Evropě nikdo nepsal"], ["byl nalezen v pyramidě", "byl nalezen v ledovci"]]}, {"t": "Co bylo pravděpodobně příčinou Ötziho smrti?", "ok": "hrot šípu pod levou lopatkou, vykrvácel", "s": [["pád ze skály", "to je jen jedna z hypotéz u zranění hlavy"], ["artróza", "artróza je nemoc kloubů, nezabíjí"], ["otrava houbami", "houby nosil sušené jako lék nebo troud"], ["hlad", "méně než 2 h před smrtí jedl"]]}]},
+ {"id": "m-otzi-tet", "kap": "k3", "pri": "doplnek", "vysv": "Ötziho 61 tetování je na místech postižených artrózou – asi šlo o léčbu.", "var": [{"t": "Proč měl Ötzi 61 tetování?", "ok": "asi kvůli léčbě bolestí kloubů (artróza)", "s": [["jako ozdobu na svatbu", "tetování jsou na místech, kde ho bolely klouby"], ["jako značku otroka", "měl cennou měděnou sekeru – nebyl to otrok"], ["jako válečné vyznamenání", "souvisí s místy bolesti kloubů"], ["aby ho poznali v ledovci", "to nedává smysl"]]}, {"t": "Který předmět ukazuje, že Ötzi byl asi vážený muž?", "ok": "měděná sekera", "s": [["boty z medvědí kůže", "boty měli všichni, kdo chodili do hor"], ["nádobka z březové kůry", "ta sloužila k přenášení ohně"], ["nedokončený luk", "luk měl každý lovec"], ["sušené houby", "houby byly lék nebo troud"]]}]},
+ {"id": "p2-pravek", "kap": "k1", "pri": "jadro", "vysv": "Pravěk je nejdelší období dějin – od prvních lidí do vzniku písma. Nemá písemné prameny, poznáváme ho z hmotných pramenů.", "var": [{"t": "Čím končí pravěk?", "ok": "vznikem písma", "s": [["vznikem zemědělství", "zemědělství vzniklo v neolitu, pravěk pokračoval"], ["objevem železa", "doba železná je ještě součást pravěku"], ["rokem 476 n. l.", "tím končí starověk"], ["objevem ohně", "oheň uměl rozdělat už Homo erectus – dávno před koncem pravěku"]]}, {"t": "Z jakých pramenů poznáváme pravěk?", "ok": "z hmotných pramenů (nástroje, kosti, keramika, stavby)", "s": [["z písemných pramenů", "z pravěku žádné písemné prameny nejsou"], ["z kronik", "kroniky jsou písemné – v pravěku se nepsalo"], ["z fotografií", "fotografie jsou až z 19. století"], ["ze zákoníků", "zákoníky jsou až ze starověku"]]}]},
+ {"id": "p2-hmotny", "kap": "k1", "pri": "doplnek", "vysv": "Hmotný pramen = věc (nástroj, kost, keramika, stavba). Písemný pramen = text (zákoník, kronika, nápis).", "var": [{"t": "Který z těchto pramenů je hmotný?", "ok": "kamenný pěstní klín", "s": [["Chammurapiho zákoník", "zákoník je text – písemný pramen"], ["Epos o Gilgamešovi", "epos je text – písemný pramen"], ["nápis SENATVS POPVLVSQVE ROMANVS", "nápis je písemný pramen"], ["Tóra", "Tóra je text – písemný pramen"]]}, {"t": "Který pramen je písemný?", "ok": "Chammurapiho zákoník", "s": [["kamenné drtidlo zrní", "drtidlo je věc – hmotný pramen"], ["čelist z neolitu", "kost je hmotný pramen"], ["keramická nádoba", "keramika je hmotný pramen"], ["Ötziho měděná sekera", "sekera je hmotný pramen"]]}]},
+ {"id": "p2-data-dk", "kap": "k1", "pri": "jadro", "vysv": "Paleolit 4 mil. – 10 000, mezolit 10 000 – 8000, neolit 8000 – 5000, eneolit 5000 – 2000 let př. n. l.", "pomucka": "paleolit = skoro celý pravěk (miliony let)", "var": [{"t": "Kdy přibližně byl neolit?", "ok": "8000 – 5000 př. n. l.", "s": [["4 mil. – 10 000 let př. n. l.", "paleolit"], ["10 000 – 8000 př. n. l.", "mezolit"], ["5000 – 2000 př. n. l.", "eneolit"], ["2000 – 750 př. n. l.", "doba bronzová"]]}, {"t": "Které období trvalo nejdéle?", "ok": "paleolit", "s": [["neolit", "neolit trval jen asi 3 000 let"], ["mezolit", "mezolit trval jen asi 2 000 let"], ["eneolit", "eneolit trval asi 3 000 let"], ["doba železná", "doba železná trvala asi 750 let"]]}]},
+ {"id": "p2-tlupa", "kap": "k1", "pri": "doplnek", "vysv": "Tlupa = malá skupina lovců a sběračů; rod = větší skupina příbuzných.", "var": [{"t": "Co je tlupa?", "ok": "malá skupina lovců a sběračů", "s": [["větší skupina příbuzných", "to je rod"], ["řecký městský stát", "polis"], ["indická kasta", "kasta je skupina v Indii, do které se člověk narodí"], ["keltský kmen", "Keltové žili v kmenech až v době železné"]]}, {"t": "Co je rod?", "ok": "větší skupina příbuzných", "s": [["malá skupina lovců a sběračů", "to je tlupa"], ["vláda šlechty", "aristokracie"], ["městský stát", "polis"], ["skupina řemeslníků", "řemeslníci nejsou rod"]]}]},
+ {"id": "p2-australo", "kap": "k1", "pri": "jadro", "vysv": "Australopithecus je prapůvodní stadium: chodil po dvou a používal nejjednodušší nástroje.", "var": [{"t": "Které stadium je nejstarší (prapůvodní)?", "ok": "Australopithecus", "s": [["Homo habilis", "Homo habilis"], ["Homo erectus", "Homo erectus"], ["neandertálec", "neandertálec"], ["Homo sapiens", "Homo sapiens"]]}, {"t": "Co už uměl Australopithecus?", "ok": "chodit po dvou", "s": [["rozdělat oheň", "to až Homo erectus"], ["malovat v jeskyních", "to až Homo sapiens"], ["pohřbívat mrtvé", "to neandertálec"], ["vyrábět pěstní klín", "to až Homo erectus"]]}]},
+ {"id": "p2-sapiens", "kap": "k1", "pri": "jadro", "vysv": "Homo sapiens = člověk rozumný: dnešní člověk, asi před 300 000 lety, umění (malby, sošky), rozšířil se po celém světě.", "var": [{"t": "Co znamená Homo sapiens?", "ok": "člověk rozumný", "s": [["člověk zručný", "Homo habilis"], ["člověk vzpřímený", "Homo erectus"], ["jižní opice", "Australopithecus"], ["člověk z údolí Neander", "neandertálec"]]}, {"t": "Který druh vytvářel jeskynní malby a sošky venuší?", "ok": "Homo sapiens", "s": [["Homo habilis", "Homo habilis"], ["Homo erectus", "Homo erectus"], ["Australopithecus", "Australopithecus"], ["šimpanz", "šimpanz není předek člověka a nemaluje"]]}]},
+ {"id": "p2-erectus-svet", "kap": "k1", "pri": "doplnek", "vysv": "Homo erectus se jako první rozšířil z Afriky do Evropy a Asie; Homo habilis žil jen v Africe.", "var": [{"t": "Který druh jako první opustil Afriku a žil i v Evropě a Asii?", "ok": "Homo erectus", "s": [["Homo habilis", "Homo habilis"], ["Australopithecus", "Australopithecus"], ["šimpanz", "šimpanz žije jen v Africe a není předek člověka"], ["Homo sapiens", "Homo sapiens se rozšířil až po Homo erectus"]]}, {"t": "Kde žil Homo habilis?", "ok": "jen v Africe", "s": [["v Evropě a Asii", "z Afriky odešel až Homo erectus"], ["po celém světě", "to až Homo sapiens"], ["jen v Evropě", "neandertálec žil v Evropě"], ["v Americe", "Amerika byla osídlena až Homo sapiens"]]}]},
+ {"id": "d2-lascaux", "kap": "k2", "pri": "doplnek", "vysv": "Jeskynní malby: Lascaux (Francie), Altamira (Španělsko); Cro-Magnon (Francie) je naleziště koster.", "var": [{"t": "Ve které zemi je jeskyně Altamira?", "ok": "ve Španělsku", "s": [["ve Francii", "ve Francii je Lascaux"], ["v Česku", "u nás jsou Dolní Věstonice"], ["v Rakousku", "v Rakousku je Hallstatt"], ["v Itálii", "Altamira není v Itálii"]]}, {"t": "Ve které zemi je jeskyně Lascaux?", "ok": "ve Francii", "s": [["ve Španělsku", "ve Španělsku je Altamira"], ["ve Švýcarsku", "ve Švýcarsku je La Tène"], ["v Rakousku", "v Rakousku je Hallstatt"], ["v Egyptě", "v Egyptě jsou pyramidy"]]}]},
+ {"id": "d2-venuse", "kap": "k2", "pri": "jadro", "vysv": "Dolní Věstonice (Morava): lovci mamutů, Věstonická venuše – keramická soška stará přes 25 000 let.", "var": [{"t": "Co se našlo v Dolních Věstonicích?", "ok": "Věstonická venuše", "s": [["Ötzi", "Ötzi byl nalezen v Alpách"], ["terakotová armáda", "ta je v Číně"], ["Chammurapiho zákoník", "ten je z Mezopotámie"], ["kamenné drtidlo z Peček", "drtidlo je z Peček u Kolína, z neolitu"]]}, {"t": "Z jakého období je Věstonická venuše?", "ok": "z paleolitu", "s": [["z neolitu", "neolit začal až před asi 10 000 lety"], ["z doby bronzové", "venuše je z hlíny a je mnohem starší"], ["z doby římské", "je stará přes 25 000 let"], ["z eneolitu", "eneolit je až 5000–2000 př. n. l."]]}]},
+ {"id": "d2-stranska", "kap": "k2", "pri": "doplnek", "vysv": "Brno – Stránská skála je paleolitické naleziště.", "var": [{"t": "Které paleolitické naleziště je v Brně?", "ok": "Stránská skála", "s": [["Dolní Věstonice", "Dolní Věstonice jsou u Mikulova, ne v Brně"], ["Altamira", "Altamira je ve Španělsku"], ["Závist", "Závist je keltské oppidum u Prahy"], ["Pečky", "v Pečkách bylo nalezeno neolitické drtidlo"]]}, {"t": "Do kterého období patří naleziště Brno – Stránská skála?", "ok": "paleolit", "s": [["neolit", "neolit"], ["doba železná", "doba železná"], ["doba římská", "doba římská"], ["eneolit", "eneolit"]]}]},
+ {"id": "d2-obydli", "kap": "k2", "pri": "doplnek", "vysv": "V paleolitu první doložená obydlí ze dřeva, kostí a kůže; v neolitu dlouhé domy a cihly ze sušené hlíny.", "var": [{"t": "Z čeho byla první doložená obydlí v paleolitu?", "ok": "ze dřeva, kostí a kůže", "s": [["z cihel ze sušené hlíny", "to je vrchol stavitelství neolitu"], ["z kamenných kvádrů", "kvádry jsou egyptské pyramidy"], ["z pálených cihel a betonu", "beton používali až Římané"], ["ze železa", "železo je až v době železné"]]}, {"t": "Co bylo vrcholem stavitelství v neolitu?", "ok": "cihly ze sušené hlíny", "s": [["pyramidy", "pyramidy jsou egyptské"], ["zikkuraty", "zikkuraty jsou mezopotámské chrámy"], ["oppida", "oppida stavěli Keltové v době železné"], ["stany z kůže", "to jsou paleolitická obydlí"]]}]},
+ {"id": "d2-klima", "kap": "k2", "pri": "jadro", "vysv": "Neolitickou revoluci ovlivnila klimatická změna – oteplení po době ledové.", "var": [{"t": "Co ovlivnilo vznik zemědělství v neolitu?", "ok": "oteplení po době ledové", "s": [["ochlazení a nová doba ledová", "naopak se oteplilo"], ["objev železa", "železo je až v době železné"], ["výbuch sopky Théra", "ten byl až kolem 1600 př. n. l."], ["vznik písma", "písmo vzniklo až později"]]}, {"t": "Jak se změnilo klima v mezolitu?", "ok": "oteplilo se", "s": [["ochladilo se", "doba ledová naopak skončila"], ["nezměnilo se", "konec doby ledové je velká změna"], ["začala doba ledová", "doba ledová končila"], ["přestalo pršet", "to se nestalo"]]}]},
+ {"id": "d2-delba1", "kap": "k2", "pri": "doplnek", "vysv": "V neolitu vzniká dělba práce v zemědělství (muži × ženy, staří × mladí).", "var": [{"t": "Jaká dělba práce vznikla v neolitu?", "ok": "podle pohlaví a věku (muži × ženy, staří × mladí)", "s": [["řemeslo se stalo samostatnou činností", "to je druhá dělba práce v době bronzové"], ["rozdělení do kast", "kasty jsou v Indii"], ["rozdělení na faraona a kněze", "to je Egypt"], ["rozdělení na plnoprávné a nevolníky", "to je Babylon (Chammurapiho zákoník)"]]}, {"t": "Ve které době vznikla druhá společenská dělba práce (řemeslníci)?", "ok": "v době bronzové", "s": [["v neolitu", "v neolitu vznikla dělba podle pohlaví a věku"], ["v paleolitu", "lovci a sběrači řemeslníky neměli"], ["v mezolitu", "v mezolitu ještě převládal lov a sběr"], ["v době římské", "řemeslníci už dávno existovali"]]}]},
+ {"id": "d2-kolonizace", "kap": "k2", "pri": "doplnek", "vysv": "Kolonizace = záměrné osidlování prázdného území novým obyvatelstvem (v neolitu i u Řeků).", "var": [{"t": "Co je kolonizace?", "ok": "záměrné osidlování území novým obyvatelstvem", "s": [["vypalování lesa na pole", "žďáření"], ["ochočování zvířat", "domestikace"], ["proces polidštění", "hominizace"], ["výroba keramiky", "keramika je zpracování a vypalování hlíny"]]}, {"t": "Jak se jmenuje vypalování lesa, aby vzniklo pole?", "ok": "žďáření", "s": [["domestikace", "domestikace"], ["kolonizace", "kolonizace"], ["hominizace", "hominizace"], ["diferenciace", "diferenciace je rozdělení společnosti na vrstvy"]]}]},
+ {"id": "d2-tkani", "kap": "k2", "pri": "doplnek", "vysv": "V neolitu se tkalo na svislých stavech z lnu a konopí; lidé vyráběli primitivní srpy.", "var": [{"t": "Z čeho tkali lidé v neolitu?", "ok": "ze lnu a konopí", "s": [["z hedvábí", "hedvábí je čínské a pozdější"], ["z bavlny z Ameriky", "Ameriku Evropané neznali"], ["ze syntetických vláken", "ta jsou až z 20. století"], ["z purpuru", "purpur je barvivo"]]}, {"t": "Jakým nástrojem sklízeli lidé v neolitu obilí?", "ok": "primitivním srpem", "s": [["železnou kosou", "železo je až v době železné"], ["bronzovým mečem", "meč není nástroj na sklizeň a bronz je pozdější"], ["pěstním klínem", "pěstní klín je z paleolitu"], ["kombajnem", "to je moderní stroj"]]}]},
+ {"id": "d2-chalkolit", "kap": "k2", "pri": "doplnek", "vysv": "Eneolit = chalkolit = doba měděná; převládají kamenné nástroje, asi čtyřkolový vůz, směnný obchod.", "var": [{"t": "Jak se ještě říká eneolitu?", "ok": "chalkolit (doba měděná)", "s": [["mezolit", "mezolit"], ["halštat", "halštatská"], ["paleolit", "paleolit"], ["doba bronzová", "doba bronzová"]]}, {"t": "Jaké nástroje v eneolitu pořád převládaly?", "ok": "kamenné", "s": [["měděné", "měď byla vzácná a měkká"], ["bronzové", "bronz je až v době bronzové"], ["železné", "železo je až v době železné"], ["plastové", "plast je moderní materiál"]]}]},
+ {"id": "d2-u-nas", "kap": "k2", "pri": "doplnek", "vysv": "Neolit začal na Předním východě (asi 10 000–8000 př. n. l.), do Čech dorazil asi 5500 př. n. l.", "var": [{"t": "Kde začalo zemědělství nejdřív?", "ok": "na Předním východě", "s": [["v Čechách", "k nám dorazilo až kolem 5500 př. n. l."], ["v Řecku", "do Řecka přišlo z Předního východu"], ["v Americe", "na Předním východě bylo dřív"], ["ve Skandinávii", "na sever dorazilo nejpozději"]]}, {"t": "Kdy přibližně dorazil neolit do Čech?", "ok": "asi 5500 př. n. l.", "s": [["asi 10 000 př. n. l.", "tehdy začínal na Předním východě"], ["asi 776 př. n. l.", "první olympijské hry"], ["asi 2000 př. n. l.", "začátek doby bronzové"], ["asi 400 n. l.", "konec doby římské"]]}]},
+ {"id": "m2-bronz-vznik", "kap": "k3", "pri": "doplnek", "vysv": "Bronz vynalezli na Předním východě (koncem 4. tisíciletí př. n. l.); vyráběly se z něj nástroje, šperky a zbraně.", "var": [{"t": "Kde byl vynalezen bronz?", "ok": "na Předním východě", "s": [["v Číně", "Číňané bronz znali, ale vynález je z Předního východu"], ["v Česku", "k nám bronz přišel později"], ["v Řecku", "Řecko ho převzalo"], ["v Americe", "nevynalezli ho tam"]]}, {"t": "Co se vyrábělo z bronzu?", "ok": "nástroje, šperky a zbraně", "s": [["jen mince", "mince se razily až mnohem později (Lýdie, Řekové, u nás Keltové)"], ["jen sošky venuší", "venuše jsou z hlíny a z paleolitu"], ["keramické nádoby", "keramika je z hlíny"], ["jen domy", "domy byly ze dřeva a hlíny"]]}]},
+ {"id": "m2-zelezo-kdy", "kap": "k3", "pri": "doplnek", "vysv": "Výroba železa se v Evropě šířila od 8./9. stol. př. n. l.", "var": [{"t": "Odkdy se v Evropě vyrábělo železo?", "ok": "od 8./9. stol. př. n. l.", "s": [["od 4. tisíciletí př. n. l.", "to se vynalezl bronz"], ["od 1. stol. n. l.", "to už byla doba římská"], ["od paleolitu", "v paleolitu byly kamenné nástroje"], ["od 476 n. l.", "konec starověku"]]}, {"t": "Proč železo nahradilo bronz?", "ok": "železná ruda je mnohem hojnější než měď a cín", "s": [["železa bylo méně než mědi", "železná ruda je naopak velmi hojná"], ["železo se nedá kovat", "železo se kove"], ["bronz byl zakázán", "nic takového"], ["železo je slitina mědi a cínu", "to je bronz"]]}]},
+ {"id": "m2-skythove", "kap": "k3", "pri": "doplnek", "vysv": "Na přelomu 6./5. stol. př. n. l. pronikali na naše území Skythové z východu a Keltové ze západu.", "var": [{"t": "Odkud k nám pronikali Skythové?", "ok": "z východu", "s": [["ze západu", "ze západu přišli Keltové"], ["z jihu z Řecka", "Skythové nebyli Řekové"], ["ze severu ze Skandinávie", "přišli z východu"], ["z Egypta", "Egypt je v Africe"]]}, {"t": "Odkud k nám přišli Keltové?", "ok": "ze západu", "s": [["z východu", "z východu pronikali Skythové"], ["z Mezopotámie", "Keltové jsou evropské kmeny"], ["z Afriky", "Keltové jsou evropské kmeny"], ["z Číny", "Keltové jsou evropské kmeny"]]}]},
+ {"id": "m2-keltove-umeni", "kap": "k3", "pri": "doplnek", "vysv": "Keltové byli zruční řemeslníci: hrnčířský kruh, razili mince; oppida Závist, Stradonice, Staré Hradisko.", "var": [{"t": "Které keltské oppidum je na Moravě?", "ok": "Staré Hradisko", "s": [["Závist", "Závist je u Prahy"], ["Stradonice", "Stradonice jsou v Čechách"], ["Knóssos", "Knóssos je palác na Krétě"], ["Persepolis", "Persepolis je v Persii"]]}, {"t": "Co uměli Keltové jako zruční řemeslníci?", "ok": "používali hrnčířský kruh a razili mince", "s": [["stavěli pyramidy", "to Egypťané"], ["psali klínovým písmem", "to Mezopotámie"], ["vyráběli porcelán", "to Čína"], ["stavěli zikkuraty", "to Mezopotámie"]]}]},
+ {"id": "m2-rimska", "kap": "k3", "pri": "doplnek", "vysv": "Doba římská u nás: 0 – 400 n. l., žily tu germánské kmeny; hranice Říma (limes) vedla po Dunaji.", "var": [{"t": "Kdy byla u nás doba římská?", "ok": "0 – 400 n. l.", "s": [["750 – 0 př. n. l.", "doba železná"], ["2000 – 750 př. n. l.", "doba bronzová"], ["8. stol. př. n. l. – 476 n. l.", "to je celá antika"], ["400 – 800 n. l.", "po době římské následuje doba stěhování národů a raný středověk"]]}, {"t": "Po které řece vedla hranice Římské říše nedaleko našeho území?", "ok": "po Dunaji", "s": [["po Vltavě", "Vltava je v Čechách – mimo Římskou říši"], ["po Nilu", "Nil je v Egyptě"], ["po Eufratu", "Eufrat je v Mezopotámii"], ["po Labi", "Labe bylo daleko za hranicí"]]}]},
+ {"id": "m2-otzi-nalez", "kap": "k3", "pri": "jadro", "vysv": "Ötzi byl nalezen v roce 1991 v ledovci v Ötztalských Alpách (Rakousko/Itálie), žil asi 3300 př. n. l. (eneolit).", "var": [{"t": "Kde byl nalezen Ötzi?", "ok": "v ledovci v Alpách", "s": [["v egyptské pyramidě", "to by byla mumie faraona"], ["v rašelině v Dánsku", "Ötzi je z Alp"], ["v jeskyni Lascaux", "Lascaux je jeskyně s malbami"], ["v Dolních Věstonicích", "tam je naleziště lovců mamutů"]]}, {"t": "Ve kterém období žil Ötzi?", "ok": "v eneolitu (asi 3300 př. n. l.)", "s": [["v paleolitu", "měl měděnou sekeru – to je doba měděná"], ["v době železné", "neměl železo"], ["v době římské", "je o 3 000 let starší"], ["v mezolitu", "měď v mezolitu ještě neznali"]]}]},
+ {"id": "m2-otzi-prameny", "kap": "k3", "pri": "doplnek", "vysv": "Ötzi: krev dvou lidí na hrotu šípu, krev cizího člověka na kabátě, jídlo (kozorožec) méně než 2 h před smrtí, nádobka s uhlíky na oheň.", "var": [{"t": "Co ukazuje nádobka z březové kůry s uhlíky v javorových listech?", "ok": "Ötzi přenášel oheň", "s": [["Ötzi vařil polévku", "uhlíky v listech slouží k přenášení ohně"], ["Ötzi byl kovář", "kováře ukazují spíš kovové nástroje"], ["Ötzi pil čaj", "v nádobce byly uhlíky"], ["Ötzi byl nemocný", "zdraví ukazuje nehet"]]}, {"t": "Co ukazuje obsah Ötziho žaludku (maso kozorožce méně než 2 h před smrtí)?", "ok": "krátce před smrtí v klidu jedl – útok nečekal", "s": [["umřel hlady", "méně než 2 h před smrtí jedl"], ["byl vegetarián", "jedl maso"], ["byl otráven masem", "nic tomu nenasvědčuje"], ["byl lovcem mamutů", "mamuti v jeho době v Alpách nežili"]]}]}
+  ]
+};
+/* ===================== KONEC KONFIGURACE ===================== */
+
+"use strict";
+/* ---------- nastavení metody (stejné pro všechna Rychloučení) ---------- */
+const NAST = { maxPrace: 8, spatneZa: 3, spravneZa: 6, naucenoPo: 2, ranoMin: 10, ranoOtazek: 30,
+  pauzaMin: 25, naRanoMin: 60, odhadS: 14, zamekMs: 400, necinnostS: 120 };
+
+/* =====================================================================
+   PLÁNOVAČ – čisté funkce bez DOM (stav + odpověď → nový stav a další otázka)
+   F = [{ id, nVar, kap }] v pořadí, ve kterém se nová fakta přidávají
+   ===================================================================== */
+const Planovac = (function () {
+  const kopie = o => JSON.parse(JSON.stringify(o));
+  function rnd(stav) {                        // mulberry32 se stavem v objektu (deterministické)
+    let t = (stav.seed = (stav.seed + 0x6D2B79F5) >>> 0);
+    t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  }
+  function zamichej(stav, a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd(stav) * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+  function novaFronta(ids, potreba) { return { potreba, nove: ids.slice(), prace: {}, posledni: null }; }
+  function novy(F, seed) {
+    const stav = { seed: (seed >>> 0) || 1, n: 0, rezim: "uceni", fakta: {}, fronta: null, uceni: null, zaver: null };
+    F.forEach(f => { stav.fakta[f.id] = { spatne: 0, spravne: 0, napoprve: null, naucen: false, vybrala: [], varPosl: Array(f.nVar).fill(-1), varMinule: -1 }; });
+    stav.fronta = novaFronta(F.map(f => f.id), NAST.naucenoPo);
+    return stav;
+  }
+  function vyberVariantu(fs) {
+    let best = -1;
+    fs.varPosl.forEach((p, i) => { if (i === fs.varMinule && fs.varPosl.length > 1) return; if (best < 0 || p < fs.varPosl[best]) best = i; });
+    return best < 0 ? 0 : best;
+  }
+  // další fakt z fronty (null = fronta je hotová)
+  function zFronty(stav, vypln) {
+    const fr = stav.fronta, q = stav.n, ids = Object.keys(fr.prace);
+    const jine = ids.filter(id => id !== fr.posledni);
+    if (!fr.nove.length && ids.length === 1) {   // poslední zbývající fakt: mezi opakování výplň z naučených (po chybě 2, jinak 1)
+      const nauc = vypln ? Object.keys(stav.fakta).filter(id => stav.fakta[id].naucen && id !== fr.posledni) : [];
+      const w = fr.prace[ids[0]], odstup = w.posl < 0 ? 0 : w.streak === 0 ? 2 : 1;
+      if (q - w.posl - 1 < odstup && nauc.length) {
+        nauc.sort((a, b) => stav.fakta[b].spatne - stav.fakta[a].spatne || Math.max(...stav.fakta[a].varPosl) - Math.max(...stav.fakta[b].varPosl));
+        return { vypln: nauc[0] };
+      }
+      return ids[0];
+    }
+    const poradi = (a, b) => fr.prace[a].due - fr.prace[b].due || fr.prace[b].streak - fr.prace[a].streak || ids.indexOf(a) - ids.indexOf(b);
+    // závěr fronty (nic nového, v práci ≤ 3): přednost má fakt, kterému chybí jen jedna správná odpověď
+    if (!fr.nove.length && ids.length <= 3) {
+      const skoro = jine.filter(id => fr.prace[id].streak >= 1 && fr.prace[id].streak < fr.potreba);
+      if (skoro.length) return skoro.sort(poradi)[0];
+    }
+    const naRade = jine.filter(id => fr.prace[id].due <= q).sort(poradi);
+    if (naRade.length) return naRade[0];
+    if (ids.length < NAST.maxPrace && fr.nove.length) {
+      const id = fr.nove.shift(); fr.prace[id] = { due: q, streak: 0, posl: -1 }; return id;
+    }
+    // nic není na řadě a nový fakt přidat nejde: nejbližší fakt i dřív; právě zchybovaný fakt (méně než 2 otázky
+    // od chyby) jen tehdy, když jiný není
+    if (jine.length) {
+      const s = jine.sort(poradi), ok = s.filter(id => !(fr.prace[id].streak === 0 && fr.prace[id].posl >= 0 && q - fr.prace[id].posl - 1 < 2));
+      return (ok.length ? ok : s)[0];
+    }
+    if (ids.length) return ids[0];
+    return null;
+  }
+  function dalsi(stav0, F) {
+    const stav = kopie(stav0);
+    let id = null;
+    if (stav.rezim === "uceni" || stav.rezim === "rano") {
+      id = zFronty(stav, stav.rezim === "uceni");
+      if (id && id.vypln) {
+        const v = vyberVariantu(stav.fakta[id.vypln]);
+        return { stav, otazka: { id: id.vypln, v, poradi: stav.n + 1, rezim: stav.rezim, vypln: true } };
+      }
+      if (id === null && stav.rezim === "uceni") {
+        const chybna = F.filter(f => stav.fakta[f.id].spatne > 0).map(f => f.id);
+        stav.rezim = chybna.length ? "zaver" : "hotovo";
+        stav.zaver = { seznam: zamichej(stav, chybna), i: 0 };
+      }
+    }
+    if (stav.rezim === "zaver") {
+      if (stav.zaver.i < stav.zaver.seznam.length) id = stav.zaver.seznam[stav.zaver.i];
+      else stav.rezim = "hotovo";
+    }
+    if (id === null) return { stav, otazka: null };
+    const v = vyberVariantu(stav.fakta[id]);
+    return { stav, otazka: { id, v, poradi: stav.n + 1, rezim: stav.rezim } };
+  }
+  // odpověď na otázku { id, v } → nový stav; naucen = true, když se tím fakt naučil
+  function odpoved(stav0, F, ot, spravne) {
+    const stav = kopie(stav0), fs = stav.fakta[ot.id], q = stav.n;
+    let naucen = false;
+    fs.varPosl[ot.v] = q; fs.varMinule = ot.v;
+    if (fs.napoprve === null) fs.napoprve = !!spravne;
+    if (spravne) fs.spravne++; else fs.spatne++;
+    if (stav.rezim === "zaver") stav.zaver.i++;
+    else if (ot.vypln) stav.fronta.posledni = ot.id;    // výplň: jen statistika, naučený zůstává
+    else {
+      const fr = stav.fronta, w = fr.prace[ot.id];
+      if (w) {
+        const mezi = w.posl < 0 || q - w.posl >= 2 || (Object.keys(fr.prace).length === 1 && !fr.nove.length);
+        if (spravne) { w.streak = w.posl >= 0 && !mezi ? w.streak : w.streak + 1; w.due = q + NAST.spravneZa; }
+        else { w.streak = 0; w.due = q + NAST.spatneZa; }
+        w.posl = q;
+        if (w.streak >= fr.potreba) {
+          delete fr.prace[ot.id];
+          if (stav.rezim === "uceni") { fs.naucen = true; naucen = true; }
+        }
+      }
+      fr.posledni = ot.id;
+    }
+    stav.n = q + 1;
+    return { stav, naucen };
+  }
+  function krok(stav, F, ot, spravne) {
+    const o = odpoved(stav, F, ot, spravne), d = dalsi(o.stav, F);
+    return { stav: d.stav, otazka: d.otazka, naucen: o.naucen };
+  }
+  // ranní opakování: nejslabší fakta (nejvíc chyb, pak nejméně správných); bez historie kostra a pak náhodně
+  function rano(stav0, F, kostraIds) {
+    const stav = kopie(stav0);
+    if (stav.rezim !== "rano") stav.uceni = { rezim: stav.rezim, fronta: stav.fronta, zaver: stav.zaver };
+    const odp = F.some(f => stav.fakta[f.id].spatne + stav.fakta[f.id].spravne > 0);
+    let ids;
+    if (odp) ids = F.map((f, i) => [f.id, i]).sort((a, b) => {
+      const x = stav.fakta[a[0]], y = stav.fakta[b[0]];
+      return y.spatne - x.spatne || x.spravne - y.spravne || a[1] - b[1];
+    }).map(a => a[0]);
+    else ids = [...F.filter(f => kostraIds.includes(f.id)).map(f => f.id), ...zamichej(stav, F.filter(f => !kostraIds.includes(f.id)).map(f => f.id))];
+    stav.rezim = "rano"; stav.fronta = novaFronta(ids, 1); stav.zaver = null;
+    return stav;
+  }
+  function konecRano(stav0) {
+    const stav = kopie(stav0);
+    if (stav.rezim === "rano" && stav.uceni) { stav.rezim = stav.uceni.rezim; stav.fronta = stav.uceni.fronta; stav.zaver = stav.uceni.zaver; }
+    stav.uceni = null;
+    return stav;
+  }
+  return Object.freeze({ novy, dalsi, odpoved, krok, rano, konecRano, vyberVariantu });
+})();
+
+/* =====================================================================
+   STRÁNKA
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const CESTA = location.pathname.replace(/^.*\/annschool\//, "").replace(/^\//, "") || "rychlouceni.html";
+const KLIC = "annschool:rychlouceni:" + CESTA;
+const KAP = Object.fromEntries(RYCHLO.kapitoly.map((k, i) => [k.id, Object.assign({ i }, k)]));
+const KOSTRA = RYCHLO.fakta.filter(f => KAP[f.kap] && KAP[f.kap].kostra).map(f => f.id);
+const FAKT = Object.fromEntries(RYCHLO.fakta.map(f => [f.id, f]));
+// pořadí přidávání nových faktů: nejdřív jadro, pak doplnek; v každé skupině kapitoly v pořadí, pak pořadí v konfiguraci
+const F = RYCHLO.fakta.map((f, i) => ({ id: f.id, nVar: f.var.length, kap: f.kap, pri: f.pri, i }))
+  .sort((a, b) => (a.pri === "doplnek") - (b.pri === "doplnek") || KAP[a.kap].i - KAP[b.kap].i || a.i - b.i);
+
+/* v22 šablony testu: dlouhý stisk nic neoznačuje (na stránce nejsou pole) */
+document.addEventListener("selectstart", e => e.preventDefault());
+document.addEventListener("contextmenu", e => e.preventDefault());
+
+let S = null;            // uložený stav: { planovac, cas, ulozeno, prevzato }
+let OT = null;           // aktuální otázka { id, v, poradi, rezim, moznosti: [texty], odkryto, zobrazeno }
+let zodpovezeno = null;  // { spravne, vybrala, nevim, cas }
+let zamekDo = 0, prevzato = "";
+
+function seedNahodny() { return (Math.random() * 4294967296) >>> 0; }
+function novyStav() { return { planovac: Planovac.novy(F, seedNahodny()), cas: { uceni_s: 0, rano_s: 0, rano_otazek: 0, pauza: false, naRano: false }, ulozeno: 0, otazka: null }; }
+function nactiStav() {
+  let raw = null;
+  try { raw = localStorage.getItem(KLIC); } catch (e) { raw = null; }
+  if (raw) { try { const s = JSON.parse(raw); if (s && s.planovac) return doplnFakta(s); } catch (e) { /* poškozené → znovu */ } }
+  // nová verze stránky: převzít stav z nejvyšší starší verze (fakta podle id)
+  const st = window.Sledovani && Sledovani.zPredchoziVerze ? Sledovani.zPredchoziVerze("annschool:rychlouceni:") : null;
+  if (st && st.data) {
+    try {
+      const s = JSON.parse(st.data);
+      if (s && s.planovac) { prevzato = st.verze; return prevzit(s); }
+    } catch (e) { /* nic */ }
+  }
+  return null;
+}
+// starý stav → nová konfigurace: statistiky podle id, neznámá fakta pryč, nová fakta jako nová, fronta znovu
+function prevzit(s) {
+  const n = novyStav(), p = n.planovac, st = s.planovac;
+  p.n = st.n || 0;
+  F.forEach(f => {
+    const o = st.fakta && st.fakta[f.id];
+    if (!o) return;
+    const fs = p.fakta[f.id];
+    ["spatne", "spravne", "napoprve", "naucen"].forEach(k => { if (k in o) fs[k] = o[k]; });
+    fs.vybrala = Array.isArray(o.vybrala) ? o.vybrala.slice(-20) : [];
+    fs.varPosl = Array(f.nVar).fill(-1).map((x, i) => (o.varPosl && o.varPosl[i] !== undefined ? o.varPosl[i] : -1));
+    fs.varMinule = typeof o.varMinule === "number" && o.varMinule < f.nVar ? o.varMinule : -1;
+  });
+  const vPraci = st.fronta && st.rezim === "uceni" ? Object.keys(st.fronta.prace || {}).filter(id => FAKT[id]) : [];
+  p.fronta.nove = F.map(f => f.id).filter(id => !p.fakta[id].naucen && !vPraci.includes(id));
+  vPraci.forEach(id => { if (!p.fakta[id].naucen) p.fronta.prace[id] = Object.assign({ due: p.n, streak: 0, posl: -1 }, st.fronta.prace[id], { due: p.n }); });
+  p.rezim = "uceni";
+  n.cas = Object.assign(n.cas, s.cas || {});
+  return n;
+}
+function doplnFakta(s) {           // stav uložený touto verzí – jen pro jistotu doplnit chybějící fakta
+  const p = s.planovac;
+  F.forEach(f => { if (!p.fakta[f.id]) { p.fakta[f.id] = Planovac.novy([f], 1).fakta[f.id]; if (p.fronta && p.rezim === "uceni") p.fronta.nove.push(f.id); } });
+  s.cas = Object.assign({ uceni_s: 0, rano_s: 0, rano_otazek: 0, pauza: false, naRano: false }, s.cas || {});
+  return s;
+}
+function uloz() {
+  if (!S) return;
+  S.ulozeno = Date.now();
+  S.otazka = OT && !zodpovezeno ? { id: OT.id, v: OT.v, poradi: OT.poradi, rezim: OT.rezim, vypln: OT.vypln, moznosti: OT.moznosti, odkryto: OT.odkryto } : null;
+  try { localStorage.setItem(KLIC, JSON.stringify(S)); } catch (e) { /* plné úložiště / soukromé okno – stav zůstane v paměti */ }
+}
+function smazStav() { try { localStorage.removeItem(KLIC); } catch (e) { /* nic */ } }
+
+/* ---------- pomocné ---------- */
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+function zamichej(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function pocetNaucenych(p) { return F.filter(f => p.fakta[f.id].naucen).length; }
+function statistika(p) {
+  let odp = 0, nap = 0, napOk = 0;
+  F.forEach(f => { const x = p.fakta[f.id]; odp += x.spatne + x.spravne; if (x.napoprve !== null) { nap++; if (x.napoprve) napOk++; } });
+  return { odpovedi: odp, spravne_napoprve_pct: nap ? Math.round(napOk / nap * 100) : null };
+}
+// odhad zbývajícího času učení (min): potřebné správné odpovědi / úspěšnost + závěrečné kolo, × tempo
+function odhadMin(p) {
+  let ok = 0, vse = 0;
+  F.forEach(f => { const x = p.fakta[f.id]; ok += x.spravne; vse += x.spatne + x.spravne; });
+  const usp = Math.min(.95, Math.max(.3, vse >= 5 ? ok / vse : .7));
+  const tempo = vse >= 5 && S.cas.uceni_s > 0 ? Math.min(40, Math.max(6, S.cas.uceni_s / vse)) : NAST.odhadS;
+  let otazek = 0;
+  if (p.rezim === "uceni") {
+    const fr = p.fronta;
+    F.forEach(f => { if (p.fakta[f.id].naucen) return; const w = fr.prace[f.id]; otazek += (NAST.naucenoPo - (w ? w.streak : 0)) / usp; });
+    const chybne = F.filter(f => p.fakta[f.id].spatne > 0).length, zbyva = F.filter(f => !p.fakta[f.id].naucen && !p.fakta[f.id].spatne).length;
+    otazek += chybne + zbyva * (1 - usp);
+  } else if (p.rezim === "zaver") otazek = p.zaver.seznam.length - p.zaver.i;
+  return Math.max(0, Math.round(otazek * tempo / 60));
+}
+function souhrnDetail() {
+  const p = S.planovac, st = statistika(p);
+  return Object.assign({ rezim: p.rezim, nauceno: pocetNaucenych(p), faktu: F.length, uceni_s: Math.round(S.cas.uceni_s), rano_s: Math.round(S.cas.rano_s) }, st, {
+    fakta: F.filter(f => p.fakta[f.id].spatne + p.fakta[f.id].spravne > 0).map(f => {
+      const x = p.fakta[f.id];
+      return { id: f.id, kap: f.kap, spatne: x.spatne, spravne: x.spravne, napoprve: x.napoprve, naucen: x.naucen, vybrala: x.vybrala.slice(-6) };
+    })
+  });
+}
+let posledniSouhrn = "";
+function posliSouhrn(vynutit) {
+  if (!S || !window.Sledovani) return;
+  const d = souhrnDetail(), podpis = JSON.stringify([d.odpovedi, d.nauceno, d.rezim]);
+  if (!vynutit && podpis === posledniSouhrn) return;
+  posledniSouhrn = podpis;
+  Sledovani.udalost("rychlo_souhrn", "souhrn", d);
+}
+function udalost(u, sekce, detail) { if (window.Sledovani) Sledovani.udalost(u, sekce, detail); }
+function oblast(k) { if (window.Sledovani) Sledovani.oblast(k); }
+function toast(t) {
+  const el = document.createElement("div"); el.id = "toast"; el.textContent = t; document.body.appendChild(el);
+  setTimeout(() => el.classList.add("pryc"), 3500); setTimeout(() => el.remove(), 4300);
+}
+// dialog místo confirm() (blokující okna prohlížeče nepoužívat)
+function dialog(text, tlacitka) {
+  $("dText").textContent = text; const box = $("dTlacitka"); box.innerHTML = "";
+  tlacitka.forEach(([popis, fn, hl]) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (hl ? " hl" : ""); b.textContent = popis;
+    b.onclick = () => { $("dialog").hidden = true; if (fn) fn(); }; box.appendChild(b);
+  });
+  $("dialog").hidden = false;
+}
+// v02: časová osa – kolečko za každý fakt v pořadí konfigurace (kapitoly)
+function vykresliOsu() {
+  const osa = $("osa"), p = S && S.planovac;
+  if (osa.children.length !== RYCHLO.fakta.length) osa.innerHTML = RYCHLO.fakta.map(() => "<i></i>").join("");
+  RYCHLO.fakta.forEach((f, i) => {
+    const x = p && p.fakta[f.id], w = p && p.fronta && p.fronta.prace[f.id];
+    const cls = !x ? "" : x.naucen && !(p.rezim === "rano" && w && w.streak === 0 && w.posl >= 0) ? "nauceno"
+      : w && w.streak === 0 && w.posl >= 0 ? "chyba" : (w || x.spatne + x.spravne > 0) ? "prace" : "";
+    osa.children[i].className = cls + (OT && OT.id === f.id ? " ted" : "");
+  });
+}
+function ukaz(sc) { vykresliOsu(); ["scUvod", "scOtazka", "scMezi"].forEach(x => { $(x).hidden = x !== sc; }); window.scrollTo(0, 0); }
+
+/* ---------- úvod ---------- */
+function uvod() {
+  OT = null; zodpovezeno = null; oblast("Úvod"); ukaz("scUvod");
+  $("uvodNadpis").textContent = RYCHLO.title;
+  $("uvodText").innerHTML = "<p>Učíš se tím, že odpovídáš: u každé otázky vyber jednu možnost, a když nevíš, klepni na „Nevím“ – nehádej.</p>" +
+    "<p>Po každé odpovědi hned uvidíš správnou odpověď a krátké vysvětlení.</p>" +
+    "<p>Co ještě neumíš, se ti vrací, dokud to dvakrát po sobě neodpovíš správně; ráno si nejslabší věci zopakuješ tlačítkem „Ranní opakování“.</p>";
+  const p = S && S.planovac, rozprac = p && p.n > 0;
+  $("btnZacit").hidden = !!rozprac;
+  $("btnPokracovat").hidden = !rozprac || p.rezim === "hotovo";
+  $("btnZnovu").hidden = !rozprac;
+  $("uvodStav").textContent = rozprac ? `Naučeno ${pocetNaucenych(p)} z ${F.length}` + (p.rezim === "rano" ? " · rozpracované ranní opakování" : p.rezim === "hotovo" ? " · hotovo" : p.rezim === "zaver" ? " · závěrečné kolo" : ` · zbývá asi ${odhadMin(p)} min`) : `${F.length} věcí k naučení, asi 45–60 minut.`;
+}
+function zacit(pokracovani) {
+  if (!S) S = novyStav();
+  udalost("rychlo_start", "start", { rezim: S.planovac.rezim, pokracovani: !!pokracovani, faktu: F.length, nauceno: pocetNaucenych(S.planovac), odpovedi: statistika(S.planovac).odpovedi, prevzato: prevzato || undefined });
+  dalsiOtazka(true);
+}
+function ranniOpakovani() {
+  if (!S) S = novyStav();
+  const ulozeny = S.planovac.n > 0;
+  S.planovac = Planovac.rano(S.planovac, F, KOSTRA);
+  S.cas.rano_s = 0; S.cas.rano_otazek = 0;
+  uloz();
+  udalost("rychlo_rano", "ranní opakování", { ulozeny, poradi: S.planovac.fronta.nove.slice(0, 30), faktu: F.length });
+  dalsiOtazka(true);
+}
+function zacitZnovu() {
+  dialog("Začít znovu? Všechno, co máš naučené, se tu smaže (výsledky zůstanou v přehledu).", [
+    ["Zrušit", null], ["Začít znovu", () => {
+      if (S) udalost("rychlo_reset", "reset", souhrnDetail());
+      smazStav(); S = novyStav(); uloz(); OT = null; zodpovezeno = null; uvod();
+    }, true]]);
+}
+
+/* ---------- otázka ---------- */
+function dalsiOtazka(obnovit) {
+  zodpovezeno = null;
+  const p = S.planovac;
+  // obnovení po reloadu uprostřed otázky
+  if (obnovit && S.otazka && FAKT[S.otazka.id] && S.otazka.rezim === p.rezim) {
+    OT = Object.assign({}, S.otazka, { zobrazeno: Date.now() }); vykresli(); return;
+  }
+  if (nabidkaCasu()) return;
+  const d = Planovac.dalsi(p, F);
+  const predRezim = p.rezim;
+  S.planovac = d.stav;
+  if (!d.otazka) { uloz(); konecRezimu(predRezim); return; }
+  if (predRezim === "uceni" && d.stav.rezim === "zaver" && !obnovit) { OT = null; uloz(); mezistrankaZaver(d.otazka); return; }
+  pripravOtazku(d.otazka);
+}
+function pripravOtazku(o) {
+  const f = FAKT[o.id], v = f.var[o.v];
+  OT = Object.assign({}, o, { moznosti: zamichej([v.ok, ...v.s.map(x => x[0])]), odkryto: !KAP[f.kap].kostra, zobrazeno: Date.now() });
+  uloz(); vykresli();
+}
+function vykresli() {
+  const f = FAKT[OT.id], v = f.var[OT.v], p = S.planovac, k = KAP[f.kap];
+  ukaz("scOtazka"); oblast(k.nazev);
+  $("oKap").textContent = k.nazev;
+  $("oRezim").textContent = p.rezim === "rano" ? "Ranní opakování" : p.rezim === "zaver" ? "Závěrečné kolo" : "";
+  const nauc = pocetNaucenych(p);
+  $("oStav").textContent = p.rezim === "rano" ? `otázka ${S.cas.rano_otazek + 1}` :
+    p.rezim === "zaver" ? `${p.zaver.i + 1} z ${p.zaver.seznam.length}` : `Naučeno ${nauc} z ${F.length} · zbývá asi ${odhadMin(p)} min`;
+  $("oLista").style.width = (p.rezim === "zaver" ? p.zaver.i / Math.max(1, p.zaver.seznam.length) : nauc / F.length) * 100 + "%";
+  $("oZadani").textContent = v.t;
+  $("vyhodnoceni").hidden = true;
+  const box = $("moznosti"); box.innerHTML = "";
+  OT.moznosti.forEach((m, i) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "moznost"; b.textContent = m; b.dataset.i = i;
+    b.onclick = () => odpovez(m, false); box.appendChild(b);
+  });
+  box.hidden = !OT.odkryto;
+  $("oVduchu").hidden = OT.odkryto;
+  $("btnUkazat").hidden = OT.odkryto;
+  $("btnNevim").hidden = false; $("btnNevim").disabled = false;
+}
+function odkryj() {
+  if (!OT || OT.odkryto) return;
+  OT.odkryto = true; OT.odkryto_s = Math.round((Date.now() - OT.zobrazeno) / 1000); uloz(); vykresli();
+}
+function vysvetliSpatnou(f, v, text) {
+  const x = v.s.find(s => s[0] === text); if (!x) return "";
+  const e = x[1], P = RYCHLO.pojmy;
+  if (P[e] !== undefined) return text === e ? `<b>${esc(e)}</b> = ${esc(P[e])}` : `„${esc(text)}“ – to je <b>${esc(e)}</b> = ${esc(P[e])}`;
+  return `„${esc(text)}“ – ${esc(e)}`;
+}
+function odpovez(text, nevim) {
+  if (!OT || zodpovezeno) return;
+  if (!OT.odkryto && !nevim) return;
+  const f = FAKT[OT.id], v = f.var[OT.v], spravne = !nevim && text === v.ok;
+  const doba = Math.round((Date.now() - OT.zobrazeno) / 1000);
+  zodpovezeno = { spravne, vybrala: nevim ? "nevím" : text, nevim, cas: Date.now() };
+  const p0 = S.planovac, rezim = p0.rezim;
+  const o = Planovac.odpoved(p0, F, OT, spravne);
+  S.planovac = o.stav;
+  const fs = S.planovac.fakta[OT.id];
+  if (!spravne) fs.vybrala = fs.vybrala.concat(nevim ? "nevím" : text).slice(-20);
+  if (rezim === "rano") S.cas.rano_otazek++;
+  uloz();
+  udalost("rychlo_odpoved", KAP[f.kap].nazev, { id: f.id, varianta: OT.v + 1, kapitola: f.kap, vybrala: zodpovezeno.vybrala, spravne, nevim,
+    doba_s: doba, poradi: OT.poradi, rezim, otazka: v.t, spravna: v.ok, odkryto_s: OT.odkryto_s });
+  if (o.naucen) udalost("rychlo_naucen", KAP[f.kap].nazev, { id: f.id, poradi: OT.poradi, spatne: fs.spatne, spravne: fs.spravne });
+  if (S.planovac.n % 10 === 0) posliSouhrn(false);
+  // vyhodnocení
+  document.querySelectorAll("#moznosti .moznost").forEach(b => {
+    b.disabled = true;
+    if (b.textContent === v.ok) b.classList.add("spravna");
+    else if (!nevim && b.textContent === text) b.classList.add("vybrana-spatne");
+    else b.classList.add("ztlumena");
+  });
+  $("moznosti").hidden = false; $("oVduchu").hidden = true; $("btnUkazat").hidden = true;
+  $("btnNevim").disabled = true;
+  const vy = $("vyhodnoceni");
+  vy.className = spravne ? "ok" : "bad";
+  $("vVerdikt").textContent = spravne ? (o.naucen ? "✓ Správně – naučeno!" : "✓ Správně") : nevim ? "✗ Nevím – teď se to nauč:" : "✗ Špatně";
+  $("vSpravna").innerHTML = "Správně: <b>" + esc(v.ok) + "</b>";
+  $("vVysv").textContent = f.vysv;
+  $("vPomucka").hidden = !f.pomucka; $("vPomucka").textContent = f.pomucka ? "Pomůcka: " + f.pomucka : "";
+  const volba = !spravne && !nevim ? vysvetliSpatnou(f, v, text) : "";
+  $("vVolba").hidden = !volba; $("vVolba").innerHTML = volba ? "Tvoje volba: " + volba : "";
+  vy.hidden = false;
+  vykresliOsu();
+  zamekDo = Date.now() + NAST.zamekMs;
+  // vyhodnocení i „Další“ musí být vidět
+  requestAnimationFrame(() => { const r = $("btnDalsi").getBoundingClientRect(), dole = $("osa").getBoundingClientRect().top; if (r.bottom > dole - 10) window.scrollBy(0, r.bottom - dole + 20); });
+}
+function dalsiKlik() {
+  if (!zodpovezeno || Date.now() < zamekDo) return;
+  const p = S.planovac;
+  if (p.rezim === "rano" && (S.cas.rano_otazek >= NAST.ranoOtazek || S.cas.rano_s >= NAST.ranoMin * 60) && !S.cas.ranoNabidnuto) {
+    S.cas.ranoNabidnuto = true; uloz();
+    dialog(`Ranní opakování: ${S.cas.rano_otazek} otázek za ${Math.round(S.cas.rano_s / 60)} min. Chceš pokračovat?`, [
+      ["Konec", () => { posliSouhrn(true); S.planovac = Planovac.konecRano(S.planovac); uloz(); uvod(); }],
+      ["Pokračovat", () => { S.cas.rano_otazek = 0; S.cas.rano_s = 0; S.cas.ranoNabidnuto = false; uloz(); dalsiOtazka(false); }, true]]);
+    return;
+  }
+  dalsiOtazka(false);
+}
+// pauza po 25 min, po 60 min „zbytek na ráno“ (jen při učení, mezi otázkami)
+function nabidkaCasu() {
+  const p = S.planovac;
+  if (p.rezim !== "uceni") return false;
+  if (!S.cas.naRano && S.cas.uceni_s >= NAST.naRanoMin * 60) {
+    S.cas.naRano = true; S.cas.pauza = true; uloz();
+    udalost("rychlo_souhrn", "nabídka na ráno", Object.assign(souhrnDetail(), { nabidka: "na_rano" }));
+    dialog(`Učíš se už hodinu (naučeno ${pocetNaucenych(p)} z ${F.length}). Zbytek nech na ráno – ráno klepni na „Ranní opakování“, nebo „Pokračovat“.`, [
+      ["Konec na dnes", () => uvod()], ["Ještě pokračovat", () => dalsiOtazka(false), true]]);
+    return true;
+  }
+  if (!S.cas.pauza && S.cas.uceni_s >= NAST.pauzaMin * 60) {
+    S.cas.pauza = true; uloz();
+    dialog(`Učíš se už ${NAST.pauzaMin} minut. Dej si krátkou pauzu (5 minut) – protáhni se, napij se. Pak pokračuj.`, [["Pokračovat", () => dalsiOtazka(false), true]]);
+    return true;
+  }
+  return false;
+}
+function mezistrankaZaver(prvni) {
+  ukaz("scMezi"); oblast("Závěrečné kolo");
+  const n = S.planovac.zaver.seznam.length;
+  $("mNadpis").textContent = "Všechno naučeno!";
+  $("mText").textContent = `Teď závěrečné kolo: ${n} ${n === 1 ? "otázka" : n < 5 ? "otázky" : "otázek"} z toho, co ti dělalo potíže – každá jednou, jinak položená.`;
+  $("mTabulka").innerHTML = "";
+  const t = $("mTlacitka"); t.innerHTML = "";
+  const b = document.createElement("button"); b.type = "button"; b.className = "btn hl"; b.id = "btnZaver"; b.textContent = "Spustit závěrečné kolo";
+  b.onclick = () => pripravOtazku(prvni); t.appendChild(b);
+  posliSouhrn(true);
+}
+function konecRezimu(rezim) {
+  if (rezim === "rano") {
+    posliSouhrn(true);
+    S.planovac = Planovac.konecRano(S.planovac); uloz();
+    ukaz("scMezi"); oblast("Souhrn");
+    $("mNadpis").textContent = "Ranní opakování hotové";
+    $("mText").textContent = "Všechno z ranního opakování jsi odpověděla správně. Hodně štěstí v testu!";
+    $("mTabulka").innerHTML = "";
+    tlacitkaSouhrnu();
+    return;
+  }
+  souhrn();
+}
+function souhrn() {
+  const p = S.planovac, st = statistika(p);
+  ukaz("scMezi"); oblast("Souhrn");
+  posliSouhrn(true);
+  $("mNadpis").textContent = "Hotovo!";
+  $("mText").textContent = `Naučeno ${pocetNaucenych(p)} z ${F.length}. Odpovědí ${st.odpovedi}, správně napoprvé ${st.spravne_napoprve_pct ?? 0} %, ` +
+    `čas asi ${Math.round(S.cas.uceni_s / 60)} min. Ráno si dej „Ranní opakování“.`;
+  const slabe = F.filter(f => p.fakta[f.id].spatne > 0).sort((a, b) => p.fakta[b.id].spatne - p.fakta[a.id].spatne).slice(0, 12);
+  $("mTabulka").innerHTML = slabe.length ? "<table class='slabe'><tr><th>Co ti dělalo potíže</th><th>chyb</th></tr>" +
+    slabe.map(f => `<tr><td>${esc(FAKT[f.id].var[0].t)}<br><span class="muted">${esc(FAKT[f.id].var[0].ok)}</span></td><td>${p.fakta[f.id].spatne}</td></tr>`).join("") + "</table>" : "";
+  tlacitkaSouhrnu();
+}
+function tlacitkaSouhrnu() {
+  const t = $("mTlacitka"); t.innerHTML = "";
+  [["Ranní opakování", ranniOpakovani, true], ["Úvod", uvod], ["Začít znovu", zacitZnovu]].forEach(([l, fn, hl]) => {
+    const b = document.createElement("button"); b.type = "button"; b.className = "btn" + (hl ? " hl" : ""); b.textContent = l; b.onclick = fn; t.appendChild(b);
+  });
+}
+
+/* ---------- čas učení (jen viditelná stránka s otázkou, bez dlouhé nečinnosti) ---------- */
+let tik = Date.now(), posledniVstup = Date.now();
+["pointerdown", "keydown", "touchstart"].forEach(t => window.addEventListener(t, () => { posledniVstup = Date.now(); }, { passive: true, capture: true }));
+setInterval(() => {
+  const now = Date.now(), d = Math.min(now - tik, 5000) / 1000; tik = now;
+  if (!S || document.visibilityState !== "visible" || $("scOtazka").hidden || now - posledniVstup > NAST.necinnostS * 1000) return;
+  if (S.planovac.rezim === "rano") S.cas.rano_s += d; else S.cas.uceni_s += d;
+}, 1000);
+setInterval(() => { if (S && document.visibilityState === "visible") uloz(); }, 15000);
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") { uloz(); posliSouhrn(false); } else tik = Date.now(); });
+window.addEventListener("pagehide", () => { uloz(); posliSouhrn(false); });
+
+/* ---------- ovládání ---------- */
+$("btnZacit").onclick = () => zacit(false);
+$("btnPokracovat").onclick = () => zacit(true);
+$("btnRano").onclick = ranniOpakovani;
+$("btnZnovu").onclick = zacitZnovu;
+$("btnUkazat").onclick = odkryj;
+$("btnNevim").onclick = () => { if (!OT || zodpovezeno) return; if (!OT.odkryto) { OT.odkryto = true; } odpovez("", true); };
+$("btnDalsi").onclick = dalsiKlik;
+$("btnUvod").onclick = () => { uloz(); uvod(); };
+$("btnHome").onclick = () => { uloz(); posliSouhrn(false); if (window.Zaznam) Zaznam.beacon(); location.href = "../index.html"; };
+
+/* ---------- jen pro čtení (kontrola) ---------- */
+window.Rychlouceni = Object.freeze({
+  stav: () => (S ? JSON.parse(JSON.stringify(S)) : null),
+  otazka: () => {
+    if (!OT) return null;
+    const f = FAKT[OT.id], v = f.var[OT.v];
+    return { id: OT.id, varianta: OT.v, rezim: OT.rezim, poradi: OT.poradi, text: v.t, moznosti: OT.moznosti.slice(), spravna: OT.moznosti.indexOf(v.ok),
+      spravnaText: v.ok, kostra: !!KAP[f.kap].kostra, odkryto: !!OT.odkryto, zodpovezeno: !!zodpovezeno };
+  },
+  planovac: Planovac,
+  poradiFaktu: () => F.map(f => Object.assign({}, f)),
+  nastaveni: Object.freeze(Object.assign({}, NAST))
+});
+
+S = nactiStav();
+if (S && prevzato) { uloz(); toast("Pokračuješ, kde jsi skončila ve starší verzi."); }
+uvod();
+</script>
+</body>
+</html>
