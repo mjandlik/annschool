@@ -21,6 +21,8 @@
                    je vidět), druhé klepnutí na stejné tlačítko volbu zruší. Událost: sekce = název části,
                    detail { cast, stav: "chapu" | "nechapu" | "zruseno", poradi }. Souhrn „stranka“ nese
                    v detail.porozumeni aktuální stav všech částí { "název": "chapu" | "nechapu" }.
+                   Od 22.11.2026: když má stránka <div class="uvod" data-popisky="umim">, popisky jsou
+                   „Umíš to? Umím / Neumím“ (dějepis); hodnoty i události zůstávají chapu / nechapu.
                    Od 03.11.2026: po každé změně volby vyšle na document událost „porozumeni“
                    (detail { cast, stav }); aktuální stav vrací Sledovani.porozumeniStav() – používá je
                    šablona stránky s teorií (system/Sablona_material_vXX.html) pro zamykání kapitol a časovou osu.
@@ -169,12 +171,15 @@
     const mista = document.querySelectorAll("[data-porozumeni]");
     if (!mista.length) return;
     stylPor();
+    // 22.11.2026: stránka s <div class="uvod" data-popisky="umim"> (dějepis) má popisky Umím / Neumím; hodnoty zůstávají chapu / nechapu
+    const UMIM = !!document.querySelector('.uvod[data-popisky="umim"]');
     mista.forEach((el, i) => {
       if (el.dataset.porozumeniHotovo) return;
       el.dataset.porozumeniHotovo = "1";
       const cast = el.getAttribute("data-porozumeni");
       el.classList.add("porozumeni");
-      el.innerHTML = '<span>Rozumíš tomu?</span><button type="button" class="ano">Chápu</button><button type="button" class="ne">Nechápu</button>';
+      el.innerHTML = UMIM ? '<span>Umíš to?</span><button type="button" class="ano">Umím</button><button type="button" class="ne">Neumím</button>'
+        : '<span>Rozumíš tomu?</span><button type="button" class="ano">Chápu</button><button type="button" class="ne">Nechápu</button>';
       const [bA, bN] = el.querySelectorAll("button");
       const ukaz = () => { bA.classList.toggle("on", POR[cast] === "chapu"); bN.classList.toggle("on", POR[cast] === "nechapu"); };
       const klik = stav => { porozumeni(cast, POR[cast] === stav ? "zruseno" : stav, i + 1); ukaz(); };

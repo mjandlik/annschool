@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--
+  ŠABLONA STRÁNKY S TEORIÍ – Ann School (system/Sablona_material_v05.html)
+  Pro studijní materiály (<tema>_material_vXX.html) a zápisky (<tema>_zapisky_vXX.html). Návod: system/Navod_material_vXX.md.
+  Měnit se smí JEN dva bloky: „HLAVIČKA STRÁNKY“ (title, data-typ) a „OBSAH STRÁNKY“. Zbytek kontroluje Kontrola_repo
+  proti šabloně (jako u testů).
+
+  Jak stránka funguje:
+  - Obsah je rozdělený na KAPITOLY (<section class="kapitola" data-kapitola="2. Název">). Na obrazovce je vždy jen
+    jedna kapitola, mezi kapitolami se přechází časovou osou dole (kolečko = kapitola, šipky ‹ ›, „Σ Souhrn“)
+    nebo tlačítkem „Další kapitola“ na konci kapitoly.
+  - Kapitola má SEKCE – každá část, kde je něco vysvětleno (definice, pravidlo, důkaz, postup). Konec každé sekce
+    označuje <div data-porozumeni="2. Název sekce"></div>; sledovani.js do něj vloží malá tlačítka Chápu / Nechápu.
+  - Do další kapitoly se smí, až když má každá sekce všech předchozích kapitol volbu Chápu, nebo Nechápu
+    (Nechápu také pustí dál). Zpět se smí vždy. Volbu jde změnit; druhé klepnutí ji zruší a pozdější kapitoly
+    se tím znovu zamknou. Kapitola bez tlačítek (class="kapitola priloha", např. opravy oproti sešitu) se nezamyká
+    a je v časové ose jako štítek vpravo.
+  - Barvy na časové ose: bílá = neotevřená, šedá = otevřená a nerozhodnutá, zelená = všechny sekce Chápu,
+    červená = všechny sekce rozhodnuté a aspoň jedna Nechápu, poloprůhledná = zamčená. Aktuální má silný okraj.
+  - PŘESKOČENÍ (v02, T02): dokud kapitola nemá u všech sekcí volbu, je na jejím konci „Přeskočit bez volby ›“
+    (s potvrzením na místě). Přeskočená kapitola pustí dál, i když v ní volby chybí; na časové ose má značku „›“,
+    pamatuje se v prohlížeči a do výsledků jde událost „preskoceni“ (kapitola, sekce bez volby).
+  - VYZKOUŠEJ SE (v02, T02): u každé sekce vedle Chápu / Nechápu tlačítko „Vyzkoušej se“. Pod ním se plynule
+    rozbalí pole, kam žák napíše, co si zapamatoval; látka sekce (vše kromě nadpisu h3) se přitom zakryje na místě
+    (výška stránky se nemění, nic neposkočí). „Ukázat látku / Skrýt látku“ ji odkryje a zakryje, „Hotovo“ pole
+    sbalí. Text se pamatuje v prohlížeči a do výsledků jde událost „vyzkousej“ (celý text, kolikrát a jak dlouho
+    byla látka odkrytá, kolik znaků bylo napsáno před prvním odkrytím) – při Hotovo, opuštění pole, po 20 s bez
+    psaní a při odchodu ze stránky, jen když se něco změnilo. Psaní neovlivní Chápu / Nechápu ani zamykání.
+    Látka sekce = vše mezi nadpisem a <div data-porozumeni>; za data-porozumeni v sekci nic nepatří.
+    v03 (04.11.2026): místo textového pole PAPÍR jako v testu (okno 320 px, papír 820 × 1200 px se v něm posouvá
+    prstem, na okraji papíru prst posouvá stránku; pero a myš píšou; Zpět, Smazat s potvrzením na místě, 3 barvy,
+    3 tloušťky, Guma). Text z klávesnice jen po „⌨ Psát textem“. Tahy se pamatují v prohlížeči (klíč
+    annschool:papir:<sekce>|<adresa>, při plném úložišti se mažou nejstarší papíry). Do výsledků jde v události
+    „vyzkousej“ i obrázek papíru (JPEG oříznutý na tahy, jen když se papír změnil), počet tahů a tahy před prvním odkrytím.
+  - VOLNÝ PŘECHOD (v04, 09.11.2026): když má stránka v bloku OBSAH <div class="uvod" data-prechod="volny">, Chápu / Nechápu
+    je jen označení – žádná kapitola se nezamyká, „Další kapitola“ jde vždy a „Přeskočit bez volby“ se neukazuje.
+    Bez data-prechod se stránka chová jako dřív (zamykání).
+  - UMÍM / NEUMÍM A BEZ VYZKOUŠEJ SE (v05, 22.11.2026, dějepis): <div class="uvod" data-popisky="umim"> = tlačítka
+    „Umíš to? Umím / Neumím“ místo „Rozumíš tomu? Chápu / Nechápu“ (i v hláškách a souhrnu; uložené hodnoty a události
+    zůstávají chapu / nechapu, přehled výsledků se nemění); data-vyzkousej="ne" = bez tlačítka a pole „Vyzkoušej se“.
+    Atributy jdou kombinovat s data-prechod. Bez nich se stránka chová jako v04.
+  - Nová verze stránky převezme z nejvyšší starší verze volby, přeskočení, texty a otevřené kapitoly.
+  - Souhrn ukazuje stav všech sekcí; klepnutí na sekci skočí na ni.
+  - Sledování: oblast = název kapitoly (čas po kapitolách v přehledu), porozumění posílá sledovani.js.
+    Poslední otevřená kapitola a otevřené kapitoly se pamatují v prohlížeči; adresa #k3 otevře kapitolu 3.
+  - Verze v hlavičce se bere z názvu souboru (nemůže se rozejít), název z <title> (část před „ – “).
+  - Tisk: všechny kapitoly pod sebou, bez ovládání.
+-->
+<link rel="apple-touch-icon" href="../system/img/apple-touch-icon.png">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<style>
+  :root { --bg:#fafaf7; --paper:#fff; --text:#1d1d1b; --muted:#6b6b66; --line:#dcdcd5; --accent:#2b5cab; --mark:#fff4c2;
+    --prakticky:#eef4fb; --st-zelena:#1f8a3c; --st-cervena:#b3261e; --st-seda:#a9a9a2; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin:0; background:var(--bg); color:var(--text); font:17px/1.55 -apple-system,"Segoe UI",Roboto,sans-serif; }
+  header#panel { position:sticky; top:0; z-index:10; background:rgba(255,255,255,.97); border-bottom:1px solid var(--line);
+    padding:8px 16px; padding-top:calc(8px + env(safe-area-inset-top)); display:flex; gap:12px; align-items:center; }
+  header#panel .t { flex:1; min-width:0; font-weight:600; font-size:15px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  header#panel .t .kap { font-weight:400; color:var(--muted); }
+  header#panel a { font-size:14px; padding:4px 10px; border-radius:8px; border:1px solid var(--accent); color:var(--accent); text-decoration:none; background:#fff; white-space:nowrap; }
+  main { max-width:860px; margin:0 auto; padding:16px 16px calc(var(--tl-h, 56px) + 40px); }
+  h1 { font-size:26px; margin:8px 0 4px; }
+  .meta { color:var(--muted); font-size:14px; }
+  section.kapitola { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:4px 18px 14px; margin:14px 0; }
+  .js section.kapitola { display:none; }
+  .js section.kapitola.vidim { display:block; }
+  .js .uvod { display:none; } .js .uvod.vidim { display:block; }
+  h2 { font-size:21px; margin:14px 0 8px; }
+  h3 { font-size:17px; margin:18px 0 6px; color:var(--accent); }
+  .sekce { padding:2px 0 4px; scroll-margin-top:70px; }
+  .sekce + .sekce { border-top:1px dashed var(--line); margin-top:6px; }
+  .sekce.blik { animation: blik 1.4s ease-out 1; }
+  @keyframes blik { 0% { background:#fff4c2; } 100% { background:transparent; } }
+  .rule { background:var(--mark); border-radius:8px; padding:6px 12px; margin:8px 0; }
+  .prakticky { background:var(--prakticky); border-radius:8px; padding:6px 12px; margin:8px 0; }
+  .prakticky::before { content:"Na konkrétních číslech: "; font-weight:600; color:var(--accent); }
+  .ex { border-left:3px solid var(--line); padding:2px 0 2px 12px; margin:10px 0; }
+  .ex .lab { font-weight:600; }
+  .note { font-size:14px; color:var(--muted); }
+  .katex-display { overflow-x:auto; overflow-y:hidden; padding:2px 0; margin:.5em 0; }
+  .katex { font-size:1.08em; }
+  .siroke { overflow-x:auto; }
+  table.two { border-collapse:collapse; } table.two td { padding:2px 18px 2px 0; vertical-align:top; }
+  table.tab { border-collapse:collapse; margin:8px 0; } table.tab td, table.tab th { border:1px solid var(--line); padding:3px 10px; text-align:left; }
+  details { margin-top:6px; } summary { cursor:pointer; color:var(--accent); }
+  ul.fix li { margin:4px 0; }
+  svg { max-width:100%; height:auto; }
+  /* konec kapitoly: stav a přechod dál (malá tlačítka – Pouceni bod 18) */
+  .konec { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px 12px; margin:14px 0 2px;
+    padding-top:10px; border-top:1px solid var(--line); font-size:14px; color:var(--muted); }
+  .konec button, .sum-tab button.odkaz { font:inherit; font-size:14px; padding:4px 10px; border-radius:8px; border:1px solid var(--accent);
+    background:#fff; color:var(--accent); cursor:pointer; }
+  .konec button.dal:not(.zamceno) { background:var(--accent); color:#fff; }
+  .konec button.zamceno { opacity:.45; }
+  /* souhrn */
+  #souhrn { background:var(--paper); border:1px solid var(--line); border-radius:10px; padding:4px 18px 14px; margin:14px 0; }
+  .js #souhrn { display:none; } .js #souhrn.vidim { display:block; }
+  .sum-kap { margin:12px 0 4px; font-weight:600; }
+  .sum-tab { width:100%; border-collapse:collapse; font-size:15px; }
+  .sum-tab td { padding:3px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .sum-tab td.st { width:7.5em; white-space:nowrap; }
+  .sum-tab button.odkaz { border:0; padding:0; text-align:left; background:none; color:var(--text); }
+  .ok { color:var(--st-zelena); font-weight:600; } .ne { color:var(--st-cervena); font-weight:600; } .nic { color:var(--muted); }
+  /* hláška */
+  #hlaska { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(var(--tl-h, 56px) + 12px); z-index:30; max-width:92vw;
+    background:#1d1d1b; color:#fff; font-size:14px; padding:7px 14px; border-radius:10px; opacity:0; pointer-events:none; transition:opacity .25s; }
+  #hlaska.vidim { opacity:.94; }
+  /* časová osa (jako v testech) */
+  #timeline { position:fixed; left:0; right:0; bottom:0; z-index:20; background:rgba(255,255,255,.97);
+    border-top:1px solid var(--line); padding:6px 8px; padding-bottom:calc(6px + env(safe-area-inset-bottom));
+    display:flex; align-items:center; gap:8px; }
+  #tlItems { flex:1 1 auto; min-width:0; display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; }
+  .tl-b { width:28px; height:28px; border-radius:50%; border:1.5px solid var(--line); background:#fff; color:var(--text);
+    font:600 12px/1 -apple-system,"Segoe UI",Roboto,sans-serif; cursor:pointer; padding:0; flex:0 0 auto; }
+  .tl-b.st-seda { background:var(--st-seda); border-color:var(--st-seda); color:#fff; }
+  .tl-b.st-zelena { background:var(--st-zelena); border-color:var(--st-zelena); color:#fff; }
+  .tl-b.st-cervena { background:var(--st-cervena); border-color:var(--st-cervena); color:#fff; }
+  .tl-b.zamceno { opacity:.35; border-style:dashed; }
+  .tl-b.cur { border:2.5px solid var(--text); opacity:1; }
+  .tl-b.stitek { width:auto; border-radius:14px; padding:0 10px; border-color:var(--accent); color:var(--accent); font-weight:500; }
+  .tl-b.stitek.cur { background:var(--accent); color:#fff; border-color:var(--text); }
+  .tl-nav { flex:0 0 auto; display:flex; gap:6px; }
+  .tl-nav button { width:34px; height:30px; border-radius:7px; border:1px solid var(--accent); background:#fff; color:var(--accent);
+    font:700 18px/1 -apple-system,"Segoe UI",Roboto,sans-serif; cursor:pointer; padding:0; }
+  .tl-nav button:disabled, .tl-nav button.zamceno { opacity:.35; }
+  .tl-b.presk { position:relative; }
+  .tl-b.presk::after { content:"›"; position:absolute; right:-6px; top:-7px; width:15px; height:15px; border-radius:50%;
+    background:var(--accent); color:#fff; font:700 11px/14px -apple-system,"Segoe UI",Roboto,sans-serif; text-align:center; }
+  .konec .potvrd { color:var(--text); }
+  .konec button.presk { border-color:var(--line); color:var(--muted); }
+  /* Vyzkoušej se (v02): pole pod Chápu / Nechápu, látka sekce se zakryje na místě (výška se nemění) */
+  .sekce .porozumeni { flex-wrap:wrap; }
+  .porozumeni button.vyz { border-color:var(--accent); color:var(--accent); }
+  .porozumeni button.vyz.on { background:var(--accent); color:#fff; }
+  .latka { position:relative; }
+  .latka.skryta > * { visibility:hidden; }
+  .latka.skryta::after { content:"Látka je skrytá – zkus si ji vybavit. Když nevíš, klepni dole na „Ukázat látku“.";
+    position:absolute; inset:0; display:flex; align-items:flex-start; justify-content:center; text-align:center;
+    padding:14px 12px; border:1.5px dashed var(--line); border-radius:8px; background:var(--bg); color:var(--muted); font-size:14px; }
+  main { overflow-anchor:none; }        /* prohlížeč nesmí při rozbalení pole posouvat stránku (scroll anchoring) */
+  .vyz-box { overflow:hidden; height:0; transition:height .4s ease-in-out; }
+  .vyz-box[hidden] { display:none; }
+  .vyz-in { padding:2px 0 8px; }
+  .vyz-papir { border:1px solid var(--line); border-radius:8px; background:#fff; overflow:hidden;
+    -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
+  .vp-bar { display:flex; flex-wrap:wrap; align-items:center; gap:4px 6px; padding:4px 6px; border-bottom:1px solid #ecece6; font-size:12px; color:#9a9a93; }
+  .vp-bar button { font:inherit; font-size:12px; padding:2px 7px; border-radius:6px; border:1px solid var(--line); background:#fff; color:var(--text); cursor:pointer; }
+  .vp-bar button.on { border-color:var(--text); }
+  .vp-bar .vp-barva { width:20px; height:20px; padding:0; border-radius:50%; border:3px solid transparent; background-clip:padding-box; }
+  .vp-bar .vp-barva.on { border-color:var(--text); }
+  .vp-bar .vp-tl { width:28px; height:22px; padding:0 5px; display:inline-flex; align-items:center; }
+  .vp-bar .vp-tl i { display:block; width:100%; background:var(--text); border-radius:3px; }
+  .vp-bar .vp-guma.on { background:var(--text); color:#fff; }
+  .vp-sep { width:1px; height:18px; background:var(--line); margin:0 2px; }
+  .vp-tip { flex:1 1 12em; margin-left:4px; }
+  .vp-view { height:320px; overflow:auto; overscroll-behavior:contain; touch-action:none; }
+  .vp-view canvas { display:block; background-color:#fff;
+    background-image:linear-gradient(#edf1f6 1px, transparent 1px), linear-gradient(90deg, #edf1f6 1px, transparent 1px);
+    background-size:24px 24px; }
+  .vyz-box textarea[hidden] { display:none; }
+  .vyz-box textarea { display:block; width:100%; margin-top:6px; min-height:4.6em; max-height:60vh; resize:none; overflow-y:auto;
+    font:16px/1.45 -apple-system,"Segoe UI",Roboto,sans-serif; color:var(--text); background:#fff;
+    border:1px solid var(--line); border-radius:8px; padding:8px 10px; }
+  .vyz-box textarea:focus { outline:none; border-color:var(--accent); }
+  .vyz-lista { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:6px 8px; margin-top:6px; font-size:13px; color:var(--muted); }
+  .vyz-lista .info { margin-right:auto; }
+  @media (max-width:600px) { .vyz-lista .info { flex-basis:100%; min-height:1.6em; } }
+  .vyz-lista button { font:inherit; font-size:13px; line-height:1.2; padding:3px 10px; border-radius:12px; border:1px solid var(--accent);
+    background:#fff; color:var(--accent); cursor:pointer; }
+  .vyz-lista button.hotovo { background:var(--accent); color:#fff; }
+  @media (prefers-reduced-motion: reduce) { .vyz-box { transition:none; } }
+  @media print {
+    .vyz-box, .porozumeni button.vyz { display:none !important; }
+    .latka.skryta > * { visibility:visible; } .latka.skryta::after { display:none; }
+    #timeline, #hlaska, .konec, #souhrn, header#panel a { display:none !important; }
+    .js section.kapitola, .js .uvod { display:block !important; }
+    section.kapitola { break-before:page; border:0; }
+    main { padding-bottom:0; }
+  }
+</style>
+<!-- ===== HLAVIČKA STRÁNKY (měň jen title a data-typ) ===== -->
+<title>Pravěk a starověk – zápisky</title>
+<script src="../system/lib/zaznam.js"></script>
+<script src="../system/lib/sledovani.js" data-typ="zapisky"></script>
+<!-- ===== KONEC HLAVIČKY ===== -->
+</head>
+<body>
+<script>document.documentElement.classList.add("js");</script>
+<header id="panel"><span class="t" id="nazev">…</span><a href="../">Rozcestník</a></header>
+<main id="obsah">
+<!-- ===== OBSAH STRÁNKY =====
+  Pravidla (Navod_material kap. 3):
+  - nahoře <div class="uvod"> s <h1> a krátkým popisem (ukáže se nad první kapitolou);
+    <div class="uvod" data-prechod="volny"> = kapitoly se nezamykají, Chápu / Nechápu je jen označení (v04),
+  - každá kapitola: <section class="kapitola" data-kapitola="N. Název"> s <h2>N. Název</h2>,
+  - každá sekce: <div class="sekce"> … <div data-porozumeni="N. Název sekce"></div></div>; název začíná číslem kapitoly,
+    je jednoznačný a nemění se mezi verzemi (podle něj přehled spojuje volby),
+  - u každé definice nebo pravidla zapsaného značkami příklad na konkrétních číslech: <div class="prakticky">…</div>,
+  - řešené příklady patří do sekce, ke které se vztahují (bez vlastních tlačítek),
+  - opravy oproti sešitu do poslední kapitoly <section class="kapitola priloha" data-kapitola="Opravy oproti sešitu">,
+  - vzorce: LaTeX $…$ a $$…$$, pak node system/Vzorce_v01.js <soubor> (předem vyrenderuje KaTeX),
+  - vlastní styly stránky smí být v <style> uvnitř tohoto bloku.
+-->
+<style>
+  .obr { text-align:center; margin:12px 0 6px; }
+  .obr svg { width:100%; max-width:660px; }
+  .obr svg text { font:13px -apple-system, "Segoe UI", Roboto, sans-serif; fill:#1d1d1b; }
+  .obr svg text.m { fill:#6b6b66; font-size:12px; }
+  .obr svg text.b { font-weight:600; }
+  .obr svg text.a { fill:#2b5cab; font-weight:600; }
+  .pop { font-size:14px; color:#6b6b66; text-align:center; margin:0 0 10px; }
+  .povzbuzeni { border-left:3px solid #2b5cab; padding:2px 0 2px 12px; margin:10px 0; color:#2b5cab; }
+  .dnes { border-left:3px solid #1f8a3c; padding:2px 0 2px 12px; margin:10px 0; }
+  .dnes::before { content:"Dnes: "; font-weight:600; color:#1f8a3c; }
+  .jeji { font-size:15px; color:#6b6b66; margin:6px 0; }
+  .jeji::before { content:"✎ Ve sešitu: "; font-weight:600; }
+  table.tab th { background:#f1f1ec; }
+  table.tab td, table.tab th { vertical-align:top; }
+</style>
+<div class="uvod" data-prechod="volny" data-popisky="umim" data-vyzkousej="ne">
+<h1>Pravěk a starověk</h1>
+<div class="meta">Přepis pracovních listů PL 03–PL 12: od prvních lidí přes dobu kamennou, bronzovou a železnou až k Mezopotámii, Egyptu, Číně, Indii, Fénicii, Persii, Izraeli a počátkům Řecka. Mezery, které ve listech zůstaly prázdné, jsou doplněné, chyby opravené (seznam je v příloze na konci). Kapitoly můžeš procházet v libovolném pořadí.</div>
+<p class="povzbuzeni">Dějepis není jen biflování letopočtů. Skoro všechno tady má svůj důvod – proč lidé zůstali u řek, proč vymysleli písmo, proč se jim kazily zuby. Když pochopíš ten důvod, letopočty si pak zapamatuješ mnohem snáz.</p>
+</div>
+
+<section class="kapitola" data-kapitola="1. Periodizace pravěku">
+<h2>1. Periodizace pravěku</h2>
+
+<div class="sekce">
+<h3>Podle čeho dělíme pravěk</h3>
+<p><b>Pravěk</b> je nejdelší období lidských dějin – od prvních lidí až po dobu, kdy lidé začali psát. Protože z pravěku nemáme žádné písemné prameny, historici a archeologové se opírají o <b>hmotné prameny</b> (nástroje, kosti, keramiku, stavby).</p>
+<div class="rule">Pravěk dělíme hlavně <b>podle materiálu, ze kterého lidé vyráběli nástroje</b>: doba <b>kamenná</b> → <b>bronzová</b> → <b>železná</b> (u nás pak ještě doba <b>římská</b>).</div>
+<div class="prakticky">Kamenný pěstní klín → paleolit; bronzový meč ze slitiny mědi a cínu → asi 2000–750 př. n. l.; železná sekera → po roce 750 př. n. l.</div>
+<div class="obr"><svg viewBox="0 0 660 150" role="img" aria-label="Časová osa pravěku">
+<rect x="10" y="30" width="110" height="44" fill="#e8e3d6"/><rect x="120" y="30" width="80" height="44" fill="#ded7c4"/><rect x="200" y="30" width="80" height="44" fill="#d3caae"/><rect x="280" y="30" width="80" height="44" fill="#c9bd9a"/>
+<rect x="360" y="30" width="100" height="44" fill="#e3b778"/><rect x="460" y="30" width="110" height="44" fill="#b9c2cc"/><rect x="570" y="30" width="80" height="44" fill="#d7b3b3"/>
+<text x="65" y="22" text-anchor="middle" class="b">doba kamenná</text><line x1="10" y1="26" x2="360" y2="26" stroke="#6b6b66"/>
+<text x="65" y="50" text-anchor="middle" class="b">paleolit</text><text x="65" y="66" text-anchor="middle" class="m">starší</text>
+<text x="160" y="50" text-anchor="middle" class="b">mezolit</text><text x="160" y="66" text-anchor="middle" class="m">střední</text>
+<text x="240" y="50" text-anchor="middle" class="b">neolit</text><text x="240" y="66" text-anchor="middle" class="m">mladší</text>
+<text x="320" y="50" text-anchor="middle" class="b">eneolit</text><text x="320" y="66" text-anchor="middle" class="m">pozdní</text>
+<text x="410" y="57" text-anchor="middle" class="b">bronzová</text><text x="515" y="57" text-anchor="middle" class="b">železná</text><text x="610" y="57" text-anchor="middle" class="b">římská</text>
+<text x="10" y="92" class="m">4 mil.</text><text x="120" y="92" text-anchor="middle" class="m">10 000</text><text x="200" y="92" text-anchor="middle" class="m">8000</text><text x="280" y="92" text-anchor="middle" class="m">5000</text>
+<text x="360" y="92" text-anchor="middle" class="m">2000</text><text x="460" y="92" text-anchor="middle" class="m">750</text><text x="570" y="92" text-anchor="middle" class="m">0</text><text x="650" y="92" text-anchor="end" class="m">400 n. l.</text>
+<text x="330" y="120" text-anchor="middle" class="m">roky před naším letopočtem (není v měřítku – paleolit je ve skutečnosti 99,7 % celé osy)</text>
+</svg></div>
+<div class="siroke"><table class="tab"><tr><th>období</th><th>jinak</th><th>kdy (přibližně)</th></tr>
+<tr><td>starší doba kamenná</td><td><b>paleolit</b></td><td>4 mil. let – 10 000 let př. n. l.</td></tr>
+<tr><td>střední doba kamenná</td><td><b>mezolit</b></td><td>10 000 – 8000 př. n. l.</td></tr>
+<tr><td>mladší doba kamenná</td><td><b>neolit</b></td><td>8000 – 5000 př. n. l.</td></tr>
+<tr><td>pozdní doba kamenná</td><td><b>eneolit</b> = <b>chalkolit</b> (doba měděná)</td><td>5000 – 2000 př. n. l.</td></tr>
+<tr><td>doba bronzová</td><td></td><td>2000 – 750 př. n. l.</td></tr>
+<tr><td>doba železná</td><td>starší <b>halštatská</b>, mladší <b>laténská</b></td><td>750 – 0 (halštat 750–400, latén 400–0)</td></tr>
+<tr><td>doba římská</td><td></td><td>0 – 400 n. l.</td></tr></table></div>
+<p class="note">Data jsou přibližná a v různých zdrojích se liší o desítky až stovky let (i ve dvou pracovních listech – viz příloha). Neolit začal nejdřív na Předním východě, k nám dorazil až asi 5500 př. n. l.</p>
+<div class="jeji">podle materiálu, který v té chvíli používali – správně.</div>
+<div data-porozumeni="1. Podle čeho dělíme pravěk"></div>
+</div>
+
+<div class="sekce">
+<h3>Další způsoby dělení</h3>
+<ul>
+<li><b>Přisvojovací × výrobní hospodářství</b> – dělení podle <b>způsobu získávání potravy</b>. Přisvojovací = lov, rybolov, sběr (člověk si bere, co příroda dá). Výrobní = zemědělství a chov (člověk si potravu sám vyrobí).</li>
+<li><b>Tlupa × rod</b> – dělení podle <b>uspořádání společnosti</b>. Tlupa = malá skupina lovců a sběračů. Rod = větší skupina příbuzných. V rodu vládl buď <b>matriarchát</b> (hlavní slovo mají ženy, příbuzenství po matce), nebo <b>patriarchát</b> (hlavní slovo mají muži).</li>
+</ul>
+<p class="note">Typická chyba: zaměnit přisvojovací a výrobní. Pomůcka: přisvojit si = vzít si, co už existuje.</p>
+<div data-porozumeni="1. Další způsoby dělení pravěku"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="2. Vývoj člověka">
+<h2>2. Vývoj člověka</h2>
+
+<div class="sekce">
+<h3>Hominizace</h3>
+<p>Vývoj člověka trval <b>miliony let</b>. Člověk vznikl v <b>Africe</b>, odtud se rozšířil do Evropy a Asie a postupně na další kontinenty.</p>
+<div class="rule"><b>Hominizace</b> = proces polidštění – vývoj od předků člověka k dnešnímu člověku.</div>
+<div class="prakticky">Australopitékové chodili po dvou už asi před 4 miliony let, Homo sapiens se objevil asi před 300 000 lety – hominizace tedy trvala miliony let.</div>
+<ol type="A">
+<li><b>napřimování postavy</b> a chůze po zadních končetinách,</li>
+<li><b>vývoj ruky</b> – palec postavený proti ostatním prstům (úchop, výroba nástrojů),</li>
+<li><b>vznik řeči</b> jako nástroje komunikace,</li>
+<li><b>vývoj lebky a obličeje</b> – větší mozek, menší čelisti a nadočnicové oblouky.</li>
+</ol>
+<p class="dnes">Palec proti prstům používáš pořád – zkus zapnout knoflík nebo psát tužkou bez palce.</p>
+<div data-porozumeni="2. Hominizace"></div>
+</div>
+
+<div class="sekce">
+<h3>Vývojová stadia</h3>
+<div class="siroke"><table class="tab"><tr><th>druh</th><th>lebka a tělo</th><th>nástroje</th><th>co uměl</th></tr>
+<tr><td><b>0. Australopithecus</b><br>Afrika</td><td>malý mozek, chodil po dvou</td><td>nejjednodušší (neopracované kameny, klacky)</td><td>prapůvodní stadium</td></tr>
+<tr><td><b>1. Homo habilis</b> – člověk zručný<br>Afrika</td><td>malý prostor pro mozek, menší tělo (asi 40 kg)</td><td>primitivní kamenné nástroje</td><td>lov menší zvěře</td></tr>
+<tr><td><b>2. Homo erectus</b> – člověk vzpřímený<br>Afrika, Evropa, Asie</td><td>vzpřímenější, asi 165 cm, mozek větší než u habilise, výrazné nadočnicové oblouky</td><td>opracované kameny (pazourek), <b>pěstní klín</b></td><td>uměl rozdělat <b>oheň</b> a udržovat ho</td></tr>
+<tr><td><b>3. Homo sapiens neanderthalensis</b> – neandertálec<br>Evropa, Blízký východ, Střední Asie</td><td><b>velký mozek</b> (i větší než náš), výrazná čelist a nadočnicové oblouky, asi 165 cm, chodil vzpřímeně</td><td>opracovanější, důmyslnější</td><td><b>pohřbíval mrtvé</b> (pohřební rituály)<br><i>slepá vývojová větev – vymřel</i></td></tr>
+<tr><td><b>4. Homo sapiens (sapiens)</b> – člověk rozumný<br>postupně celý svět</td><td>stejně jako dnes, asi 170 cm</td><td>mnohem lepší a specializované</td><td>umění: malby, barvy, sošky</td></tr></table></div>
+<p class="note">„Slepá vývojová větev“ = druh, ze kterého se už nic dalšího nevyvinulo. Neandertálci ale nejsou naši předkové v řadě za sebou – žili <b>současně</b> s námi a v DNA většiny dnešních lidí jsou asi 1–2 % neandertálských genů.</p>
+<div data-porozumeni="2. Vývojová stadia"></div>
+</div>
+
+<div class="sekce">
+<h3>Jak se měnila lebka</h3>
+<div class="obr"><svg viewBox="0 0 660 230" role="img" aria-label="Objem mozku u předků člověka">
+<line x1="150" y1="20" x2="150" y2="200" stroke="#6b6b66"/>
+<g><text x="142" y="42" text-anchor="end">šimpanz</text><rect x="150" y="30" width="107" height="18" fill="#c9c9c2"/><text x="263" y="44" class="m">≈ 400 cm³</text></g>
+<g><text x="142" y="72" text-anchor="end">Australopithecus</text><rect x="150" y="60" width="120" height="18" fill="#d3caae"/><text x="276" y="74" class="m">≈ 450 cm³</text></g>
+<g><text x="142" y="102" text-anchor="end">Homo habilis</text><rect x="150" y="90" width="167" height="18" fill="#c9bd9a"/><text x="323" y="104" class="m">≈ 600 cm³</text></g>
+<g><text x="142" y="132" text-anchor="end">Homo erectus</text><rect x="150" y="120" width="267" height="18" fill="#b39a6b"/><text x="423" y="134" class="m">≈ 1 000 cm³</text></g>
+<g><text x="142" y="162" text-anchor="end">neandertálec</text><rect x="150" y="150" width="387" height="18" fill="#8f7a52"/><text x="543" y="164" class="m">≈ 1 450 cm³</text></g>
+<g><text x="142" y="192" text-anchor="end">Homo sapiens</text><rect x="150" y="180" width="360" height="18" fill="#2b5cab"/><text x="516" y="194" class="m">≈ 1 350 cm³</text></g>
+<text x="400" y="222" text-anchor="middle" class="m">průměrný objem mozku (zaokrouhleno)</text>
+</svg></div>
+<ul>
+<li><b>Objem mozku se zvětšoval</b> – a s větším mozkem uměli lidé vyrábět složitější nástroje (od otlučeného kamene po pěstní klín a jemné čepele).</li>
+<li><b>Zvířecí rysy ubývaly:</b> nadočnicové oblouky (kostěné valy nad očima) a vystouplé čelisti se postupně <b>zmenšovaly</b>, čelo se zvedalo. Dnešní člověk má čelo vysoké a oblouky skoro žádné.</li>
+</ul>
+<div class="prakticky">Mozek Homo erectus (asi 1 000 cm³) je zhruba dvakrát větší než mozek Australopitheka (asi 450 cm³), ale menší než náš (asi 1 350 cm³).</div>
+<div class="jeji">objem mozku: „zvětšuje se objem“ – správně; nadočnicové oblouky nevyplněno.</div>
+<div data-porozumeni="2. Lebka a objem mozku"></div>
+</div>
+
+<div class="sekce">
+<h3>Vývoj jako keř, ne žebřík</h3>
+<p>Tradičně si vývoj člověka představujeme jako <b>řadu po sobě</b>: opice → habilis → erectus → neandertálec → my. Novější schéma ukazuje <b>rozvětvený keř</b>:</p>
+<ul>
+<li>více druhů lidí žilo <b>ve stejné době</b> (např. neandertálci, denisované a Homo sapiens),</li>
+<li>druhy se vyvíjely <b>v různých oblastech</b> (Afrika, Evropa, Asie) různě,</li>
+<li>mnoho větví <b>vymřelo</b> – přežil jen Homo sapiens.</li>
+</ul>
+<div class="jeji">„že to nejde postupně, ale záleželo na lokalitě“ – správný směr, doplněno.</div>
+<div data-porozumeni="2. Vývoj jako keř"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="3. Doba kamenná">
+<h2>3. Doba kamenná</h2>
+
+<div class="sekce">
+<h3>Paleolit – starší doba kamenná</h3>
+<ul>
+<li>postupné <b>zlepšování nástrojů</b> – od jednoduchých po složitější (např. <b>pěstní klín</b>) a specializované (škrabadla, vrtáky, hroty),</li>
+<li>první doložená <b>obydlí</b> ze dřeva, kostí a kůže,</li>
+<li>rituály a „náboženství“: <b>jeskynní malby</b>, rytiny na kostech, <b>sošky venuší</b>,</li>
+<li>způsob života: <b>lovci a sběrači</b>, kočovali za zvěří (přisvojovací hospodářství).</li>
+</ul>
+<p><b>Naleziště:</b> východní a jižní Afrika; jihozápadní Francie (<b>Cro-Magnon</b>, jeskyně <b>Lascaux</b>), Španělsko (<b>Altamira</b>); Česko: <b>Dolní Věstonice</b> (lovci mamutů), <b>Brno – Stránská skála</b>.</p>
+<p class="dnes">Věstonická venuše (keramická soška stará přes 25 000 let) je uložená v Moravském zemském muzeu v Brně (originál se vystavuje jen výjimečně).</p>
+<div data-porozumeni="3. Paleolit"></div>
+</div>
+
+<div class="sekce">
+<h3>Mezolit – střední doba kamenná</h3>
+<ul>
+<li>po době ledové se <b>oteplilo</b> → ustoupily ledovce, rostly lesy,</li>
+<li>člověk osidluje <b>celý svět</b>,</li>
+<li>konec čistě kořistnického života: <b>prvopočátky chovu dobytka a zemědělství</b>, pořád ale <b>převládá přisvojovací hospodářství</b> (lov, rybolov, sběr).</li>
+</ul>
+<div data-porozumeni="3. Mezolit"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="4. Neolit – zemědělská revoluce">
+<h2>4. Neolit – zemědělská revoluce</h2>
+
+<div class="sekce">
+<h3>Co je neolitická revoluce</h3>
+<p>Pod slovem <b>revoluce</b> si obvykle představíme <b>rychlou a zásadní změnu</b> (často i násilnou). Neolitická revoluce byla zásadní, ale <b>pomalá</b>.</p>
+<div class="rule"><b>Neolitická (zemědělská) revoluce</b> = přelomové období trvající několik tisíc let, kdy se <b>lovecko-sběračská společnost</b> pozvolna změnila ve <b>společnost zemědělskou</b>.</div>
+<div class="prakticky">Na Předním východě začala asi 10 000–8000 př. n. l., do Čech dorazila asi 5500 př. n. l. – tedy o několik tisíc let později.</div>
+<p>Vliv měla <b>klimatická změna – oteplení</b> po době ledové.</p>
+<div data-porozumeni="4. Neolitická revoluce"></div>
+</div>
+
+<div class="sekce">
+<h3>Podstata změny</h3>
+<ul>
+<li><b>vědomé pěstování rostlin</b> (obilí, luštěniny, len) a <b>domestikace zvířat</b> (ochočení: ovce, koza, tur, prase),</li>
+<li>v zemědělství dochází k <b>dělbě práce</b> (muži × ženy, staří × mladí),</li>
+<li>kypření půdy prvními nástroji z kamene a dřeva,</li>
+<li>nový hmotný pramen = <b>keramika</b> (zpracování a vypalování hlíny); podle vzhledu keramiky rozlišujeme kultury (<b>lineární</b>, <b>vypíchaná</b>),</li>
+<li><b>žďáření lesů</b> = vypalování lesa na pole; <b>primitivní srpy</b>,</li>
+<li><b>tkaní</b> na jednoduchých svislých stavech (len, konopí).</li>
+</ul>
+<p class="dnes">Většina toho, co jíš, pochází z neolitu: chleba, mléko, sýr, maso z chovu.</p>
+<div data-porozumeni="4. Podstata zemědělské revoluce"></div>
+</div>
+
+<div class="sekce">
+<h3>Usedlý život a důsledky</h3>
+<ul>
+<li><b>usedlý způsob života</b> – lidé zůstávají u svých polí,</li>
+<li>první pevné příbytky: <b>dlouhé domy</b>; vrchol stavitelství = cihly ze sušené hlíny,</li>
+<li><b>kolonizace</b> = záměrné osidlování prázdného území novým obyvatelstvem,</li>
+<li>upevnilo se <b>rodové zřízení</b> (matriarchát).</li>
+</ul>
+<div class="rule"><b>Důsledky:</b> konec kočovného života, usazení se a <b>růst počtu obyvatel</b> (víc jídla → víc dětí přežije).</div>
+<div class="prakticky">Z jednoho pole se uživí víc lidí než ze stejně velkého lesa, kde se loví a sbírá – proto vesnice rostly.</div>
+<div data-porozumeni="4. Usedlý život a důsledky"></div>
+</div>
+
+<div class="sekce">
+<h3>Aktivita: Co se dělo se zuby?</h3>
+<p>Archeologové našli čelisti lidí z mladší doby kamenné: zuby <b>chyběly</b>, měly <b>díry (kazy)</b> a byly <b>obroušené</b>. Prameny, které to vysvětlí:</p>
+<ul>
+<li><b>kamenné drtidlo</b> na zrní (Pečky, okr. Kolín) – obilí se mlelo mezi kameny, do mouky se dostávala <b>kamenná drť</b> → ta zuby obrušovala,</li>
+<li><b>mouka</b> – hodně obilné stravy = hodně <b>sacharidů</b> → <b>zubní kazy</b>. Kazů výrazně přibylo právě se zemědělstvím.</li>
+</ul>
+<div class="siroke"><table class="tab"><tr><th>výhody obilí</th><th>nevýhody</th></tr>
+<tr><td>hodně nasytí, dá se pěstovat ve velkém, dá se <b>skladovat</b> na zimu, jednoduchá příprava</td><td>kazy a obrušování zubů, jednotvárná strava, závislost na úrodě (neúroda = hlad), lidé se nemohli snadno přestěhovat</td></tr></table></div>
+<p>Proč obilí zůstalo dodnes: uživí hodně lidí a dá se skladovat – výhody převážily.</p>
+<div class="jeji">„měli zkažené zuby, protože jedli hodně pečiva, štěrk v jídle“ – správně (štěrk = kamenná drť z drtidla).</div>
+<div data-porozumeni="4. Aktivita zuby"></div>
+</div>
+
+<div class="sekce">
+<h3>Eneolit – pozdní doba kamenná</h3>
+<ul>
+<li>v <b>Mezopotámii a Egyptě</b> vznikají první státy = začíná tam <b>starověk</b>; v Evropě ještě trvá pravěk,</li>
+<li><b>objev kovů – měď</b> (Přední východ), proto „doba měděná“ (eneolit = chalkolit),</li>
+<li>pořád převládají kamenné nástroje (měď je měkká a vzácná), pravděpodobně <b>čtyřkolový vůz</b>, <b>směnný obchod</b>,</li>
+<li>uspořádání společnosti: <b>matriarchát → patriarchát</b>.</li>
+</ul>
+<div data-porozumeni="4. Eneolit"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="5. Doba bronzová a železná">
+<h2>5. Doba bronzová a železná</h2>
+
+<div class="sekce">
+<h3>Doba bronzová</h3>
+<div class="rule"><b>Bronz</b> = slitina <b>mědi a cínu</b>. Je tvrdší než samotná měď.</div>
+<div class="prakticky">Typický bronz má asi 9 dílů mědi a 1 díl cínu (90 % a 10 %). U nás doba bronzová asi 2000–750 př. n. l.</div>
+<ul>
+<li>bronz vynalezen na <b>Předním východě</b> (koncem 4. tisíciletí př. n. l.); vyráběly se z něj nástroje, šperky a zbraně,</li>
+<li><b>druhá společenská dělba práce</b>: <b>řemeslo se stává specializovanou činností</b> (kovář už nemusí obdělávat pole),</li>
+<li><b>diferenciace společnosti</b>: společnost se rozděluje na <b>vyšší a nižší vrstvy</b> (bohatí × chudí).</li>
+</ul>
+<div data-porozumeni="5. Doba bronzová"></div>
+</div>
+
+<div class="sekce">
+<h3>Doba železná</h3>
+<ul>
+<li>v Evropě asi <b>750 – 0 př. n. l.</b> (výroba železa od 8./9. stol. př. n. l.),</li>
+<li>první výrobci železa: <b>Chetité</b> – skvělí válečníci na území dnešního <b>Turecka</b>; jejich písmo rozluštil Čech <b>Bedřich Hrozný</b>,</li>
+<li>dvě etapy: starší = <b>halštatská</b> (750–400 př. n. l., naleziště Hallstatt v Rakousku), mladší = <b>laténská</b> (400 př. n. l. – 0, naleziště La Tène ve Švýcarsku).</li>
+</ul>
+<p class="note">Pomůcka: Halštat je v abecedě i v čase před Laténem.</p>
+<div data-porozumeni="5. Doba železná"></div>
+</div>
+
+<div class="sekce">
+<h3>Keltové na našem území</h3>
+<ul>
+<li>přelom 6./5. stol. př. n. l.: pronikání <b>Skythů</b> z východu a <b>Keltů</b> ze západu (Keltové do 3. stol. osídlili velkou část Evropy),</li>
+<li>na našem území keltský kmen <b>Bójů</b> → podle nich země <b>Bojohemum</b>, latinsky <b>Bohemia</b>,</li>
+<li>stavěli <b>oppida</b> = opevněná hradiště (např. Závist u Prahy, Stradonice, Staré Hradisko na Moravě),</li>
+<li>zruční řemeslníci (<b>hrnčířský kruh</b>), razili mince.</li>
+</ul>
+<p class="dnes">Latinský (a dodnes i anglický) název Bohemia (Čechy) pochází od Bójů – keltského kmene, který tu žil před více než 2 000 lety.</p>
+<div data-porozumeni="5. Keltové"></div>
+</div>
+
+<div class="sekce">
+<h3>Doba římská a Limes Romanus</h3>
+<p>V době římské (0–400 n. l.) žily u nás germánské kmeny, Římská říše ležela za Dunajem.</p>
+<ul>
+<li><b>Limes Romanus</b> = rozsáhlý opevněný systém, který odděloval Římskou říši od okolních území („barbarů“),</li>
+<li>nesloužil k úplnému zastavení lidí (obchod přes něj procházel), ale k <b>obraně proti nájezdům</b> a kontrole hranice,</li>
+<li>vedl od <b>Británie</b> (Hadriánův val) přes Rýn a <b>Dunaj</b> až na Blízký východ a do severní Afriky.</li>
+</ul>
+<div data-porozumeni="5. Limes Romanus"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="6. Ötzi – pravěký muž z ledovce">
+<h2>6. Ötzi – pravěký muž z ledovce</h2>
+
+<div class="sekce">
+<h3>Proč je Ötzi tak výjimečný</h3>
+<p>Ötzi je mumie muže, kterou v roce <b>1991</b> našli turisté v ledovci v <b>Ötztalských Alpách</b> na hranici Rakouska a Itálie. Žil asi <b>3300 let př. n. l.</b> (eneolit) a zemřel asi ve 40–45 letech.</p>
+<p>Výjimečný je tím, že se v ledu zachovalo <b>celé tělo i s oblečením a výbavou</b>. Díky tomu víme, jak lidé tehdy opravdu žili – co nosili, jedli, čím se léčili a jak zemřel.</p>
+<p class="povzbuzeni">Tady jsi byla v roli detektiva: z pramenů skládáš hypotézy. Přesně tak pracují archeologové.</p>
+<div data-porozumeni="6. Výjimečnost nálezu"></div>
+</div>
+
+<div class="sekce">
+<h3>Prameny a hypotézy</h3>
+<div class="siroke"><table class="tab"><tr><th>pramen</th><th>co z něj plyne (hypotéza)</th></tr>
+<tr><td><b>A</b> boty z medvědí kůže, vodotěsné a široké<br><b>C</b> čepice z medvědí kůže, kabát z kůží sešitých šlachami, kalhoty z kozí kůže</td><td>byl dobře vybavený na hory a chlad, uměl zpracovat kůže</td></tr>
+<tr><td><b>B</b> opasek se skrýší: škrabadlo, vrták, pazourek, kostěné šídlo, sušené houby<br><b>E</b> nádobka z březové kůry s uhlíky, křesací kamínek a pyrit</td><td>nosil si „dílnu“ s sebou a uměl rozdělat a přenášet oheň</td></tr>
+<tr><td><b>C</b> stopy krve cizího člověka na kabátě</td><td>např. nesl na zádech zraněného druha</td></tr>
+<tr><td><b>D</b> nedokončený luk z tisu, toulec, na hrotu šípu krev dvou různých lidí</td><td>šípem zranil nebo zabil dva lidi a šíp si vzal zpět</td></tr>
+<tr><td><b>F</b> dýka s kamenným ostřím, na ní krev dalšího člověka</td><td>krátce před smrtí bojoval</td></tr>
+<tr><td><b>G</b> měděná sekera – velmi vzácná a cenná</td><td>byl to asi bohatší nebo vážený muž</td></tr>
+<tr><td><b>H</b> v žaludku maso kozorožce, snědené méně než 2 h před smrtí, připravené předem jako zásoba</td><td>byl na cestě a nečekal útok – v klidu jedl</td></tr>
+<tr><td><b>K</b> podlitiny, řezy na rukou a hrudníku, úder do hlavy</td><td>zranění z boje (nebo pád ze skály)</td></tr>
+<tr><td><b>L</b> kamenný hrot šípu pod levou lopatkou, zasáhl cévy</td><td><b>příčina smrti</b> – vykrvácel; dřík šípu někdo vytáhl</td></tr></table></div>
+<div data-porozumeni="6. Prameny a hypotézy"></div>
+</div>
+
+<div class="sekce">
+<h3>Zdraví, tetování a co platí obecně</h3>
+<ul>
+<li><b>Zdraví:</b> rozbor nehtu ukázal, že byl za posledních 6 měsíců <b>třikrát vážně nemocen</b>; měl <b>artrózu</b> (bolestivou nemoc kloubů).</li>
+<li><b>61 tetování</b> má na místech, kde ho bolely klouby – tetování byla pravděpodobně <b>léčebná</b> (podobně jako akupunktura).</li>
+<li><b>Co můžeme zobecnit na jeho současníky:</b> uměli vyrábět nástroje, zbraně a oblečení, zpracovávat kůže, rozdělat oheň, znali měď, léčili se – a docházelo i k násilným konfliktům.</li>
+</ul>
+<p class="dnes">Ötzi leží v chladicí komoře muzea v italském Bolzanu.</p>
+<div data-porozumeni="6. Zdraví a zobecnění"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="7. Starověk a první civilizace">
+<h2>7. Starověk a první civilizace</h2>
+
+<div class="sekce">
+<h3>Dělení starověku</h3>
+<div class="siroke"><table class="tab"><tr><th>nejstarší civilizace</th><th>antika</th></tr>
+<tr><td>cca <b>4. tisíciletí – 8. stol. př. n. l.</b><br>Mezopotámie, Egypt, Indie, Čína (a Fénicie, Persie, Izrael)</td><td>cca <b>8. stol. př. n. l. – 476 n. l.</b><br>Řecko a Řím</td></tr></table></div>
+<div class="rule">Starověk končí rokem <b>476 n. l.</b> – zánikem Západořímské říše.</div>
+<div class="prakticky">Od vzniku prvních států (asi 3500 př. n. l.) do roku 476 n. l. uplynulo skoro 4 000 let.</div>
+<div data-porozumeni="7. Dělení starověku"></div>
+</div>
+
+<div class="sekce">
+<h3>Proč civilizace vznikly u řek</h3>
+<div class="siroke"><table class="tab"><tr><th>civilizace</th><th>řeky</th><th>proč právě tady</th></tr>
+<tr><td>Egypt</td><td>Nil</td><td>Nil se každý rok rozvodní a zanechá úrodné bahno – pole se „zavlaží a pohnojí samo“</td></tr>
+<tr><td>Mezopotámie</td><td>Eufrat a Tigris</td><td>velmi úrodná půda, zavlažovací kanály a zařízení na zvedání vody; obilí dávalo mnohonásobnou úrodu</td></tr>
+<tr><td>Indie</td><td>Indus (a Ganga)</td><td>převzala zavlažovací zemědělství a rozvinula ho tak, že se mohla rozšiřovat</td></tr>
+<tr><td>Čína</td><td>Žlutá řeka (Chuang-che) a Jang-c'-ťiang</td><td>mezi zemědělskými vesnicemi rostly kontakty a příbuzenské vazby → podmínky pro velký stát</td></tr></table></div>
+<div class="rule">Společné: <b>řeka + úrodná půda</b>. Oblast od Egypta přes Palestinu po Mezopotámii se kvůli tvaru na mapě jmenuje <b>úrodný půlměsíc</b>.</div>
+<div class="prakticky">Egypt je z 95 % poušť – skoro všichni Egypťané žili (a dodnes žijí) v úzkém pásu podél Nilu.</div>
+<div data-porozumeni="7. Civilizace u řek"></div>
+</div>
+
+<div class="sekce">
+<h3>Příčiny a důsledky vzniku civilizací</h3>
+<div class="siroke"><table class="tab"><tr><th>příčiny</th><th>důsledky</th></tr>
+<tr><td>usazování na jednom místě, lepší úroda, nová technika (zavlažování), vyšší produktivita, víc lidí</td><td>vznik <b>měst</b> a <b>států</b>, <b>vládci</b> a úředníci, <b>daně</b>, <b>písmo</b>, specializace (řemeslníci, kněží, vojáci), společenská nerovnost a spory mezi vrstvami</td></tr></table></div>
+<p class="note">Jedno vede k druhému: víc jídla → víc lidí → je potřeba organizace (zavlažování, sklady) → vládce a úředníci → evidence → písmo.</p>
+<div data-porozumeni="7. Příčiny a důsledky"></div>
+</div>
+
+<div class="sekce">
+<h3>Znaky civilizace (V. G. Childe)</h3>
+<p>V 19. století se myslelo, že civilizaci od kmenů odlišuje hlavně <b>písmo</b>. Jenže některé civilizace (Peru, mexická vysočina, západní Afrika) písmo nepoužívaly. Australský archeolog <b>Vere Gordon Childe</b> proto roku 1950 sestavil <b>10 znaků civilizace</b>:</p>
+<ol>
+<li>velká <b>městská centra</b>,</li>
+<li>řemeslníci, obchodníci, úředníci a kněží žijící z podpory zemědělců,</li>
+<li>výrobci <b>odvádějí přebytky</b> (daně) božstvu nebo vládci,</li>
+<li><b>monumentální architektura</b> (pyramidy, chrámy),</li>
+<li>vládnoucí vrstva nemusí manuálně pracovat,</li>
+<li>systém zaznamenávání informací (<b>písmo</b>),</li>
+<li>vědy pro praktické účely (počítání, kalendář, měření polí),</li>
+<li>monumentální umění,</li>
+<li>dálkový obchod (dovoz surovin a luxusního zboží),</li>
+<li>specializovaní řemeslníci pod kontrolou úředníků.</li>
+</ol>
+<p>Dnes se k tomu přidává role <b>války a armády</b>, <b>krále</b>, <b>rodiny</b> a <b>práva</b>. Znaky spolu souvisejí a navzájem se posilují.</p>
+<div class="jeji">odvádění daní, různé role a vzájemná závislost, městská centra, růst produkce → růst populace, specializace, první vládci – správně.</div>
+<div data-porozumeni="7. Znaky civilizace"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="8. Vývoj písma">
+<h2>8. Vývoj písma</h2>
+
+<div class="sekce">
+<h3>Piktogramy a ideogramy</h3>
+<ul>
+<li><b>1. Piktogramy</b> (3500–3000 př. n. l., např. Sumer) – <b>obrázky skutečných předmětů</b> (pták, hora, ruka, hvězda = bůh). Sloužily hlavně k <b>evidenci</b>: kolik obilí, dobytka, kdo zaplatil daň.</li>
+<li><b>2. Ideogramy</b> – znak neznamená jen předmět, ale <b>slovo, pojem nebo myšlenku</b>. Patří sem <b>klínové písmo</b> (Mezopotámie) a <b>hieroglyfy</b> (Egypt).</li>
+</ul>
+<p>Proč se přešlo k ideogramům: abstraktní věci (spravedlnost, král, minulost) se nakreslit nedají a kreslit všechno obrázky je pomalé.</p>
+<p class="dnes">Emoji jsou vlastně ideogramy: 🏠 + ❤️ přečteš jako „domov“, i když srdce není nakreslený domov.</p>
+<div data-porozumeni="8. Piktogramy a ideogramy"></div>
+</div>
+
+<div class="sekce">
+<h3>Slabičné a hláskové písmo</h3>
+<ul>
+<li><b>3. Slabičné písmo</b> (Mezopotámie, Egypt) – jeden znak = <b>jedna slabika</b>. Funguje jako rébus: obrázek „žá“ + obrázek „ba“ = žába.</li>
+<li><b>4. Hláskové písmo (abeceda)</b> – vznikla ve <b>2. tisíciletí př. n. l.</b>; jeden znak = <b>jedna hláska</b>. První hláskové písmo měli <b>Féničané</b>. <b>Řekové</b> fénickou abecedu upravili (doplnili samohlásky) → <b>řecká alfabeta</b> → z ní <b>římská latinka</b>, ale i runy nebo hlaholice.</li>
+</ul>
+<div class="rule">Vývoj písma: <b>piktogramy → ideogramy → slabičné písmo → hláskové písmo</b>. Čím dál, tím méně znaků.</div>
+<div class="prakticky">Čínské písmo (ideogramy) má asi 50 000 znaků a běžně se používá asi 3 000. Česká abeceda vystačí s 26 písmeny latinky (plus háčky a čárky).</div>
+<div data-porozumeni="8. Slabičné a hláskové písmo"></div>
+</div>
+
+<div class="sekce">
+<h3>Srovnání druhů písma</h3>
+<div class="siroke"><table class="tab"><tr><th></th><th>počet znaků</th><th>složité texty</th><th>výhody</th><th>nevýhody</th></tr>
+<tr><td>piktogramy</td><td>obrovské množství</td><td>skoro nejdou</td><td>snadno pochopitelné, univerzální</td><td>na delší sdělení mnoho obrázků, pomalé</td></tr>
+<tr><td>ideogramy</td><td>velké množství (tisíce)</td><td>lépe</td><td>dají se zapsat i myšlenky</td><td>znaků je moc, učit se je trvá roky</td></tr>
+<tr><td>slabičné</td><td>desítky až stovky</td><td>dobře</td><td>méně znaků, zapíše se každé slovo</td><td>vázané na jeden jazyk</td></tr>
+<tr><td>hláskové</td><td>20–30</td><td>nejlépe</td><td>jednoduché, přehledné, písmena se dají kombinovat</td><td>musíš znát jazyk, abys text přečetl</td></tr></table></div></div>
+<p>Ukázky ze sešitu: kartuše se jménem <b>Kleopatra</b> = hieroglyfy; nápis <b>SENATVS POPVLVSQVE ROMANVS</b> = latinka; klínky = klínové písmo.</p>
+<div data-porozumeni="8. Srovnání druhů písma"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="9. Mezopotámie">
+<h2>9. Mezopotámie</h2>
+
+<div class="sekce">
+<h3>Kde co leželo</h3>
+<p><b>Mezopotámie</b> = „země mezi řekami“ – mezi <b>Eufratem a Tigridem</b> (dnešní Irák). Obě řeky se vlévají do <b>Perského zálivu</b>.</p>
+<div class="siroke"><table class="tab"><tr><th>civilizace</th><th>kde</th></tr>
+<tr><td>Sumer</td><td><b>jih</b> Mezopotámie u Perského zálivu</td></tr>
+<tr><td>Babylonská říše</td><td>střední a jižní Mezopotámie, město Babylon na Eufratu</td></tr>
+<tr><td>Asýrie</td><td><b>sever</b> Mezopotámie, horní tok Tigridu</td></tr>
+<tr><td>Perská říše</td><td>přední Asie, dnešní Írán</td></tr>
+<tr><td>Chetitská říše</td><td>Malá Asie (dnešní Turecko)</td></tr>
+<tr><td>Fénicie, Palestina / Izrael</td><td>Kanaán – východní pobřeží Středozemního moře, řeka Jordán</td></tr>
+<tr><td>Egypt (Horní a Dolní)</td><td>severovýchodní Afrika, Nil; Dolní Egypt = sever (delta), Horní = jih</td></tr></table></div>
+<p class="note">Typická chyba: Dolní Egypt je nahoře na mapě. „Dolní“ znamená dole po proudu Nilu – a Nil teče na sever.</p>
+<div data-porozumeni="9. Kde co leželo"></div>
+</div>
+
+<div class="sekce">
+<h3>Sumerové</h3>
+<ul>
+<li>osídlení asi v 6. tis. př. n. l. v povodí středního a dolního toku <b>Eufratu a Tigridu</b>,</li>
+<li>nejstarší civilizace: <b>Sumerové</b> (<b>Epos o Gilgamešovi</b> – jedno z nejstarších dochovaných literárních děl),</li>
+<li>vznik <b>městských států</b> (Ur, Uruk, Lagaš) = potřeba společné organizace a práce,</li>
+<li>stavba kanálů k zavlažování a <b>zikkuratů</b> (stupňovitých chrámů),</li>
+<li>nejstarší písmo obrázkové (piktografické), od začátku 3. tis. př. n. l. <b>klínové</b> (rydlem do hliněných tabulek).</li>
+</ul>
+<p class="dnes">Hodina má 60 minut a kruh 360° díky Sumerům – počítali v šedesátkové soustavě.</p>
+<div data-porozumeni="9. Sumerové"></div>
+</div>
+
+<div class="sekce">
+<h3>Akkadská a Babylonská říše</h3>
+<ul>
+<li><b>Akkadská říše</b> (2340–2200 př. n. l., král Sargon Akkadský) – <b>první centralizovaný stát</b>; Semité ovládli sumerská města, ústřední správa.</li>
+<li><b>Babylonská říše</b> (2. tis. př. n. l.) – nový stát na jihu Mezopotámie, asi 400 let po zániku Akkadské říše; město <b>Babylon</b> (<b>Ištařina brána</b>).</li>
+<li>v 18. stol. př. n. l. král <b>Chammurapi</b> – zakladatel říše, ovládl celou dolní Mezopotámii; <b>Chammurapiho zákoník</b> = jeden z nejstarších zákoníků.</li>
+<li>král <b>Nabukadnezar II.</b> (605–562 př. n. l.) – vrchol rozkvětu (Novobabylonská říše), vláda nad většinou Mezopotámie, Sýrie a Palestiny; dobyl Jeruzalém.</li>
+</ul>
+<div data-porozumeni="9. Akkad a Babylon"></div>
+</div>
+
+<div class="sekce">
+<h3>Chammurapiho zákoník</h3>
+<ul>
+<li>§ 1: kdo obviní jiného z vraždy a nedokáže to, bude sám usmrcen,</li>
+<li>§ 196: kdo vyrazí oko plnoprávnému občanovi, tomu vyrvou oko,</li>
+<li>§ 197: kdo zlomí kost plnoprávnému občanovi, tomu zlomí kost,</li>
+<li>§ 198: kdo vyrazí oko nebo zlomí kost <b>nevolníkovi</b>, zaplatí jen 1 minu stříbra (pokuta).</li>
+</ul>
+<div class="rule">Princip <b>odvety</b> „oko za oko, zub za zub“ (latinsky <b>talio</b>) + <b>nerovnost před zákonem</b>: trest záležel na tom, komu jsi ublížil.</div>
+<div class="prakticky">Stejné zranění: oko plnoprávného občana = ztratíš oko; oko nevolníka = zaplatíš 1 minu stříbra.</div>
+<p>Hodnocení: dnes by se nám tam žít nechtělo (kruté tresty, nerovnost). Ale byl to velký krok – pravidla byla <b>sepsaná a platila pro všechny stejně podle vrstvy</b>, ne podle nálady soudce.</p>
+<div class="jeji">„společenská nerovnost“ – správně.</div>
+<div data-porozumeni="9. Chammurapiho zákoník"></div>
+</div>
+
+<div class="sekce">
+<h3>Asýrie</h3>
+<ul>
+<li>od 3. tis. př. n. l., mohutná říše na <b>severu</b> Mezopotámie,</li>
+<li>soupeřila s Egyptem, Babylonem, Chetity a Féničany; v 7. stol. př. n. l. ovládla i Egypt,</li>
+<li>centrum: město <b>Ninive</b> (dříve Aššur).</li>
+</ul>
+<div data-porozumeni="9. Asýrie"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="10. Egypt">
+<h2>10. Egypt</h2>
+
+<div class="sekce">
+<h3>Území a společnost</h3>
+<p><b>Území:</b> údolí a delta Nilu, ze tří stran <b>poušť</b>, suché a teplé podmínky → život jen u řeky a poušť jako přirozená ochrana před nepřáteli.</p>
+<p><b>Společnost (shora dolů):</b></p>
+<ol>
+<li><b>faraon</b> (král) – vtělený bůh s neomezenou mocí,</li>
+<li><b>úředníci, kněží, vojenští hospodáři</b>,</li>
+<li><b>řemeslníci</b> (osobně svobodní),</li>
+<li><b>zemědělci</b> – nižší a nejpočetnější skupina,</li>
+<li><b>otroci</b> – nejnižší, nesvobodní, bezprávní.</li>
+</ol>
+<div data-porozumeni="10. Území a společnost"></div>
+</div>
+
+<div class="sekce">
+<h3>Stará říše</h3>
+<p>Dějiny Egypta dělíme podle vládnoucích dynastií na <b>tři říše</b>, oddělené <b>přechodnými (úpadkovými) obdobími</b>.</p>
+<ul>
+<li><b>Stará říše (2700–2180 př. n. l.)</b> – Dolní a Horní Egypt <b>sjednocen</b>, rozmach, říše rozdělená na kraje,</li>
+<li>stavba <b>pyramid</b> – hrobky králů z tisíců přesně opracovaných kvádrů bez malty,</li>
+<li><b>Džoserova pyramida</b> – nejstarší (stupňovitá),</li>
+<li>Gíza: <b>Cheopsova pyramida</b> – největší (původně asi 146 m); <b>sfinga</b> (lví tělo a hlava panovníka),</li>
+<li>náboženství: <b>polyteismus</b> (mnoho bohů); počátky umění (náboženské texty).</li>
+</ul>
+<div class="prakticky">Cheopsova pyramida (asi 2560 př. n. l.) byla se svými 146 m přes 3 800 let nejvyšší stavbou světa.</div>
+<div data-porozumeni="10. Stará říše"></div>
+</div>
+
+<div class="sekce">
+<h3>Střední říše a přechodná období</h3>
+<ul>
+<li><b>1. přechodné období</b>: oslabení ústřední moci, moc správců krajů → roztříštěnost, hospodářská krize,</li>
+<li><b>Střední říše (2040–1786 př. n. l.)</b>: nové sjednocení Egypta, obnova prosperity, menší pyramidy,</li>
+<li><b>2. přechodné období</b>: vnitřní rozpory → pronikání kočovných kmenů semitského původu (Hyksósové).</li>
+</ul>
+<div data-porozumeni="10. Střední říše"></div>
+</div>
+
+<div class="sekce">
+<h3>Nová říše</h3>
+<ul>
+<li><b>Nová říše (cca 1560–1080 př. n. l.)</b> – <b>největší územní rozmach</b> (výboje, silná armáda),</li>
+<li>náboženská reforma faraona <b>Amenhotepa IV.</b> (manželka <b>Nefertiti</b>): zákaz polyteismu, jediný bůh <b>Aton</b> (monoteismus), faraon se přejmenoval na <b>Achnaton</b>, nové sídlo <b>Achetaton</b>,</li>
+<li>jeho syn <b>Tutanchamon</b> po smrti otce vrátil polyteismus,</li>
+<li>faraoni se pohřbívali v hrobkách vytesaných do skal – <b>Údolí králů</b>,</li>
+<li><b>Ramesse II.</b> bojoval s <b>Chetity</b> o Sýrii a Palestinu → <b>mír</b> = nejstarší dochovaná mírová smlouva v dějinách.</li>
+</ul>
+<div data-porozumeni="10. Nová říše"></div>
+</div>
+
+<div class="sekce">
+<h3>Objev Tutanchamonovy hrobky</h3>
+<ul>
+<li>roku <b>1922</b> ji objevil <b>Howard Carter</b> v Údolí králů,</li>
+<li>je to <b>jediná královská hrobka, která zůstala skoro nedotčená</b> (nevykradená) – mumie ležela ve čtyřech pozlacených skříních a sarkofágu,</li>
+<li>Tutanchamon zemřel asi v <b>18–19 letech</b> – proto se má za to, že hrobka byla původně určena pro někoho jiného (je malá a narychlo upravená),</li>
+<li>na zdech u sarkofágu je pohřební průvod a setkání s bohy v posmrtném životě,</li>
+<li>symbolem Egypta se stala jeho <b>zlatá pohřební maska</b>; mumie je dodnes v hrobce v Údolí králů.</li>
+</ul>
+<div class="rule">Výjimečnost pro egyptologii: hrobka je <b>pokladnice skutečných věcí</b> (nábytek, šperky, látky, košíky…) v dobrém stavu, takže z ní poznáváme <b>materiální kulturu a technologie</b> Egypťanů – ne jen z obrazů a poškozených zbytků.</div>
+<div class="prakticky">V hrobce bylo přes 5 000 předmětů; samotná maska váží asi 10 kg zlata.</div>
+<div data-porozumeni="10. Tutanchamonova hrobka"></div>
+</div>
+
+<div class="sekce">
+<h3>Úpadek Egypta</h3>
+<ul>
+<li><b>3. přechodné období a úpadek</b>: sílí okolní národy, v 7. stol. př. n. l. nadvláda <b>Asýrie</b>, pak ještě poslední rozmach,</li>
+<li><b>525 př. n. l.</b> Egypt dobyli <b>Peršané</b> – s přestávkou byl perskou provincií až do roku 332 př. n. l. (dohromady asi 130 let),</li>
+<li><b>332 př. n. l.</b> Egypt dobyl <b>Alexandr Makedonský</b> (Egypťané ho brali jako osvoboditele), roku 331 založil <b>Alexandrii</b>,</li>
+<li>po jeho smrti vládne jeho vojevůdce <b>Ptolemaios</b> – přijímá egyptské zvyky, vládnou <b>Ptolemaiovci</b>,</li>
+<li>poslední vládkyně <b>Kleopatra</b> (spojenectví s Juliem Caesarem a Markem Antoniem); po porážce Antonia umírá,</li>
+<li><b>30 př. n. l.</b> Octavianus (pozdější Augustus) mění Egypt v <b>římskou provincii</b>.</li>
+</ul>
+<div data-porozumeni="10. Úpadek Egypta"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="11. Čína">
+<h2>11. Čína</h2>
+
+<div class="sekce">
+<h3>Řeky a dynastie Šang</h3>
+<ul>
+<li>civilizace vznikla u řek <b>Žlutá řeka (Chuang-che)</b> a <b>Jang-c'-ťiang</b>,</li>
+<li><b>dynastie Šang</b> (1600–1046 př. n. l.): původ <b>obrázkového písma</b>, chov bource morušového → <b>hedvábí</b>.</li>
+</ul>
+<div data-porozumeni="11. Řeky a dynastie Šang"></div>
+</div>
+
+<div class="sekce">
+<h3>Čchin Š'-chuang-ti – první císař</h3>
+<ul>
+<li>po bojích mnoha států o nadvládu zvítězila <b>dynastie Čchin</b> → <b>první sjednocení Číny</b> (221 př. n. l.), silná jednotná armáda,</li>
+<li>vládce <b>Jing Čeng</b> přijal titul „první císař Čchinů“ = <b>Čchin Š'-chuang-ti</b>,</li>
+<li>spojil severní a jižní Čínu,</li>
+<li>reformy: státní správa (úředníci), <b>sjednocení měr a vah</b>, <b>jednotná měna</b>, silnice a kanály.</li>
+</ul>
+<p class="dnes">Od dynastie Čchin se pravděpodobně odvozuje evropský název Čína (China).</p>
+<div data-porozumeni="11. První císař"></div>
+</div>
+
+<div class="sekce">
+<h3>Velká čínská zeď</h3>
+<ul>
+<li>funkce: <b>ochrana před nájezdy kočovných kmenů ze severu</b>,</li>
+<li>vznikala postupně <b>spojováním a rozšiřováním starších ochranných zdí</b> – propojení nařídil <b>Čchin Š'-chuang-ti</b>, tím položil její základy,</li>
+<li>původní název: „Dlouhá zeď“,</li>
+<li>stavěli ji vojáci, rolníci a vězni ve velmi špatných podmínkách – vyčerpání, hlad, nemoci, chlad, nebezpečný terén,</li>
+<li>se všemi větvemi je dlouhá přes <b>21 000 km</b>, je památkou UNESCO.</li>
+</ul>
+<div data-porozumeni="11. Velká čínská zeď"></div>
+</div>
+
+<div class="sekce">
+<h3>Terakotová armáda</h3>
+<ul>
+<li>součást <b>mauzolea (hrobky) prvního císaře Čchin Š'-chuang-tiho</b> u města <b>Si-an</b>, objevena 1974,</li>
+<li>asi 8 000 vojáků z pálené hlíny v životní velikosti, každý má jinou tvář,</li>
+<li>říká se jí armáda, protože měla <b>chránit císaře i po smrti</b>.</li>
+</ul>
+<div data-porozumeni="11. Terakotová armáda"></div>
+</div>
+
+<div class="sekce">
+<h3>Čínské vynálezy a písmo</h3>
+<p><b>Vynálezy:</b> <b>papír</b>, <b>hedvábí</b>, <b>porcelán</b>, <b>kompas</b>, <b>střelný prach</b>, kormidlo a mnoho dalšího.</p>
+<p><b>Písmo:</b> vyvinulo se z obrázkového písma, z asi 50 000 znaků se běžně užívá asi 3 000; tradičně se píše <b>ve sloupcích</b> shora dolů.</p>
+<p class="dnes">Papír, porcelánový hrnek, kompas v mobilu – všechno to má původ v Číně.</p>
+<div data-porozumeni="11. Vynálezy a písmo"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="12. Indie">
+<h2>12. Indie</h2>
+
+<div class="sekce">
+<h3>Harappská kultura</h3>
+<ul>
+<li>výhodné podmínky u řek <b>Indus</b> (podle něj název Indie) a <b>Ganga</b>; v povodí Indu žili lidé už 4000 př. n. l.,</li>
+<li><b>harappská kultura</b> (asi 2300 př. n. l.): města stavěná <b>podle plánů</b>, <b>kanalizace, vodovod, koupelny</b> v domech, výroba šperků,</li>
+<li>centra <b>Harappa</b> a <b>Mohendžodáro</b> (území dnešního <b>Pákistánu</b>),</li>
+<li>kolem 1700 př. n. l. zanikla, nejspíš kvůli přírodní katastrofě (změna klimatu a toků řek).</li>
+</ul>
+<div data-porozumeni="12. Harappská kultura"></div>
+</div>
+
+<div class="sekce">
+<h3>Árjové a kasty</h3>
+<p>V 1. polovině 2. tis. př. n. l. ovládli Indii <b>Árjové</b> – indoevropští pastevci, kteří převzali znalosti původních obyvatel. Společnost rozdělili do <b>kast</b>:</p>
+<ol>
+<li><b>bráhmani</b> – kněží (nejvyšší postavení),</li>
+<li><b>kšatrijové</b> – vládci a vojáci,</li>
+<li><b>vajšijové</b> – svobodné obyvatelstvo (rolníci, obchodníci, řemeslníci),</li>
+<li><b>šúdrové</b> – sluhové a otroci, podrobení původní obyvatelé (velmi nízká prestiž).</li>
+</ol>
+<div class="rule">Do kasty se člověk <b>narodí</b> a nemůže ji změnit; manželství mimo kastu bylo zakázané.</div>
+<div class="prakticky">Syn rolníka (vajšija) zůstal vajšijou, i kdyby zbohatl – a jeho děti také.</div>
+<div data-porozumeni="12. Árjové a kasty"></div>
+</div>
+
+<div class="sekce">
+<h3>Indická věda</h3>
+<ul>
+<li><b>astronomie</b> – kalendář podle slunečního roku, věděli o otáčení Země kolem osy (to až astronom Árjabhata v 5. stol. n. l.), předpovídali zatmění Měsíce,</li>
+<li><b>astrologie</b>,</li>
+<li><b>matematika</b> – <b>desítková soustava</b> a <b>číslice</b> (nula a poziční zápis až v 5.–7. stol. n. l.),</li>
+<li><b>medicína</b> – dobrá znalost anatomie, chirurgie (uměli operovat oční zákal).</li>
+</ul>
+<p class="dnes">Číslice 0–9, kterými píšeš, říkáme „arabské“, ale vznikly v Indii – Arabové je jen přinesli do Evropy.</p>
+<div data-porozumeni="12. Indická věda"></div>
+</div>
+
+<div class="sekce">
+<h3>Náboženství Číny a Indie</h3>
+<div class="siroke"><table class="tab"><tr><th>náboženství</th><th>klíčové slovo</th><th>země</th></tr>
+<tr><td><b>hinduismus</b></td><td>bohové Višnu, Šiva (a Brahma)</td><td>Indie</td></tr>
+<tr><td><b>buddhismus</b></td><td>zakladatel Siddhártha Gautama (Buddha)</td><td>Indie</td></tr>
+<tr><td><b>taoismus</b></td><td>přírodní řád (tao = cesta)</td><td>Čína</td></tr>
+<tr><td><b>konfucianismus</b></td><td>sociální vztahy (úcta k rodičům, starším a vládci)</td><td>Čína</td></tr></table></div>
+<div class="jeji">přiřazení správně.</div>
+<div data-porozumeni="12. Náboženství Číny a Indie"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="13. Fénicie, Persie, Izrael">
+<h2>13. Fénicie, Persie, Izrael</h2>
+
+<div class="sekce">
+<h3>Fénicie</h3>
+<ul>
+<li><b>východní</b> pobřeží Středozemního moře, přístavní města (Týros, Sidón, Byblos) na území dnešního <b>Libanonu</b>,</li>
+<li>řecký název podle hlavního vývozního zboží – nachově červeného barviva <b>purpuru</b> (řecky foinix = červený),</li>
+<li>zdatní <b>mořeplavci</b> – dopluli až do západního Středomoří, zakládali <b>obchodní osady</b>; nejvýznamnější <b>Kartágo</b> (později velká námořní mocnost),</li>
+<li><b>první hláskové písmo</b> – jednoduché, 22 znaků (jen souhlásky); základ řeckého a latinského písma.</li>
+</ul>
+<div data-porozumeni="13. Fénicie"></div>
+</div>
+
+<div class="sekce">
+<h3>Persie</h3>
+<ul>
+<li>centrum na území dnešního <b>Íránu</b>,</li>
+<li>zakladatel říše <b>Kýros II. Veliký</b> – sjednotil Přední Asii,</li>
+<li>jeho syn <b>Kambýsés II.</b> dobyl Egypt (525 př. n. l.) → <b>největší starověká říše</b> (6.–4. stol. př. n. l.),</li>
+<li>mnoho národů a tradic → nutnost <b>centralizace</b>; nové sídlo <b>Persepolis</b>,</li>
+<li>další vládci <b>Dareios I.</b> a <b>Xerxés</b> chtěli další území → <b>řecko-perské války</b> (Marathón, Thermopyly, Salamína) → neúspěch,</li>
+<li>později úpadek, nakonec říši dobyl <b>Alexandr Makedonský</b>,</li>
+<li>síť silnic – <b>Královská cesta</b> (asi 2 500 km), poštovní spojení mezi městy; kanál z Nilu do Rudého moře.</li>
+</ul>
+<p class="dnes">Maratonský běh (42 km) připomíná bitvu u Marathónu – posel podle pověsti běžel ohlásit vítězství do Athén.</p>
+<div data-porozumeni="13. Persie"></div>
+</div>
+
+<div class="sekce">
+<h3>Izrael</h3>
+<ul>
+<li>jižní část syropalestinské oblasti, původní název <b>Kanaán</b>,</li>
+<li>semitské obyvatelstvo pod nadvládou Egypta → přicházejí hebrejsko-izraelské kmeny (Židé),</li>
+<li>hlavní konkurenti <b>Pelištejci</b> na jihu (podle nich Římané pojmenovali oblast <b>Palestina</b>),</li>
+<li>jednotný stát vytvořilo <b>12 izraelských kmenů</b>,</li>
+<li>první král <b>Saul</b> (zahynul ve válce s Pelištejci) → <b>David</b> z kmene Juda: sjednotil zemi, dobyl <b>Jeruzalém</b> (sídelní město) → <b>Šalamoun</b>: moudrý vládce, rozkvět, chrám v Jeruzalémě,</li>
+<li>po jeho smrti rozpad na <b>Judsko</b> (Jeruzalém) a <b>Izrael</b> (Samaří),</li>
+<li><b>asyrské zajetí</b>, pak <b>babylonské zajetí</b> (Nabukadnezar II. dobyl Jeruzalém a odvlekl obyvatele do Babylonu), nakonec nadvláda <b>Říma</b>.</li>
+</ul>
+<div data-porozumeni="13. Izrael"></div>
+</div>
+
+<div class="sekce">
+<h3>Náboženství Izraele</h3>
+<ul>
+<li><b>monoteismus</b> – víra v jediného boha <b>Jahve</b>,</li>
+<li>přesvědčení o <b>vyvoleném národě</b>,</li>
+<li>hebrejská bible (Tanach), jejíž nejdůležitější částí je <b>Tóra</b> (Pět knih Mojžíšových); křesťané jí říkají <b>Starý zákon</b> – spolu s křesťanským Novým zákonem základ evropské civilizace.</li>
+</ul>
+<p>Pojmy z osmisměrky (PL 12): purpur, písmo, Kartágo, mořeplavci (Fénicie); Persepolis (Persie); Kanaán, Pelištejci, kmeny, Jahve, Saul, David, Judsko (Izrael).</p>
+<div data-porozumeni="13. Náboženství Izraele"></div>
+</div>
+</section>
+
+<section class="kapitola" data-kapitola="14. Počátky Řecka">
+<h2>14. Počátky Řecka</h2>
+
+<div class="sekce">
+<h3>Antika dodnes</h3>
+<p>Z antiky (Řecko a Řím) žije dodnes: <b>demokracie</b>, mnoho <b>slov</b> (politika, matematika, divadlo), <b>olympijské hry</b>, <b>divadlo</b>, <b>filozofie</b>, latinka, sloupová architektura, římské právo.</p>
+<div data-porozumeni="14. Antika dodnes"></div>
+</div>
+
+<div class="sekce">
+<h3>Kréta – mínojská kultura</h3>
+<ul>
+<li><b>Mínojská kultura</b> (2000–1450 př. n. l.) na ostrově <b>Kréta</b>,</li>
+<li><b>paláce</b> = hospodářská a politická centra (<b>Knóssos</b>, Faistos, Kato Zakros); po zemětřesení zničeny a znovu postaveny → největší rozmach,</li>
+<li>bájný král <b>Mínos</b> (syn Dia a Európy), jeho „syn“ <b>Mínotaurus</b> (člověk s býčí hlavou v labyrintu),</li>
+<li>kolem 1450 př. n. l. Krétu ovládli <b>Achájové</b> z pevniny (oslabenou už dřív výbuchem sopky na ostrově Théra).</li>
+</ul>
+<p><b>Freska z Knóssu:</b> akrobaté <b>skáčou přes býka</b> (býčí skoky). Šlo nejspíš o <b>náboženský rituál</b> – býk byl na Krétě posvátný. Proto mýtus o <b>Mínotaurovi</b>: býk měl v krétské kultuře výjimečné místo.</p>
+<div class="jeji">„býk, nějaký jezdec“ – na býkovi nikdo nejede, akrobat přes něj skáče.</div>
+<div data-porozumeni="14. Mínojská kultura"></div>
+</div>
+
+<div class="sekce">
+<h3>Mykénská civilizace</h3>
+<ul>
+<li><b>Mykénská civilizace</b> (1600–1200 př. n. l.) na Peloponésu a v pevninském Řecku,</li>
+<li>přišly kmeny z Podunají – <b>Achájové</b> (nejstarší řecké kmeny), osidlovali i ostrovy v Egejském moři,</li>
+<li>původně pastevci a zemědělci → <b>palácové hospodářství</b> (střediska měst tvořily opevněné paláce),</li>
+<li>největší rozmach ve 14. stol. př. n. l.; zánik souvisí s <b>vpádem mořských národů</b> (kolem 1200 př. n. l.).</li>
+</ul>
+<div data-porozumeni="14. Mykénská civilizace"></div>
+</div>
+
+<div class="sekce">
+<h3>Homérské (temné) období</h3>
+<ul>
+<li><b>1200–800 př. n. l.</b>, příchod kmene <b>Dórů</b> → hmotný a kulturní <b>úpadek</b> (zaniklo i písmo),</li>
+<li>jmenuje se podle <b>Homéra</b> – slepého pěvce (asi 8. stol. př. n. l.), kterému se připisují eposy <b>Ilias</b> (posledních 51 dnů trójské války) a <b>Odyssea</b> (desetileté putování Odyssea domů na Ithaku). Z tohoto období skoro nemáme jiné prameny – hlavním zdrojem jsou právě Homérovy eposy.</li>
+</ul>
+<div data-porozumeni="14. Homérské období"></div>
+</div>
+
+<div class="sekce">
+<h3>Archaické období</h3>
+<ul>
+<li><b>800–500 př. n. l.</b>, rozpad rodové společnosti; v 8. stol. zaniká království a vládne <b>aristokracie</b> (šlechta),</li>
+<li>nový typ státu: <b>polis</b> = městský stát; plnoprávní občané se postupně podílejí na rozhodování, v polis žijí i nesvobodní otroci (dlužníci, zajatci),</li>
+<li>založeny <b>olympijské hry</b> (776 př. n. l.).</li>
+</ul>
+<div class="rule"><b>Polis</b> = samostatný městský stát: město + okolní venkov, vlastní vláda, zákony a armáda.</div>
+<div class="prakticky">Athény a Sparta byly dvě různé poleis – každá s vlastními zákony; Athéňan byl ve Spartě cizinec.</div>
+<div data-porozumeni="14. Archaické období"></div>
+</div>
+
+<div class="sekce">
+<h3>Velká řecká kolonizace</h3>
+<div class="siroke"><table class="tab"><tr><th>otázka</th><th>odpověď</th></tr>
+<tr><td><b>definice</b></td><td>zakládání nových řeckých obcí (kolonií) mimo Řecko v <b>8.–6. stol. př. n. l.</b>; mateřská obec = <b>metropole</b></td></tr>
+<tr><td><b>důvody</b></td><td>málo půdy, sociální napětí (zadlužení malí zemědělci, dlužní otroctví), půda pro bezzemky, chudé a mladší syny, nespokojenost s vládou šlechty, obchod</td></tr>
+<tr><td><b>lokality</b></td><td>západní Středomoří (jižní Itálie, Sicílie, jižní Francie), severní Afrika, okolí Černého moře – např. Syrakusy (z Korintu), Tarent (ze Sparty), Massalia (Marseille), Byzantion</td></tr>
+<tr><td><b>přínos</b></td><td>každá kolonie byl samostatný stát; šíření řecké kultury a písma (Etruskové, Římané), rozvoj obchodu a řemesel</td></tr></table></div>
+<p><b>Další řešení krize:</b> sepsání zákonů – Sparta (<b>Lykúrgos</b>), Athény (<b>Drakón</b>, později <b>Solón</b>); nebo moc převzal jeden muž – <b>tyran</b> (samovládce po převratu; slovo tehdy neznamenalo krutovládce). Tyrani oslabili šlechtu (např. Peisistratovci v Athénách), ale pro většinu Řeků byla samovláda jen nouzové řešení.</p>
+<p class="note">Bojová taktika se změnila: místo soubojů šlechticů bojoval sevřený šik <b>falanga</b> z těžkooděnců (hoplítů), kteří si zbroj kupovali sami. Kdo bojoval za obec, chtěl o ní i rozhodovat.</p>
+<div data-porozumeni="14. Velká řecká kolonizace"></div>
+</div>
+</section>
+
+<section class="kapitola priloha" data-kapitola="Opravy oproti sešitu">
+<h2>Opravy oproti sešitu</h2>
+<ul class="fix">
+<li><b>Neandertálec (PL 03)</b>: ve sešitu „mozkovna pořád malá“ → neandertálec měl <b>velkou mozkovnu</b> (asi 1 450 cm³, i víc než dnešní člověk – je to vidět i v grafu v pracovním listu). Malé měl čelo, ne mozek. Žil v Evropě a na Blízkém východě až po Střední Asii.</li>
+<li><b>Data doby bronzové a železné</b>: PL 03 uvádí bronz 2000–800, železo 700–0, halštat 750–450; PL 05 uvádí bronz 2000–750, železo 750–0, halštat 750–400. V zápiscích jsou data z PL 05. Data jsou přibližná.</li>
+<li><b>Egypt římskou provincií</b>: v pracovním listu „30 n. l.“ → správně <b>30 př. n. l.</b> (smrt Kleopatry).</li>
+<li><b>Fénicie</b>: v pracovním listu „západní Středomoří“ → Fénicie ležela na <b>východním</b> pobřeží Středozemního moře (Libanon). Do západního Středomoří Féničané jen dopluli a zakládali tam osady.</li>
+<li><b>Fénické písmo</b>: v listu „24 znaků“ → fénická abeceda měla <b>22 znaků</b> (jen souhlásky). 24 písmen má až řecká alfabeta.</li>
+<li><b>Nabukadnezar II.</b>: v listu 605–569 př. n. l. → obvykle se uvádí <b>605–562 př. n. l.</b></li>
+<li><b>Chammurapiho zákoník § 198</b>: v pracovním listu „zaplatí jednu zlatou minu“ (podle starého anglického překladu) → v originále je <b>mina stříbra</b>.</li>
+<li><b>Egypt pod Peršany</b>: v listu „na dvě století“ → 525–404 a 343–332 př. n. l., dohromady asi 130 let.</li>
+<li><b>Slabičné písmo</b>: v tabulce předtištěno „několik tisíc“ znaků → slabičná písma mají <b>desítky až stovky</b> znaků; tisíce mají ideogramy.</li>
+<li><b>Mapa PL 08</b>: Sumer zakreslen uprostřed Arabského poloostrova → Sumer byl na <b>jihu Mezopotámie u Perského zálivu</b>. Babylonská říše zakreslena u pobřeží Palestiny → Babylon ležel ve <b>střední a jižní Mezopotámii na Eufratu</b>.</li>
+<li><b>Kréta 1450 př. n. l.</b>: ve sešitu „výbuch sopky, území dobyto Achájci“ → sopka na Théře vybuchla už asi kolem 1600 př. n. l.; kolem 1450 Krétu ovládli Achájové.</li>
+<li><b>Freska</b>: ve sešitu „jezdec“ → je to akrobat, který skáče přes býka (býčí skoky).</li>
+<li><b>Doplněno</b> (ve sešitu prázdné): hominizace, nadočnicové oblouky, Eufrat a Tigris, Sumerové, městské státy, zikkuraty, Chammurapi, Nabukadnezar II., Ninive, Kýros II., Terakotová armáda, tabulka velké řecké kolonizace, Mínotaurus. Navíc doplněno: Ötzi (rok nálezu, stáří), Howard Carter 1922, Sargon, Kambýsés II., Hyksósové, letopočty bitev a další drobnosti.</li>
+<li><b>Nepřepsáno</b>: Aktivita 2 „Rozhodovačka“ (PL 06) – ve skenu nejsou otázky, jen písmena odpovědí. Osmisměrka je shrnutá jako seznam pojmů v kapitole 13.</li>
+</ul>
+</section>
+<!-- ===== KONEC OBSAHU ===== -->
+<div id="souhrn"></div>
+</main>
+<div id="hlaska" role="status" aria-live="polite"></div>
+<nav id="timeline"><div id="tlItems"></div><div class="tl-nav"><button type="button" id="tlPrev" aria-label="Předchozí">‹</button><button type="button" id="tlNext" aria-label="Další">›</button></div></nav>
+<script>
+/* ---------- stránka s teorií: kapitoly, zamykání, přeskočení, Vyzkoušej se, časová osa (Sablona_material_v05) ---------- */
+(function () {
+  "use strict";
+  const $ = id => document.getElementById(id);
+  const cesta = location.pathname.replace(/^.*\/annschool\//, "").replace(/^\//, "");
+  const verze = (location.pathname.match(/_(v\d\d)\.html$/) || [])[1] || "";
+  const typText = { zapisky: "zápisky", material: "materiál", tahak: "tahák", "pracovni-list": "pracovní list" };
+  const typ = (location.pathname.match(/_([a-z-]+)_v\d\d\.html$/) || [])[1] || "";
+  const KEY = "annschool:kapitoly:" + cesta;
+  const POR_KEY = "annschool:porozumeni:" + cesta;
+  const PRESK_KEY = "annschool:preskoceno:" + cesta;
+  const VYZ_KEY = "annschool:vyzkousej:" + cesta;
+  const VOLNY = !!document.querySelector('.uvod[data-prechod="volny"]');   // v04: Chápu / Nechápu jen označení
+  const UMIM = !!document.querySelector('.uvod[data-popisky="umim"]');     // v05: Umím / Neumím místo Chápu / Nechápu
+  const BEZ_VYZ = !!document.querySelector('.uvod[data-vyzkousej="ne"]');  // v05: bez Vyzkoušej se
+  const L = UMIM ? { A: "Umím", N: "Neumím", a: "umím", n: "neumím" } : { A: "Chápu", N: "Nechápu", a: "chápu", n: "nechápu" };
+  const nazevTema = (document.title.split(" – ")[0] || document.title).trim();
+
+  // načte uložená data; nová verze stránky bez dat je převezme z nejvyšší starší verze (sledovani.js)
+  function nacti(klic, prefix, vychozi) {
+    try {
+      let s = localStorage.getItem(klic);
+      if (s === null && window.Sledovani && Sledovani.zPredchoziVerze) {
+        const st = Sledovani.zPredchoziVerze(prefix);
+        if (st && st.data) { s = st.data; localStorage.setItem(klic, s); }
+      }
+      return s === null ? vychozi : (JSON.parse(s) || vychozi);
+    } catch (e) { return vychozi; }
+  }
+  function uloz(klic, v) { try { localStorage.setItem(klic, JSON.stringify(v)); } catch (e) { /* plné úložiště, soukromé okno */ } }
+  function zapis(udalost, sekce, detail) {
+    try { if (window.Sledovani && Sledovani.udalost) Sledovani.udalost(udalost, sekce, detail); } catch (e) { /* bez záznamu */ }
+  }
+
+  const kapitoly = [...document.querySelectorAll("section.kapitola")].map((el, i) => ({
+    el, i, nazev: el.dataset.kapitola || ("Kapitola " + (i + 1)), priloha: el.classList.contains("priloha"),
+    casti: [...el.querySelectorAll("[data-porozumeni]")].map(x => x.getAttribute("data-porozumeni"))
+  }));
+  const hlavni = kapitoly.filter(k => !k.priloha);
+  const SOUHRN = -1;
+  const ulozene = nacti(KEY, "annschool:kapitoly:", {});
+  // otevřené kapitoly podle názvu (v01 ukládala čísla – převezmou se podle pořadí)
+  const otevrene = new Set((ulozene.otevrene || []).map(x => typeof x === "number" ? (kapitoly[x] || {}).nazev : x).filter(Boolean));
+  const presk = new Set(nacti(PRESK_KEY, "annschool:preskoceno:", []));
+  let cur = 0, potvrzuji = -2;
+
+  function stav() {
+    if (window.Sledovani && Sledovani.porozumeniStav) return Sledovani.porozumeniStav();
+    try { return JSON.parse(localStorage.getItem(POR_KEY) || "{}") || {}; } catch (e) { return {}; }
+  }
+  function ulozit() {
+    const posl = cur === SOUHRN ? "souhrn" : (kapitoly[cur] || {}).nazev;
+    uloz(KEY, { otevrene: [...otevrene], posledni: posl });
+  }
+  function info(k, P) {
+    const zbyva = k.casti.filter(c => !P[c]);
+    return { hotovo: zbyva.length === 0, zbyva, ne: k.casti.filter(c => P[c] === "nechapu").length,
+      ano: k.casti.filter(c => P[c] === "chapu").length, presk: presk.has(k.nazev) && zbyva.length > 0 };
+  }
+  // kapitola pustí dál, když je celá rozhodnutá, nebo byla přeskočena
+  function prosla(k, P) { return info(k, P).hotovo || presk.has(k.nazev); }
+  function odemcena(i, P) {
+    if (VOLNY || i === SOUHRN || kapitoly[i].priloha) return true;
+    for (const k of hlavni) { if (k.i >= i) break; if (!prosla(k, P)) return false; }
+    return true;
+  }
+  function prvniNedokoncena(P) { const k = hlavni.find(k => !prosla(k, P)); return k ? k.i : (hlavni.length ? hlavni[hlavni.length - 1].i : 0); }
+  let hlaskaT = 0;
+  function hlaska(t) { const h = $("hlaska"); h.textContent = t; h.classList.add("vidim"); clearTimeout(hlaskaT); hlaskaT = setTimeout(() => h.classList.remove("vidim"), 3600); }
+  function ukazNedorozhodnutou(k, P) {
+    const c = info(k, P).zbyva[0];
+    const el = c && [...k.el.querySelectorAll("[data-porozumeni]")].find(x => x.getAttribute("data-porozumeni") === c);
+    const cil = el && (el.closest(".sekce") || el);
+    if (cil) { cil.scrollIntoView({ behavior: "smooth", block: "center" }); cil.classList.remove("blik"); void cil.offsetWidth; cil.classList.add("blik"); }
+  }
+
+  function jdi(i, opts) {
+    opts = opts || {};
+    const P = stav();
+    if (i !== SOUHRN && (i < 0 || i >= kapitoly.length)) return;
+    if (!odemcena(i, P)) {
+      const blok = hlavni.find(k => k.i < i && !prosla(k, P));
+      hlaska(`Nejdřív u každé části kapitoly ${blok ? blok.nazev.split(".")[0] : ""} vyber ${L.A}, nebo ${L.N} (nebo ji na konci přeskoč).`);
+      if (blok && blok.i === cur) ukazNedorozhodnutou(blok, P);
+      return;
+    }
+    if (i !== cur) zavriVsechnaPole("kapitola");
+    $("obsah").style.minHeight = "";
+    cur = i; potvrzuji = -2;
+    if (i !== SOUHRN) otevrene.add(kapitoly[i].nazev);
+    kapitoly.forEach(k => k.el.classList.toggle("vidim", k.i === i));
+    document.querySelectorAll(".uvod").forEach(u => u.classList.toggle("vidim", i === (kapitoly[0] ? 0 : SOUHRN)));
+    $("souhrn").classList.toggle("vidim", i === SOUHRN);
+    if (i === SOUHRN) vykresliSouhrn();
+    const nazev = i === SOUHRN ? "Souhrn" : kapitoly[i].nazev;
+    $("nazev").innerHTML = `${esc(nazevTema)} · ${esc(typText[typ] || typ)} ${esc(verze)} <span class="kap">· ${esc(nazev)}</span>`;
+    try { history.replaceState(null, "", i === SOUHRN ? "#souhrn" : "#k" + (i + 1)); } catch (e) { /* file:// */ }
+    if (window.Sledovani) { Sledovani.oblast(i === SOUHRN ? "Σ Souhrn" : nazev); }
+    ulozit(); prekresli();
+    if (opts.cast) {
+      const el = [...document.querySelectorAll("[data-porozumeni]")].find(x => x.getAttribute("data-porozumeni") === opts.cast);
+      const cil = el && (el.closest(".sekce") || el);
+      if (cil) setTimeout(() => { cil.scrollIntoView({ block: "center" }); cil.classList.add("blik"); }, 30);
+    } else if (!opts.bezPosunu) window.scrollTo(0, 0);
+  }
+  function dalsi(i) { return i === SOUHRN ? SOUHRN : (i + 1 < kapitoly.length ? i + 1 : SOUHRN); }
+  function predchozi(i) { return i === SOUHRN ? kapitoly.length - 1 : Math.max(0, i - 1); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+  function barva(k, P) {
+    if (k.priloha) return "";
+    const n = info(k, P);
+    if (n.hotovo && k.casti.length) return n.ne ? "st-cervena" : "st-zelena";
+    if (n.hotovo) return "st-zelena";
+    return otevrene.has(k.nazev) || n.presk ? "st-seda" : "";
+  }
+  function preskoc(k) {
+    const P = stav(), bez = info(k, P).zbyva;
+    presk.add(k.nazev); uloz(PRESK_KEY, [...presk]);
+    zapis("preskoceni", k.nazev, { kapitola: k.nazev, bez_volby: bez, pocet: bez.length });
+    potvrzuji = -2;
+    jdi(dalsi(k.i));
+  }
+  function prekresli() {
+    const P = stav();
+    // časová osa
+    const box = $("tlItems"); box.innerHTML = "";
+    kapitoly.forEach(k => {
+      const b = document.createElement("button"); b.type = "button";
+      const zam = !odemcena(k.i, P), pr = !k.priloha && info(k, P).presk;
+      b.className = "tl-b " + (k.priloha ? "stitek " : barva(k, P)) + (pr ? " presk" : "") + (zam ? " zamceno" : "") + (k.i === cur ? " cur" : "");
+      b.textContent = k.priloha ? k.nazev.replace(/^\d+\.\s*/, "").split(" ")[0] : String(hlavni.indexOf(k) + 1);
+      b.title = k.nazev + (zam ? " (zamčeno)" : pr ? " (přeskočeno bez volby)" : "");
+      b.setAttribute("aria-label", b.title);
+      b.addEventListener("click", () => jdi(k.i));
+      box.appendChild(b);
+    });
+    const s = document.createElement("button"); s.type = "button"; s.className = "tl-b stitek" + (cur === SOUHRN ? " cur" : "");
+    s.textContent = "Σ Souhrn"; s.addEventListener("click", () => jdi(SOUHRN)); box.appendChild(s);
+    $("tlPrev").disabled = cur === 0;
+    $("tlNext").disabled = cur === SOUHRN;
+    $("tlNext").classList.toggle("zamceno", cur !== SOUHRN && !odemcena(dalsi(cur), P));
+    // konec každé kapitoly
+    kapitoly.forEach(k => {
+      let kon = k.el.querySelector(":scope > .konec");
+      if (!kon) { kon = document.createElement("div"); kon.className = "konec"; k.el.appendChild(kon); }
+      const n = info(k, P), d = dalsi(k.i), dNazev = d === SOUHRN ? "Souhrn" : "Další kapitola";
+      const lzePreskocit = !VOLNY && !k.priloha && k.casti.length && !n.hotovo && !presk.has(k.nazev);
+      const txt = k.priloha || !k.casti.length ? "" :
+        n.hotovo ? `Rozhodnuto ${k.casti.length} z ${k.casti.length} · ${L.a} ${n.ano}, ${L.n} ${n.ne}`
+          : n.presk ? `Rozhodnuto ${k.casti.length - n.zbyva.length} z ${k.casti.length} · přeskočeno bez volby`
+          : VOLNY ? `Označeno ${k.casti.length - n.zbyva.length} z ${k.casti.length}`
+          : `Rozhodnuto ${k.casti.length - n.zbyva.length} z ${k.casti.length} – u každé části vyber ${L.A}, nebo ${L.N}`;
+      let prava = (k.i > 0 ? '<button type="button" class="zpet">‹ Zpět</button> ' : "");
+      if (lzePreskocit && potvrzuji === k.i) {
+        prava += `<span class="potvrd">Opravdu? ${n.zbyva.length === 1 ? "1 část nemá" : n.zbyva.length + (n.zbyva.length < 5 ? " části nemají" : " částí nemá")} volbu. ` +
+          `<button type="button" class="ano">Ano, přeskočit</button> <button type="button" class="ne">Ne</button></span>`;
+      } else {
+        if (lzePreskocit) prava += '<button type="button" class="presk">Přeskočit bez volby ›</button> ';
+        prava += `<button type="button" class="dal${odemcena(d, P) ? "" : " zamceno"}">${dNazev} ›</button>`;
+      }
+      kon.innerHTML = `<span>${esc(txt)}</span><span>${prava}</span>`;
+      const z = kon.querySelector(".zpet"); if (z) z.onclick = () => jdi(predchozi(k.i));
+      const dl = kon.querySelector(".dal"); if (dl) dl.onclick = () => jdi(d);
+      const p = kon.querySelector(".presk"); if (p) p.onclick = () => { potvrzuji = k.i; prekresli(); };
+      const a = kon.querySelector(".ano"); if (a) a.onclick = () => preskoc(k);
+      const ne = kon.querySelector(".ne"); if (ne) ne.onclick = () => { potvrzuji = -2; prekresli(); };
+    });
+    document.documentElement.style.setProperty("--tl-h", $("timeline").offsetHeight + "px");
+  }
+  function vykresliSouhrn() {
+    const P = stav();
+    const vse = hlavni.reduce((a, k) => a + k.casti.length, 0);
+    const ano = hlavni.reduce((a, k) => a + info(k, P).ano, 0), ne = hlavni.reduce((a, k) => a + info(k, P).ne, 0);
+    const naps = Object.values(VYZ).filter(z => z && ((z.text && z.text.trim()) || z.tahu)).length;
+    let h = `<h2>Souhrn</h2><p class="meta">${L.A} ${ano} · ${L.n} ${ne} · nerozhodnuto ${vse - ano - ne} (celkem ${vse} částí)` +
+      `${naps ? ` · ✎ Vyzkoušej se napsáno u ${naps}` : ""}. Klepnutím na část na ni skočíš.</p>`;
+    kapitoly.forEach(k => {
+      if (k.priloha) { h += `<div class="sum-kap"><button type="button" class="odkaz" data-k="${k.i}">${esc(k.nazev)}</button></div>`; return; }
+      const pr = info(k, P).presk;
+      h += `<div class="sum-kap">${esc(k.nazev)}${pr ? ' <span class="nic">(přeskočeno)</span>' : ""}</div><table class="sum-tab">`;
+      k.casti.forEach(c => {
+        const s = P[c] === "chapu" ? `<span class="ok">✓ ${L.a}</span>` : P[c] === "nechapu" ? `<span class="ne">✗ ${L.n}</span>`
+          : pr ? '<span class="nic">– přeskočeno</span>' : '<span class="nic">– nerozhodnuto</span>';
+        const z = VYZ[c] && ((VYZ[c].text && VYZ[c].text.trim()) || VYZ[c].tahu) ? ' <span class="nic" title="Vyzkoušej se – napsáno">✎</span>' : "";
+        h += `<tr><td><button type="button" class="odkaz" data-k="${k.i}" data-c="${esc(c)}">${esc(c)}</button>${z}</td><td class="st">${s}</td></tr>`;
+      });
+      h += "</table>";
+    });
+    $("souhrn").innerHTML = h;
+    $("souhrn").querySelectorAll("button.odkaz").forEach(b => b.addEventListener("click", () => jdi(+b.dataset.k, { cast: b.dataset.c })));
+  }
+
+  /* ---------- Vyzkoušej se: papír na psaní perem (jako v testu) pod Chápu / Nechápu, látka sekce zakrytá na místě ---------- */
+  const VYZ = nacti(VYZ_KEY, "annschool:vyzkousej:", {});
+  const POLE = {};                 // cast → { box, ta, latka, tl, odkryt, info, otevreno, odkrytoOd, pauza, cv, view, tahy }
+  const MAX = 4000, PAUZA_MS = 20000, ANIM_MS = 430;
+  const PW = 820, PH = 1200;       // papír v CSS px (okno 320 px vysoké, papír se v něm posouvá prstem)
+  const PAP = cast => "annschool:papir:" + cast + "|";          // + adresa stránky (převzetí ze starší verze)
+  const draw = { color: "#1d1d1b", width: 1.1, eraser: false };
+  function z(cast) {
+    return VYZ[cast] || (VYZ[cast] = { text: "", odkryto: 0, odkryto_ms: 0, pred_odkrytim: null, pred_odkrytim_tahu: null, pv: 0, tahu: 0, cas: "", odeslano: "", odeslano_pv: 0 });
+  }
+  function ulozVyz() { uloz(VYZ_KEY, VYZ); }
+  function pricistOdkryti(p, cast) {
+    if (p.odkrytoOd) { z(cast).odkryto_ms += Date.now() - p.odkrytoOd; p.odkrytoOd = 0; }
+  }
+  // tahy papíru: vlastní klíč pro každou sekci; při plném úložišti se mažou nejstarší papíry (do výsledků už odešly)
+  function nactiTahy(cast) {
+    try {
+      let s = localStorage.getItem(PAP(cast) + cesta);
+      if (s === null && window.Sledovani && Sledovani.zPredchoziVerze) {
+        const st = Sledovani.zPredchoziVerze(PAP(cast));
+        if (st && st.data) { s = st.data; try { localStorage.setItem(PAP(cast) + cesta, s); } catch (e) { /* plné */ } }
+      }
+      const o = s ? JSON.parse(s) : null;
+      return o && Array.isArray(o.s) ? o.s : [];
+    } catch (e) { return []; }
+  }
+  function ulozTahy(cast, tahy) {
+    const k = PAP(cast) + cesta;
+    const v = JSON.stringify({ cas: Date.now(), s: tahy.map(t => ({ c: t.c, w: t.w, e: t.e ? 1 : 0,
+      p: t.p.map(q => [Math.round(q[0] * 10) / 10, Math.round(q[1] * 10) / 10, Math.round(q[2] * 100) / 100]) })) });
+    for (let i = 0; i < 60; i++) {
+      try { if (tahy.length) localStorage.setItem(k, v); else localStorage.removeItem(k); return true; }
+      catch (e) {
+        let nej = null, cas = Infinity;
+        try {
+          for (let j = 0; j < localStorage.length; j++) {
+            const kk = localStorage.key(j);
+            if (!kk || kk.indexOf("annschool:papir:") !== 0 || kk === k) continue;
+            let c = 0; try { c = JSON.parse(localStorage.getItem(kk)).cas || 0; } catch (x) { c = 0; }
+            if (c < cas) { cas = c; nej = kk; }
+          }
+        } catch (x) { return false; }
+        if (!nej) return false;
+        try { localStorage.removeItem(nej); } catch (x) { return false; }
+      }
+    }
+    return false;
+  }
+  function pocetTahu(tahy) { return tahy.filter(t => !t.e).length; }
+  // kreslení jako v šabloně testu: vyhlazené křivky přes středy úseků, tloušťka podle tlaku pera
+  const sirka = (t, p) => t.e ? 22 : t.w * (0.55 + p * 0.9);
+  function usek(c, t, od) {
+    const P = t.p;
+    c.save(); c.lineCap = "round"; c.lineJoin = "round";
+    c.globalCompositeOperation = t.e ? "destination-out" : "source-over";
+    c.strokeStyle = c.fillStyle = t.c;
+    if (P.length === 1 && od <= 1) { c.beginPath(); c.arc(P[0][0], P[0][1], sirka(t, P[0][2]) / 2, 0, 7); c.fill(); }
+    const mid = (a, b) => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+    for (let i = Math.max(1, od); i < P.length; i++) {
+      const p0 = i === 1 ? P[0] : mid(P[i - 2], P[i - 1]), p1 = mid(P[i - 1], P[i]);
+      c.lineWidth = sirka(t, P[i - 1][2]);
+      c.beginPath(); c.moveTo(p0[0], p0[1]); c.quadraticCurveTo(P[i - 1][0], P[i - 1][1], p1[0], p1[1]); c.stroke();
+    }
+    c.restore();
+  }
+  function prekresliPapir(p) {
+    if (!p.cv) return;
+    const c = p.ctx;
+    c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, p.cv.width, p.cv.height);
+    c.setTransform(p.dpr, 0, 0, p.dpr, 0, 0);
+    p.tahy.forEach(t => usek(c, t, 1));
+  }
+  // obrázek popsané části papíru (jako v testu): JPEG s mřížkou, oříznutý na tahy
+  function snimek(tahy) {
+    if (!tahy.some(t => !t.e)) return null;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    tahy.forEach(t => t.p.forEach(q => { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); }));
+    const m = 16, sc = 1.5; x0 = Math.max(0, x0 - m); y0 = Math.max(0, y0 - m); x1 = Math.min(PW, x1 + m); y1 = Math.min(PH, y1 + m);
+    const W = Math.max(1, Math.round((x1 - x0) * sc)), H = Math.max(1, Math.round((y1 - y0) * sc));
+    const ink = document.createElement("canvas"); ink.width = W; ink.height = H;
+    const ic = ink.getContext("2d"); ic.setTransform(sc, 0, 0, sc, -x0 * sc, -y0 * sc);
+    tahy.forEach(t => usek(ic, t, 1));
+    const out = document.createElement("canvas"); out.width = W; out.height = H;
+    const oc = out.getContext("2d"); oc.fillStyle = "#fff"; oc.fillRect(0, 0, W, H);
+    oc.strokeStyle = "#edf1f6"; oc.lineWidth = 1; oc.beginPath();
+    for (let x = Math.ceil(x0 / 24) * 24; x < x1; x += 24) { const X = Math.round((x - x0) * sc) + .5; oc.moveTo(X, 0); oc.lineTo(X, H); }
+    for (let y = Math.ceil(y0 / 24) * 24; y < y1; y += 24) { const Y = Math.round((y - y0) * sc) + .5; oc.moveTo(0, Y); oc.lineTo(W, Y); }
+    oc.stroke(); oc.drawImage(ink, 0, 0);
+    try { return out.toDataURL("image/jpeg", 0.75); } catch (e) { return null; }
+  }
+  function posli(cast, duvod) {
+    const p = POLE[cast], st = z(cast);
+    if (p) { pricistOdkryti(p, cast); if (p.otevreno && !p.latka.classList.contains("skryta")) p.odkrytoOd = Date.now(); clearTimeout(p.pauza); }
+    const podpis = JSON.stringify([st.text, st.odkryto, st.pv]);
+    if (podpis === st.odeslano || (!st.text && !st.odkryto && !st.pv && !st.odeslano)) { ulozVyz(); return; }
+    let papir = "";
+    if (st.pv !== st.odeslano_pv) {
+      const tahy = p && p.tahy ? p.tahy : nactiTahy(cast);
+      papir = snimek(tahy) || "";
+    }
+    st.odeslano = podpis; st.odeslano_pv = st.pv; ulozVyz();
+    const u = { cast, text: st.text, znaku: st.text.length, tahu: st.tahu, papir_zmena: st.pv !== 0 && !!papir,
+      papir_prazdny: !st.tahu, odkryto: st.odkryto, odkryto_s: Math.round(st.odkryto_ms / 1000),
+      pred_odkrytim: st.pred_odkrytim, pred_odkrytim_tahu: st.pred_odkrytim_tahu, duvod,
+      poradi: kapitoly.reduce((a, k) => a.concat(k.casti), []).indexOf(cast) + 1 };
+    try {
+      if (window.Sledovani && Sledovani.udalost) {
+        if (papir && window.Zaznam) Zaznam.zapis({ udalost: "vyzkousej", typ: typ, sekce: cast.slice(0, 120), detail: u, papir });
+        else Sledovani.udalost("vyzkousej", cast, u);
+      }
+    } catch (e) { /* bez záznamu */ }
+  }
+  function napsano(st) { return !!(st.text.trim() || st.tahu); }
+  function popisPole(p, cast) {
+    const st = z(cast);
+    p.info.textContent = st.odkryto ? `látku jsi odkryla ${st.odkryto}×` : "";
+    p.odkryt.textContent = p.latka.classList.contains("skryta") ? "Ukázat látku" : "Skrýt látku";
+    p.kl.textContent = p.ta.hidden ? "⌨ Psát textem" : "⌨ Skrýt text";
+    p.tl.classList.toggle("on", p.otevreno);
+    p.tl.textContent = "Vyzkoušej se" + (napsano(st) ? " ✓" : "");
+  }
+  function vyska(ta) { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight + 2, innerHeight * 0.6) + "px"; }
+  function nastroje(p) {
+    p.box.querySelectorAll(".vp-barva").forEach(b => b.classList.toggle("on", !draw.eraser && b.dataset.c === draw.color));
+    p.box.querySelectorAll(".vp-tl").forEach(b => b.classList.toggle("on", !draw.eraser && +b.dataset.w === draw.width));
+    p.box.querySelector(".vp-guma").classList.toggle("on", draw.eraser);
+  }
+  // papír: pero a myš píšou, prst posouvá (na okraji papíru posouvá stránku); Scribble se potlačí jako v testu
+  function vytvorPapir(cast) {
+    const p = POLE[cast];
+    if (p.cv) return;
+    const cv = p.cv = document.createElement("canvas");
+    p.dpr = Math.min(2, window.devicePixelRatio || 1);
+    cv.style.width = PW + "px"; cv.style.height = PH + "px";
+    cv.width = Math.round(PW * p.dpr); cv.height = Math.round(PH * p.dpr);
+    p.ctx = cv.getContext("2d");
+    p.view.appendChild(cv);
+    prekresliPapir(p);
+  }
+  function uvolniPapir(p) { if (p.cv) { p.cv.width = 0; p.cv.height = 0; p.cv.remove(); p.cv = null; p.ctx = null; } }
+  function zmenaPapiru(cast) {
+    const p = POLE[cast], st = z(cast);
+    st.pv++; st.tahu = pocetTahu(p.tahy); st.cas = new Date().toISOString();
+    ulozTahy(cast, p.tahy); ulozVyz(); popisPole(p, cast);
+    clearTimeout(p.pauza); p.pauza = setTimeout(() => posli(cast, "pauza"), PAUZA_MS);
+  }
+  function navazPapir(cast) {
+    const p = POLE[cast], view = p.view;
+    const jePero = e => Array.prototype.some.call(e.changedTouches || [], t => t.touchType === "stylus");
+    ["touchstart", "touchmove", "touchend"].forEach(t => view.addEventListener(t, e => { if (jePero(e) && e.cancelable) e.preventDefault(); }, { passive: false }));
+    let rect = null, drawn = 1, raf = 0, pr = 0.5, cur = null, pan = null;
+    const pos = e => {
+      const raw = e.pointerType === "pen" ? (e.pressure || .5) : .5;
+      pr = pr * 0.6 + raw * 0.4;
+      return [e.clientX - rect.left, e.clientY - rect.top, pr];
+    };
+    const flush = () => { raf = 0; if (!cur || !p.ctx) return; usek(p.ctx, cur, drawn); drawn = cur.p.length; };
+    view.addEventListener("pointerdown", e => {
+      if (e.pointerType === "touch") {
+        if (cur || pan) return;
+        pan = { id: e.pointerId, x: e.clientX, y: e.clientY };
+        try { view.setPointerCapture(e.pointerId); } catch (x) { /* nic */ }
+        return;
+      }
+      if (!p.cv || e.target !== p.cv || (e.pointerType !== "pen" && e.pointerType !== "mouse")) return;
+      if (pan) pan = null;
+      e.preventDefault(); try { p.cv.setPointerCapture(e.pointerId); } catch (x) { /* nic */ }
+      rect = p.cv.getBoundingClientRect(); pr = e.pointerType === "pen" ? (e.pressure || .5) : .5;
+      cur = { c: draw.color, w: draw.width, e: draw.eraser, p: [pos(e)] };
+      p.tahy.push(cur); drawn = 0; flush(); drawn = 1;
+      clearTimeout(p.pauza);
+    });
+    view.addEventListener("pointermove", e => {
+      if (pan && e.pointerId === pan.id) {
+        const dx = e.clientX - pan.x, dy = e.clientY - pan.y;
+        const st0 = view.scrollTop;
+        view.scrollLeft -= dx; view.scrollTop -= dy;
+        const zbyva = -dy - (view.scrollTop - st0);                  // papír už dál nejde – posune se stránka
+        if (Math.abs(zbyva) > 0.5) window.scrollBy(0, zbyva);
+        pan.x = e.clientX; pan.y = e.clientY;
+        return;
+      }
+      if (!cur || e.pointerType === "touch") return;
+      e.preventDefault();
+      const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e];
+      (evs.length ? evs : [e]).forEach(ev => {
+        const q = pos(ev), last = cur.p[cur.p.length - 1];
+        if (Math.abs(q[0] - last[0]) + Math.abs(q[1] - last[1]) >= 0.4) cur.p.push(q);
+      });
+      if (!raf) raf = requestAnimationFrame(flush);
+    });
+    ["pointerup", "pointercancel"].forEach(t => view.addEventListener(t, e => {
+      if (pan && e.pointerId === pan.id) { pan = null; return; }
+      if (!cur || e.pointerType === "touch") return;
+      if (cur.p.length > 1) cur.p.push(cur.p[cur.p.length - 1].slice());
+      if (raf) { cancelAnimationFrame(raf); raf = 0; }
+      flush(); cur = null;
+      zmenaPapiru(cast);
+    }));
+    const lista = p.box.querySelector(".vp-bar");
+    lista.querySelector(".vp-zpet").onclick = () => { if (p.tahy.length) { p.tahy.pop(); prekresliPapir(p); zmenaPapiru(cast); } };
+    lista.querySelector(".vp-smaz").onclick = () => {
+      if (!p.tahy.length) return;
+      const b = lista.querySelector(".vp-smaz");
+      if (b.dataset.potvrd) { delete b.dataset.potvrd; b.textContent = "Smazat"; p.tahy = []; prekresliPapir(p); zmenaPapiru(cast); return; }
+      b.dataset.potvrd = "1"; b.textContent = "Opravdu smazat?";                       // potvrzení na místě, bez okna prohlížeče
+      setTimeout(() => { if (b.dataset.potvrd) { delete b.dataset.potvrd; b.textContent = "Smazat"; } }, 3000);
+    };
+    lista.querySelectorAll(".vp-barva").forEach(b => b.onclick = () => { draw.color = b.dataset.c; draw.eraser = false; Object.values(POLE).forEach(nastroje); });
+    lista.querySelectorAll(".vp-tl").forEach(b => b.onclick = () => { draw.width = +b.dataset.w; draw.eraser = false; Object.values(POLE).forEach(nastroje); });
+    lista.querySelector(".vp-guma").onclick = () => { draw.eraser = !draw.eraser; Object.values(POLE).forEach(nastroje); };
+  }
+  function otevri(cast) {
+    const p = POLE[cast]; if (!p || p.otevreno) return;
+    p.otevreno = true;
+    p.latka.classList.add("skryta");                      // zakrytí na místě – výška sekce se nemění
+    if (!p.tahy) p.tahy = nactiTahy(cast).map(t => ({ c: t.c, w: t.w, e: !!t.e, p: t.p }));
+    const st = z(cast);
+    st.tahu = pocetTahu(p.tahy);
+    p.ta.value = st.text;
+    p.ta.hidden = !st.text;                               // text jen když už nějaký je, nebo po „⌨ Psát textem“
+    vytvorPapir(cast); nastroje(p);
+    const box = p.box; box.hidden = false; box.style.height = "0px";
+    if (!p.ta.hidden) vyska(p.ta);
+    const h = box.scrollHeight; void box.offsetHeight;
+    box.style.height = h + "px";                           // plynulé rozbalení, obsah pod polem se posune plynule
+    clearTimeout(p.anim); p.anim = setTimeout(() => { if (p.otevreno) box.style.height = "auto"; }, ANIM_MS);
+    popisPole(p, cast);
+  }
+  function zavri(cast, duvod, hned) {
+    const p = POLE[cast]; if (!p || !p.otevreno) return;
+    posli(cast, duvod);
+    pricistOdkryti(p, cast); ulozVyz();
+    p.otevreno = false;
+    p.latka.classList.remove("skryta");
+    const box = p.box;
+    if (hned) { box.style.height = "0px"; box.hidden = true; uvolniPapir(p); }
+    else {
+      // stránka se nezkrátí – jinak by ji prohlížeč u konce stránky posunul skokem
+      const m = $("obsah"); m.style.minHeight = m.offsetHeight + "px";
+      box.style.height = box.scrollHeight + "px"; void box.offsetHeight; box.style.height = "0px";
+      clearTimeout(p.anim); p.anim = setTimeout(() => { if (!p.otevreno) { box.hidden = true; uvolniPapir(p); } }, ANIM_MS);
+    }
+    if (document.activeElement === p.ta) p.ta.blur();
+    popisPole(p, cast);
+  }
+  function zavriVsechnaPole(duvod) { Object.keys(POLE).forEach(c => zavri(c, duvod, true)); }
+  const BARVY = [["#1d1d1b", "černá"], ["#2b5cab", "modrá"], ["#b3261e", "červená"]];
+  const TLOUSTKY = [[1.1, "tenké pero", 1.5], [2, "střední pero", 3], [3.4, "silné pero", 5]];
+  function vlozVyzkousej() {
+    document.querySelectorAll(".sekce [data-porozumeni]").forEach(el => {
+      const cast = el.getAttribute("data-porozumeni"), sekce = el.closest(".sekce");
+      if (!sekce || POLE[cast]) return;
+      // látka = vše v sekci před tlačítky kromě úvodního nadpisu
+      const latka = document.createElement("div"); latka.className = "latka";
+      const deti = [...sekce.childNodes];
+      const zac = deti.findIndex(n => n.nodeType === 1);
+      const prvni = zac >= 0 && deti[zac].tagName === "H3" ? zac + 1 : 0;
+      deti.slice(prvni, deti.indexOf(el)).forEach(n => latka.appendChild(n));
+      sekce.insertBefore(latka, el);
+      const tl = document.createElement("button"); tl.type = "button"; tl.className = "vyz";
+      el.appendChild(tl);
+      const box = document.createElement("div"); box.className = "vyz-box"; box.hidden = true;
+      box.innerHTML = `<div class="vyz-in">${prvni === 0 ? `<div class="meta">${esc(cast.replace(/^\d+\.\s*/, ""))}</div>` : ""}` +
+        `<div class="vyz-papir"><div class="vp-bar"><button type="button" class="vp-zpet">Zpět</button><button type="button" class="vp-smaz">Smazat</button><i class="vp-sep"></i>` +
+        BARVY.map(([c, n]) => `<button type="button" class="vp-barva" data-c="${c}" style="background:${c}" aria-label="${n}"></button>`).join("") + `<i class="vp-sep"></i>` +
+        TLOUSTKY.map(([w, n, h]) => `<button type="button" class="vp-tl" data-w="${w}" aria-label="${n}"><i style="height:${h}px"></i></button>`).join("") +
+        `<button type="button" class="vp-guma">Guma</button><span class="vp-tip">Napiš, co sis zapamatovala – pero píše, prst posouvá</span></div>` +
+        `<div class="vp-view"></div></div>` +
+        `<textarea maxlength="${MAX}" rows="3" hidden placeholder="Napiš vlastními slovy, co sis z této části zapamatovala." aria-label="Vyzkoušej se – ${esc(cast)}"></textarea>` +
+        `<div class="vyz-lista"><span class="info"></span><button type="button" class="kl">⌨ Psát textem</button><button type="button" class="odkryt">Ukázat látku</button><button type="button" class="hotovo">Hotovo</button></div></div>`;
+      el.after(box);
+      const p = POLE[cast] = { box, ta: box.querySelector("textarea"), latka, tl, odkryt: box.querySelector(".odkryt"), kl: box.querySelector(".kl"),
+        info: box.querySelector(".info"), view: box.querySelector(".vp-view"), otevreno: false, odkrytoOd: 0, pauza: 0, anim: 0, tahy: null, cv: null };
+      navazPapir(cast);
+      tl.addEventListener("click", () => p.otevreno ? zavri(cast, "hotovo") : otevri(cast));
+      box.querySelector(".hotovo").addEventListener("click", () => zavri(cast, "hotovo"));
+      p.kl.addEventListener("click", () => {
+        p.ta.hidden = !p.ta.hidden;
+        if (!p.ta.hidden) { vyska(p.ta); try { p.ta.focus({ preventScroll: true }); } catch (e) { /* nic */ } }
+        popisPole(p, cast);
+      });
+      p.odkryt.addEventListener("click", () => {
+        const st = z(cast);
+        if (p.latka.classList.contains("skryta")) {
+          p.latka.classList.remove("skryta"); st.odkryto++; p.odkrytoOd = Date.now();
+          if (st.pred_odkrytim === null) { st.pred_odkrytim = st.text.length; st.pred_odkrytim_tahu = st.tahu; }
+        } else { p.latka.classList.add("skryta"); pricistOdkryti(p, cast); }
+        ulozVyz(); popisPole(p, cast);
+      });
+      p.ta.addEventListener("input", () => {
+        const st = z(cast); st.text = p.ta.value.slice(0, MAX); st.cas = new Date().toISOString();
+        vyska(p.ta); ulozVyz(); popisPole(p, cast);
+        clearTimeout(p.pauza); p.pauza = setTimeout(() => posli(cast, "pauza"), PAUZA_MS);
+      });
+      p.ta.addEventListener("blur", () => { if (p.otevreno) posli(cast, "opusteni"); });
+      popisPole(p, cast);
+    });
+  }
+  // na papíře a liště se nic neoznačuje dlouhým stiskem (dlaň, pero) – jako v testu
+  const vPapiru = e => { const t = e.target && e.target.nodeType === 1 ? e.target : e.target && e.target.parentElement; return !!(t && t.closest(".vyz-papir")); };
+  document.addEventListener("selectstart", e => { if (vPapiru(e)) e.preventDefault(); });
+  document.addEventListener("contextmenu", e => { if (vPapiru(e)) e.preventDefault(); });
+  function odchod() { Object.keys(POLE).forEach(c => posli(c, "odchod")); try { if (window.Zaznam) Zaznam.beacon(); } catch (e) { /* nic */ } }
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") odchod(); });
+  window.addEventListener("pagehide", odchod);
+
+  function start() {
+    if (!kapitoly.length) return;
+    if (!BEZ_VYZ) vlozVyzkousej();
+    if (window.Sledovani && Sledovani.pocetOblasti) Sledovani.pocetOblasti(kapitoly.length + 1);
+    const P = stav();
+    const m = location.hash.match(/^#k(\d+)$/);
+    const posl = ulozene.posledni;
+    const ix = typeof posl === "number" ? posl : posl === "souhrn" ? SOUHRN : Math.max(0, kapitoly.findIndex(k => k.nazev === posl));
+    let cil = location.hash === "#souhrn" ? SOUHRN : m ? +m[1] - 1 : ix;
+    if (cil !== SOUHRN && (cil < 0 || cil >= kapitoly.length)) cil = 0;
+    if (!odemcena(cil, P)) cil = prvniNedokoncena(P);
+    jdi(cil);
+    document.addEventListener("porozumeni", () => {
+      prekresli();
+      const k = kapitoly[cur], P2 = stav();
+      if (k && !k.priloha && k.casti.length && info(k, P2).hotovo) {
+        const d = dalsi(cur);
+        hlaska(d === SOUHRN ? "Kapitola je hotová – pokračuj na souhrn." : "Kapitola je hotová – můžeš pokračovat na další.");
+      }
+    });
+    $("tlPrev").addEventListener("click", () => jdi(predchozi(cur)));
+    $("tlNext").addEventListener("click", () => jdi(dalsi(cur)));
+    window.addEventListener("hashchange", () => {
+      const mm = location.hash.match(/^#k(\d+)$/);
+      if (mm && +mm[1] - 1 !== cur) jdi(+mm[1] - 1); else if (location.hash === "#souhrn" && cur !== SOUHRN) jdi(SOUHRN);
+    });
+    if (window.ResizeObserver) new ResizeObserver(() => document.documentElement.style.setProperty("--tl-h", $("timeline").offsetHeight + "px")).observe($("timeline"));
+  }
+  // až za sledovani.js (ten vkládá tlačítka Chápu / Nechápu při DOMContentLoaded)
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start); else start();
+  window.Kapitoly = { jdi, stav, get aktualni() { return cur; }, kapitoly: kapitoly.map(k => ({ nazev: k.nazev, priloha: k.priloha, casti: k.casti })),
+    preskoceno: () => [...presk], vyzkousej: () => JSON.parse(JSON.stringify(VYZ)), otevri, zavri };
+})();
+</script>
+</body>
+</html>
