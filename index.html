@@ -14,6 +14,9 @@
   Otevření rozcestníku a klepnutí na položky se zaznamenávají (system/lib/sledovani.js). PDF (jen vstupy: školní materiály, sešit) se nesledují.
   Seznam souborů se načítá automaticky z GitHubu (aktuální = nejvyšší _vXX v každé složce předmětu).
   Při novém tématu nebo předmětu doplň jen český název do NAZVY níže (nové téma na konec NAZVY.temata – určuje pořadí).
+  PŘEPÍNAČ PŘEDMĚTŮ (22.11.2026, Martin): druhý řádek horního panelu (stále nahoře) s tlačítkem pro každý předmět,
+  klepnutí odscrolluje na předmět, aktuální předmět je zvýrazněný. Srdíčko mají předměty v SRDICKO.
+  PORADI_TEMAT: pořadí témat jen pro jeden předmět (má přednost před pořadím v NAZVY.temata).
   PŘÍPRAVA NA TEST (14.11.2026, Martin): blok nahoře se soubory k nejbližšímu testu (PRIPRAVA níže). Každá položka je
   „předmět/téma_typ“ – odkaz vede na nejvyšší verzi; položka, která ještě neexistuje, se nezobrazí. Po testu blok smaž (PRIPRAVA = []).
 -->
@@ -29,15 +32,22 @@
   #panel { position: fixed; top: 0; left: 0; right: 0; z-index: 20;
     min-height: var(--panel-h); padding: 6px 12px; padding-top: calc(6px + env(safe-area-inset-top));
     background: rgba(255,255,255,.97); border-bottom: 1px solid var(--line);
-    display: flex; align-items: center; gap: 12px; }
-  .panel-title { flex: 1 1 auto; min-width: 0; font-size: 15px; font-weight: 600;
+    display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; }
+  .panel-title { flex: 1 1 0; min-width: 0; font-size: 15px; font-weight: 600;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .panel-title .logo { width: 26px; height: 26px; vertical-align: -7px; margin-left: 6px; }
   .panel-actions { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
   .panel-actions a, .panel-actions button { font: inherit; font-size: 14px; padding: 5px 10px; border-radius: 8px;
     border: 2px solid var(--accent); background: var(--paper); color: var(--accent); cursor: pointer;
     text-decoration: none; white-space: nowrap; }
+  #prepinac { flex: 1 1 100%; display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 1px 0 2px; }
+  #prepinac::-webkit-scrollbar { display: none; }
+  #prepinac:empty { display: none; }
+  #prepinac a { flex: 0 0 auto; font-size: 14px; padding: 4px 11px; border-radius: 999px; border: 2px solid var(--line);
+    color: var(--text); background: var(--paper); text-decoration: none; white-space: nowrap; }
+  #prepinac a.akt { border-color: var(--accent); background: var(--accent); color: #fff; }
   main { max-width: 860px; margin: 0 auto; padding: calc(var(--panel-h) + 14px) 16px 60px; }
+  .subj { scroll-margin-top: calc(var(--panel-h) + 6px); }
   h1 { font-size: 22px; margin: 0 0 2px; }
   .meta { color: var(--muted); font-size: 13px; }
   .subj { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
@@ -72,6 +82,7 @@
     <button id="btnReload" type="button">Obnovit</button>
     <a id="btnZip" href="https://github.com/mjandlik/annschool/archive/refs/heads/main.zip">Stáhnout ZIP</a>
   </div>
+  <nav id="prepinac" aria-label="Předměty"></nav>
 </div>
 
 <main>
@@ -117,27 +128,20 @@ const NAZVY = {
 /* ========================================================================================= */
 
 /* ===================== PŘÍPRAVA NA TEST (blok nahoře; po testu PRIPRAVA = []) ===================== */
-const PRIPRAVA = [
-  { nadpis: "Příprava na test z chemie", info: "Test je v pondělí 16. 11. Stačí projít tyhle kroky po pořadě – starší materiály řešit nemusíš.",
-    polozky: [
-      { soubor: "chemie/latky-a-atom_zapisky", text: "Na test – z hodiny", popis: "látka ze zápisů, opravená a vysvětlená" },
-      { soubor: "chemie/souhrnny_material", text: "Souhrnné opakování", popis: "všechno důležité na jednom místě" },
-      { soubor: "chemie/znacky-prvku_karticky", text: "Kartičky – značky prvků", popis: "30 značek: otoč kartičku a řekni si, jestli to umíš – co neumíš, se vrátí" },
-      { soubor: "chemie/nazvoslovi_karticky", text: "Kartičky – názvosloví", popis: "66 příkladů ze školy: napiš perem, otoč a porovnej – co neumíš, se vrátí i s postupem" },
-      { soubor: "chemie/souhrnny_rychlouceni", text: "Rychloučení", popis: "nauč se to rychle formou otázek – co nevíš, se ti vrací" },
-      { soubor: "chemie/souhrnny_test", text: "Test na zkoušku", popis: "vyzkoušej si, co už umíš" }
-    ] }
-];
+const PRIPRAVA = [];   // 22.11.2026: blok chemie (test 16. 11.) zrušen, materiály jsou pod Chemií
 /* ========================================================================================= */
 
 const REPO = "mjandlik/annschool";
 const SKIP = new Set(["system", "archiv", "lib"]);
 const ORDER = ["matematika", "fyzika", "chemie"];
+const SRDICKO = new Set(["matematika", "fyzika", "chemie"]);
+// Pořadí témat pro jeden předmět (podle toho, jak na sebe navazují); ostatní témata za nimi podle NAZVY.temata
+const PORADI_TEMAT = { chemie: ["latky-a-atom", "znacky-prvku", "nazvoslovi", "souhrnny"] };
 const $ = id => document.getElementById(id);
 const nice = slug => slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, " ");
 
 async function load() {
-  $("meta").textContent = "Načítám…"; $("list").innerHTML = "";
+  $("meta").textContent = "Načítám…"; $("list").innerHTML = ""; $("prepinac").innerHTML = "";
   let tree;
   try {
     const r = await fetch(`https://api.github.com/repos/${REPO}/git/trees/main?recursive=1`, { cache: "no-store" });
@@ -186,10 +190,16 @@ async function load() {
   const subjects = [...new Set([...ORDER, ...Object.keys(data).sort()])].filter(s => data[s]);
   let count = 0;
   subjects.forEach(subj => {
-    const sec = document.createElement("div"); sec.className = "subj";
-    const h = document.createElement("h2"); h.textContent = NAZVY.predmety[subj] || nice(subj); sec.appendChild(h);
-    const POR = Object.keys(NAZVY.temata), OBECNE = ["sesit", "pokyny"];
-    const pos = t => OBECNE.includes(t) ? 2e9 + OBECNE.indexOf(t) : (POR.indexOf(t) < 0 ? 1e9 : POR.indexOf(t));
+    const sec = document.createElement("div"); sec.className = "subj"; sec.id = "p-" + subj;
+    const nazev = NAZVY.predmety[subj] || nice(subj);
+    const h = document.createElement("h2"); h.textContent = nazev; sec.appendChild(h);
+    const tl = document.createElement("a"); tl.href = "#p-" + subj; tl.dataset.subj = subj;
+    tl.textContent = nazev + (SRDICKO.has(subj) ? " ❤️" : "");
+    tl.onclick = e => { e.preventDefault(); sec.scrollIntoView({ behavior: "smooth", block: "start" }); }
+    $("prepinac").appendChild(tl);
+    const POR = Object.keys(NAZVY.temata), OBECNE = ["sesit", "pokyny"], VLASTNI = PORADI_TEMAT[subj] || [];
+    const pos = t => OBECNE.includes(t) ? 2e9 + OBECNE.indexOf(t) : VLASTNI.includes(t) ? -1e9 + VLASTNI.indexOf(t) :
+      (POR.indexOf(t) < 0 ? 1e9 : POR.indexOf(t));
     const topics = Object.keys(data[subj]).sort((a, b) => pos(a) - pos(b) ||
       (NAZVY.temata[a] || nice(a)).localeCompare(NAZVY.temata[b] || nice(b), "cs"));
     topics.forEach(topic => {
@@ -229,7 +239,25 @@ async function load() {
   });
   $("meta").textContent = count ? `Aktuální verze · ${new Date().toLocaleDateString("cs-CZ")}` : "";
   if (!count) $("list").innerHTML = '<p class="empty">Zatím tu nic není.</p>';
+  vyskaPanelu(); zvyrazni();
 }
+// Výška panelu (dva řádky) → odsazení obsahu a cíle scrollování
+function vyskaPanelu() { document.documentElement.style.setProperty("--panel-h", $("panel").offsetHeight + "px"); }
+// Zvýrazní v přepínači předmět, který je právě nahoře
+function zvyrazni() {
+  const hranice = $("panel").offsetHeight + 20; let akt = null;
+  document.querySelectorAll(".subj").forEach(sec => { if (sec.getBoundingClientRect().top <= hranice) akt = sec.id.slice(2); });
+  const prvni = document.querySelector(".subj"); if (!akt && prvni) akt = prvni.id.slice(2);
+  if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2) {
+    const vse = document.querySelectorAll(".subj"); if (vse.length) akt = vse[vse.length - 1].id.slice(2);
+  }
+  $("prepinac").querySelectorAll("a").forEach(a => {
+    const je = a.dataset.subj === akt; a.classList.toggle("akt", je);
+    if (je && a.offsetLeft + a.offsetWidth > $("prepinac").scrollLeft + $("prepinac").clientWidth) a.scrollIntoView({ block: "nearest", inline: "nearest" });
+  });
+}
+window.addEventListener("scroll", zvyrazni, { passive: true });
+window.addEventListener("resize", () => { vyskaPanelu(); zvyrazni(); });
 $("btnReload").onclick = load;
 load();
 </script>
