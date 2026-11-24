@@ -17,8 +17,10 @@
   PŘEPÍNAČ PŘEDMĚTŮ (22.11.2026, Martin): druhý řádek horního panelu (stále nahoře) s tlačítkem pro každý předmět,
   klepnutí odscrolluje na předmět, aktuální předmět je zvýrazněný. Srdíčko mají předměty v SRDICKO.
   PORADI_TEMAT: pořadí témat jen pro jeden předmět (má přednost před pořadím v NAZVY.temata).
-  PŘÍPRAVA NA TEST (14.11.2026, Martin): blok nahoře se soubory k nejbližšímu testu (PRIPRAVA níže). Každá položka je
+  PŘÍPRAVA NA TEST (14.11.2026, Martin): rámeček se soubory k nejbližšímu testu (PRIPRAVA níže). Každá položka je
   „předmět/téma_typ“ – odkaz vede na nejvyšší verzi; položka, která ještě neexistuje, se nezobrazí. Po testu blok smaž (PRIPRAVA = []).
+  Od 24.11.2026 (Martin): blok s predmet: "fyzika" se ukáže uvnitř sekce toho předmětu hned pod jeho nadpisem;
+  blok bez predmet zůstává nahoře nad všemi předměty.
 -->
 <style>
   :root {
@@ -65,6 +67,7 @@
   .empty, .err { color: var(--muted); font-size: 15px; padding: 6px 0; }
   .err { color: #b3261e; }
   .note { font-size: 13px; color: var(--muted); margin-top: 18px; }
+  .subj .priprava { margin: 8px 0 10px; }
   .priprava { margin-top: 12px; padding: 10px 14px 12px; background: var(--paper); border: 2px solid var(--accent); border-radius: 10px; }
   .priprava h2 { font-size: 18px; margin: 0 0 2px; color: var(--accent); }
   .priprava .info { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
@@ -108,6 +111,7 @@ const NAZVY = {
     "mocniny-a-odmocniny": "Mocniny a odmocniny",
     "prevody-jednotek": "Převody jednotek",
     "vektory": "Vektory",
+    "kinematika": "Kinematika – rovnoměrný a zrychlený pohyb",
     "nazvoslovi": "Názvosloví anorganických sloučenin",
     "sesit": "Sešit",
     "pokyny": "Pokyny ke známkování",
@@ -127,8 +131,17 @@ const NAZVY = {
 };
 /* ========================================================================================= */
 
-/* ===================== PŘÍPRAVA NA TEST (blok nahoře; po testu PRIPRAVA = []) ===================== */
-const PRIPRAVA = [];   // 22.11.2026: blok chemie (test 16. 11.) zrušen, materiály jsou pod Chemií
+/* ===================== PŘÍPRAVA NA TEST (po testu blok smaž; prázdné = PRIPRAVA = []) =====================
+   predmet: "fyzika" = rámeček uvnitř sekce předmětu hned pod nadpisem; bez predmet = nahoře nad všemi předměty. */
+const PRIPRAVA = [   // 22.11.2026: blok chemie (test 16. 11.) zrušen; 24.11.2026: fyzika – písemka 27. 11.
+  { predmet: "fyzika", nadpis: "Příprava na písemku z fyziky",
+    info: "Písemka je v pátek 27. 11.: rovnoměrný a rovnoměrně zrychlený pohyb. Stačí projít tyhle tři kroky po pořadě.",
+    polozky: [
+      { soubor: "fyzika/kinematika_simulator", text: "Zlomek v akci", popis: "3 minuty hraní: co dělá číslo nahoře a co dole" },
+      { soubor: "fyzika/kinematika_material", text: "Teorie v sedmi misích", popis: "všechno na písemku, krátce a na příkladech ze života" },
+      { soubor: "fyzika/kinematika_test", text: "Test na zkoušku", popis: "8 příkladů – vyzkoušej si, co už umíš" }
+    ] }
+];
 /* ========================================================================================= */
 
 const REPO = "mjandlik/annschool";
@@ -162,8 +175,9 @@ async function load() {
     const t = ((data[subj] ??= {})[topic] ??= {});
     if (!t[typ] || ver > t[typ].ver) t[typ] = { ver, path: f.path };
   });
-  // Příprava na test: blok nahoře, odkazy na nejvyšší verze
+  // Příprava na test: odkazy na nejvyšší verze; blok s predmet patří do sekce předmětu (PRIPRAVA_PREDMET), ostatní nahoru
   $("priprava").innerHTML = "";
+  const PRIPRAVA_PREDMET = {};
   PRIPRAVA.forEach(p => {
     const kroky = p.polozky.map(it => {
       const m = it.soubor.match(/^([a-z0-9-]+)\/([a-z0-9-]+)_([a-z0-9-]+)$/);
@@ -185,7 +199,8 @@ async function load() {
       r.querySelector(".pop").textContent = k.popis || "";
       box.appendChild(r);
     });
-    $("priprava").appendChild(box);
+    if (p.predmet && data[p.predmet]) (PRIPRAVA_PREDMET[p.predmet] ??= []).push(box);
+    else $("priprava").appendChild(box);
   });
   const subjects = [...new Set([...ORDER, ...Object.keys(data).sort()])].filter(s => data[s]);
   let count = 0;
@@ -193,6 +208,7 @@ async function load() {
     const sec = document.createElement("div"); sec.className = "subj"; sec.id = "p-" + subj;
     const nazev = NAZVY.predmety[subj] || nice(subj);
     const h = document.createElement("h2"); h.textContent = nazev; sec.appendChild(h);
+    (PRIPRAVA_PREDMET[subj] || []).forEach(box => sec.appendChild(box));
     const tl = document.createElement("a"); tl.href = "#p-" + subj; tl.dataset.subj = subj;
     tl.textContent = nazev + (SRDICKO.has(subj) ? " ❤️" : "");
     tl.onclick = e => { e.preventDefault(); sec.scrollIntoView({ behavior: "smooth", block: "start" }); }
