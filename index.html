@@ -127,19 +127,25 @@ const NAZVY = {
   typy: { zapisky: "Zápisky ze sešitu", "skolni-material": "Školní materiál", "zapisky-strana-7": "Zápisky – strana 7 (zvětšená)",
     "skolni-material-priklady": "Příklady", "skolni-material-cviceni": "Cvičení", "skolni-material-procvicovani": "Procvičování",
     "skolni-material-pracovni-list": "Pracovní list", "skolni-material-pracovni-list-doplneny": "Pracovní list (doplněný)",
-    "skolni-material-reseni": "Řešení (kartičky)", "skolni-material-zakladni-pojmy": "Základní pojmy chemie", "skolni-material-soustavy": "Soustavy a směsi", "skolni-material-atom": "Atom, molekula, prvek", "skolni-material-izotopy": "Izotopy, izobary, ionty", "skolni-material-separacni-metody": "Oddělování složek směsí", material: "Studijní materiál", tahak: "Tahák", "pracovni-list": "Pracovní list", test: "Test", "test-1": "Test 1", "test-2": "Test 2", "test-3": "Test 3", "test-4": "Test 4", "test-5": "Test 5", "test-sesit": "Test – příklady ze sešitu", "test-vzorce": "Test – vzorce a výrazy", "test-dukazy": "Test – důkazy", "test-dvojkova": "Test – dvojková soustava", "test-teorie": "Test – teorie", "test-opravny": "Opravný test", simulator: "Simulátor", rychlouceni: "Rychloučení", "rychlouceni-pravek": "Rychloučení – pravěk", "rychlouceni-starovek": "Rychloučení – starověk", karticky: "Kartičky" }
+    "skolni-material-reseni": "Řešení (kartičky)", "skolni-material-zakladni-pojmy": "Základní pojmy chemie", "skolni-material-soustavy": "Soustavy a směsi", "skolni-material-atom": "Atom, molekula, prvek", "skolni-material-izotopy": "Izotopy, izobary, ionty", "skolni-material-separacni-metody": "Oddělování složek směsí", material: "Studijní materiál", tahak: "Tahák", "pracovni-list": "Pracovní list", test: "Test", "test-1": "Test 1", "test-2": "Test 2", "test-3": "Test 3", "test-4": "Test 4", "test-5": "Test 5", "test-sesit": "Test – příklady ze sešitu", "test-vzorce": "Test – vzorce a výrazy", "test-dukazy": "Test – důkazy", "test-dvojkova": "Test – dvojková soustava", "test-teorie": "Test – teorie", "test-opravny": "Opravný test", simulator: "Simulátor", rychlouceni: "Rychloučení", "rychlouceni-pravek": "Rychloučení – pravěk", "rychlouceni-starovek": "Rychloučení – starověk", "rychlouceni-kapitoly-6-12": "Rychloučení – kapitoly 6–12 (důkladné)", karticky: "Kartičky" }
 };
 /* ========================================================================================= */
 
 /* ===================== PŘÍPRAVA NA TEST (po testu blok smaž; prázdné = PRIPRAVA = []) =====================
    predmet: "fyzika" = rámeček uvnitř sekce předmětu hned pod nadpisem; bez predmet = nahoře nad všemi předměty. */
-const PRIPRAVA = [   // 22.11.2026: blok chemie (test 16. 11.) zrušen; 24.11.2026: fyzika – písemka 27. 11.
+const PRIPRAVA = [   // 22.11.2026: blok chemie (test 16. 11.) zrušen; 24.11.2026: fyzika – písemka 27. 11.; 25.11.2026: dějepis – písemka 26. 11.
   { predmet: "fyzika", nadpis: "Příprava na písemku z fyziky",
     info: "Písemka je v pátek 27. 11.: rovnoměrný a rovnoměrně zrychlený pohyb. Stačí projít tyhle tři kroky po pořadě.",
     polozky: [
       { soubor: "fyzika/kinematika_simulator", text: "Zlomek v akci", popis: "3 minuty hraní: co dělá číslo nahoře a co dole" },
       { soubor: "fyzika/kinematika_material", text: "Teorie v sedmi misích", popis: "všechno na písemku, krátce a na příkladech ze života" },
       { soubor: "fyzika/kinematika_test", text: "Test na zkoušku", popis: "8 příkladů – vyzkoušej si, co už umíš" }
+    ] },
+  { predmet: "dejepis", nadpis: "Příprava na písemku z dějepisu",
+    info: "Písemka je ve čtvrtek 26. 11.: Nejstarší civilizace. Stačí tyhle dva kroky – a zvládneš to.",
+    polozky: [
+      { soubor: "dejepis/pravek-a-starovek_zapisky", text: "Zápisky – kapitoly 6 až 12", popis: "Ötzi, první civilizace, písmo, Mezopotámie, Egypt, Čína a Indie" },
+      { soubor: "dejepis/pravek-a-starovek_rychlouceni-kapitoly-6-12", text: "Rychloučení – kapitoly 6–12", popis: "učíš se odpovídáním; co nevíš, se ti vrací, dokud to neumíš" }
     ] }
 ];
 /* ========================================================================================= */
