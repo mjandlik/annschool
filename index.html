@@ -133,12 +133,13 @@ const NAZVY = {
 
 /* ===================== PŘÍPRAVA NA TEST (po testu blok smaž; prázdné = PRIPRAVA = []) =====================
    predmet: "fyzika" = rámeček uvnitř sekce předmětu hned pod nadpisem; bez predmet = nahoře nad všemi předměty. */
-const PRIPRAVA = [   // 22.11.2026: blok chemie (test 16. 11.) zrušen; 24.11.2026: fyzika – písemka 27. 11.; 25.11.2026: dějepis – písemka 26. 11.
+const PRIPRAVA = [   // 22.11.2026: blok chemie (test 16. 11.) zrušen; 24.11.2026: fyzika – písemka 27. 11. (27.11.: přidány řešené příklady); 25.11.2026: dějepis – písemka 26. 11.
   { predmet: "fyzika", nadpis: "Příprava na písemku z fyziky",
-    info: "Písemka je v pátek 27. 11.: rovnoměrný a rovnoměrně zrychlený pohyb. Stačí projít tyhle tři kroky po pořadě.",
+    info: "Písemka je v pátek 27. 11.: rovnoměrný a rovnoměrně zrychlený pohyb. Stačí projít tyhle čtyři kroky po pořadě.",
     polozky: [
       { soubor: "fyzika/kinematika_simulator", text: "Zlomek v akci", popis: "3 minuty hraní: co dělá číslo nahoře a co dole" },
       { soubor: "fyzika/kinematika_material", text: "Teorie v sedmi misích", popis: "všechno na písemku, krátce a na příkladech ze života" },
+      { soubor: "fyzika/kinematika_zapisky", text: "Řešené příklady ze sešitu", popis: "9 příkladů ze školy krok za krokem: vzorec, postup, graf" },
       { soubor: "fyzika/kinematika_test", text: "Test na zkoušku", popis: "8 příkladů – vyzkoušej si, co už umíš" }
     ] },
   { predmet: "dejepis", nadpis: "Příprava na písemku z dějepisu",
